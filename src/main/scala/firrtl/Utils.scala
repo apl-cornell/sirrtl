@@ -211,7 +211,7 @@ object Utils extends LazyLogging {
     case (t1: FixedType, t2: FixedType) => FixedType(UnknownWidth, UnknownWidth)
     case (t1: VectorType, t2: VectorType) => VectorType(mux_type(t1.tpe, t2.tpe), t1.size)
     case (t1: BundleType, t2: BundleType) => BundleType(t1.fields zip t2.fields map {
-      case (f1, f2) => Field(f1.name, f1.flip, mux_type(f1.tpe, f2.tpe))
+      case (f1, f2) => Field(f1.name, f1.flip, mux_type(f1.tpe, f2.tpe), JoinLabel(f1.lbl, f2.lbl))
     })
     case _ => UnknownType
   }
@@ -230,14 +230,15 @@ object Utils extends LazyLogging {
       case (t1x: VectorType, t2x: VectorType) => VectorType(
         mux_type_and_widths(t1x.tpe, t2x.tpe), t1x.size)
       case (t1x: BundleType, t2x: BundleType) => BundleType(t1x.fields zip t2x.fields map {
-        case (f1, f2) => Field(f1.name, f1.flip, mux_type_and_widths(f1.tpe, f2.tpe))
+        case (f1, f2) => Field(f1.name, f1.flip, mux_type_and_widths(f1.tpe, f2.tpe),
+          JoinLabel(f1.lbl, f2.lbl))
       })
       case _ => UnknownType
     }
   }
 
   def module_type(m: DefModule): Type = BundleType(m.ports map {
-    case Port(_, name, dir, tpe) => Field(name, to_flip(dir), tpe)
+    case Port(_, name, dir, tpe, lbl) => Field(name, to_flip(dir), tpe, lbl)
   })
   def sub_type(v: Type): Type = v match {
     case vx: VectorType => vx.tpe

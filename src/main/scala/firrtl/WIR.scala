@@ -252,6 +252,7 @@ case class CDefMemory(
     info: Info,
     name: String,
     tpe: Type,
+    lbl: Label,
     size: Int,
     seq: Boolean) extends Statement {
   def serialize: String = (if (seq) "smem" else "cmem") +
@@ -264,6 +265,7 @@ case class CDefMemory(
 case class CDefMPort(info: Info,
     name: String,
     tpe: Type,
+    lbl: Label,
     mem: String,
     exps: Seq[Expression],
     direction: MPortDir) extends Statement {

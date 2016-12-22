@@ -44,6 +44,11 @@ object Logger {
   val classLevels = new scala.collection.mutable.HashMap[String, LogLevel.Value]
   var logClassNames = false
 
+  // TODO make this a compile option. Possibly actually log this info rather 
+  // than printing.
+  val debugIflow = true
+  def sdprint(s:String) = if(debugIflow) { println(s) } 
+
   def showMessage(level: LogLevel.Value, className: String, message: => String): Unit = {
     if(globalLevel == level || (classLevels.nonEmpty && classLevels.getOrElse(className, LogLevel.Error) >= level)) {
       if(logClassNames) {

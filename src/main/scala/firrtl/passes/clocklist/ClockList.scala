@@ -34,7 +34,9 @@ class ClockList(top: String, writer: Writer) extends Pass {
     
     // Clock sources must be blackbox outputs and top's clock
     val partialSourceList = getSourceList(moduleMap)(lineages)
-    val sourceList = partialSourceList ++ moduleMap(top).ports.collect{ case Port(i, n, Input, ClockType) => n }
+    val sourceList = partialSourceList ++ moduleMap(top).ports.collect{
+      case Port(i, n, Input, ClockType, lbl) => n
+    }
     writer.append(s"Sourcelist: $sourceList \n")
 
     // Remove everything from the circuit, unless it has a clock type

@@ -96,12 +96,13 @@ reset_block
 	| '(' +  simple_reset + ')'
   ;
 
+// TODO look into what cmem / smem are and find out if they need labels
 stmt
   : 'wire' id ':' label? type info?
   | 'reg' id ':' label? type exp ('with' ':' reset_block)? info?
   | 'mem' id ':' info? INDENT memField* DEDENT
-  | 'cmem' id ':' label? type info?
-  | 'smem' id ':' label? type info?
+  | 'cmem' id ':' type info?
+  | 'smem' id ':' type info?
   | mdir 'mport' id '=' id '[' exp ']' exp info?
   | 'inst' id 'of' id info?
   | 'node' id '=' exp info?
@@ -115,8 +116,10 @@ stmt
   | 'attach' exp 'to' '(' exp* ')' info?
   ;
 
+// TODO add field for label
 memField
-	:  'data-type' '=>' label? type NEWLINE
+	: 'data-type' '=>' type NEWLINE
+    | 'sec-label' '=>' label NEWLINE
 	| 'depth' '=>' IntLit NEWLINE
 	| 'read-latency' '=>' IntLit NEWLINE
 	| 'write-latency' '=>' IntLit NEWLINE
@@ -205,6 +208,7 @@ keyword
   | 'reset'
   | 'mem'
   | 'data-type'
+  | 'sec-level'
   | 'depth'
   | 'read-latency'
   | 'write-latency'

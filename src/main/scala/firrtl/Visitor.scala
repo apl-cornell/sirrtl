@@ -11,6 +11,7 @@ import PrimOps._
 import FIRRTLParser._
 import Parser.{AppendInfo, GenInfo, IgnoreInfo, InfoMode, UseInfo}
 import firrtl.ir._
+import logger.Logger
 
 
 class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
@@ -84,7 +85,10 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
   }
 
   private def visitPort[FirrtlNode](ctx: FIRRTLParser.PortContext): Port = {
-    Port(visitInfo(Option(ctx.info), ctx), ctx.id.getText, visitDir(ctx.dir), visitType(ctx.`type`))
+    val dir = visitDir(ctx.dir)
+    val tpe = visitType(ctx.`type`)
+    val lbl = visitLabel(Option(ctx.label))
+    Port(visitInfo(Option(ctx.info), ctx), ctx.id.getText, dir, tpe, lbl)
   }
 
   private def visitParameter[FirrtlNode](ctx: FIRRTLParser.ParameterContext): Param = {
@@ -139,14 +143,23 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
     }
   }
 
-  private def visitType[FirrtlNode](ctx: FIRRTLParser.LabelContext): Label = {
-    println(ctx.id.getText)
-    return Level(ctx.id.getText)
+  private def visitLabel[FirrtlNode](maybeCtx: Option[FIRRTLParser.LabelContext]): Label = {
+    maybeCtx match {
+      case Some(ctx) => {
+        Logger.sdprint(s"parsed level: ${ctx.id.getText}")
+        return Level(ctx.id.getText)
+      }
+      case None => {
+        return UnknownLabel
+      }
+    }
   }
 
   private def visitField[FirrtlNode](ctx: FIRRTLParser.FieldContext): Field = {
     val flip = if (ctx.getChild(0).getText == "flip") Flip else Default
-    Field(ctx.id.getText, flip, visitType(ctx.`type`))
+    val tpe = visitType(ctx.`type`)
+    val lbl = visitLabel(Option(ctx.label))
+    Field(ctx.id.getText, flip, tpe, lbl)
   }
 
   private def visitBlock[FirrtlNode](ctx: FIRRTLParser.ModuleBlockContext): Statement =
@@ -161,7 +174,8 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
     val readers = mutable.ArrayBuffer.empty[String]
     val writers = mutable.ArrayBuffer.empty[String]
     val readwriters = mutable.ArrayBuffer.empty[String]
-    case class ParamValue(typ: Option[Type] = None, lit: Option[Int] = None, ruw: Option[String] = None, unique: Boolean = true)
+    case class ParamValue(typ: Option[Type] = None, lbl: Option[Label] = None,
+      lit: Option[Int] = None, ruw: Option[String] = None, unique: Boolean = true)
     val fieldMap = mutable.HashMap[String, ParamValue]()
 
     def parseMemFields(memFields: Seq[MemFieldContext]): Unit =
@@ -175,6 +189,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
           case _ =>
             val paramDef = fieldName match {
               case "data-type" => ParamValue(typ = Some(visitType(field.`type`())))
+              case "sec-label" => ParamValue(lbl = Some(visitLabel(Some(field.label))))
               case "read-under-write" => ParamValue(ruw = Some(field.ruw().getText)) // TODO
               case _ => ParamValue(lit = Some(field.IntLit().getText.toInt))
             }
@@ -202,9 +217,14 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
 
     def lit(param: String) = fieldMap(param).lit.get
     val ruw = fieldMap.get("read-under-write").map(_.ruw).getOrElse(None)
+    val label = if(fieldMap.contains("sec-label")) {
+      fieldMap("sec-label").lbl.get
+    } else UnknownLabel
 
     DefMemory(info,
-      name = ctx.id(0).getText, dataType = fieldMap("data-type").typ.get,
+      name = ctx.id(0).getText,
+      dataType = fieldMap("data-type").typ.get,
+      lbl = label,
       depth = lit("depth"),
       writeLatency = lit("write-latency"), readLatency = lit("read-latency"),
       readers = readers, writers = writers, readwriters = readwriters,
@@ -238,10 +258,12 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
     ctx.getChild(0) match {
       case when: WhenContext => visitWhen(when)
       case term: TerminalNode => term.getText match {
-        case "wire" => DefWire(info, ctx.id(0).getText, visitType(ctx.`type`()))
+        case "wire" => DefWire(info, ctx.id(0).getText,
+          visitType(ctx.`type`()), visitLabel(Option(ctx.label)))
         case "reg" =>
           val name = ctx.id(0).getText
           val tpe = visitType(ctx.`type`())
+          val lbl = visitLabel(Option(ctx.label))
           val (reset, init) = {
             val rb = ctx.reset_block()
             if (rb != null) {
@@ -251,20 +273,22 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
             else
               (UIntLiteral(0, IntWidth(1)), Reference(name, tpe))
           }
-          DefRegister(info, name, tpe, visitExp(ctx.exp(0)), reset, init)
+          DefRegister(info, name, tpe, lbl, visitExp(ctx.exp(0)), reset, init)
         case "mem" => visitMem(ctx)
         case "cmem" =>
           val t = visitType(ctx.`type`())
+          val l = visitLabel(Option(ctx.label))
           t match {
-            case (t: VectorType) => CDefMemory(info, ctx.id(0).getText, t.tpe, t.size, seq = false)
+            case (t: VectorType) => CDefMemory(info, ctx.id(0).getText, t.tpe, l, t.size, seq = false)
             case _ => throw new ParserException(s"${
               info
             }: Must provide cmem with vector type")
           }
         case "smem" =>
           val t = visitType(ctx.`type`())
+          val l = visitLabel(Option(ctx.label))
           t match {
-            case (t: VectorType) => CDefMemory(info, ctx.id(0).getText, t.tpe, t.size, seq = true)
+            case (t: VectorType) => CDefMemory(info, ctx.id(0).getText, t.tpe, l, t.size, seq = true)
             case _ => throw new ParserException(s"${
               info
             }: Must provide cmem with vector type")
@@ -284,7 +308,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
           case "<=" => Connect(info, visitExp(ctx.exp(0)), visitExp(ctx.exp(1)))
           case "<-" => PartialConnect(info, visitExp(ctx.exp(0)), visitExp(ctx.exp(1)))
           case "is" => IsInvalid(info, visitExp(ctx.exp(0)))
-          case "mport" => CDefMPort(info, ctx.id(0).getText, UnknownType, ctx.id(1).getText, Seq(visitExp(ctx.exp(0)), visitExp(ctx.exp(1))), visitMdir(ctx.mdir))
+          case "mport" => CDefMPort(info, ctx.id(0).getText, UnknownType, UnknownLabel, ctx.id(1).getText, Seq(visitExp(ctx.exp(0)), visitExp(ctx.exp(1))), visitMdir(ctx.mdir))
         }
     }
   }

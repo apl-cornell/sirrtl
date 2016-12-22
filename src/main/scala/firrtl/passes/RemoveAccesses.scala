@@ -85,7 +85,7 @@ object RemoveAccesses extends Pass {
       def onStmt(s: Statement): Statement = {
         def create_temp(e: Expression): (Statement, Expression) = {
           val n = namespace.newTemp
-          (DefWire(get_info(s), n, e.tpe), WRef(n, e.tpe, kind(e), gender(e)))
+          (DefWire(get_info(s), n, e.tpe, UnknownLabel), WRef(n, e.tpe, kind(e), gender(e)))
         }
 
         /** Replaces a subaccess in a given male expression

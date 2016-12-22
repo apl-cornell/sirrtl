@@ -164,7 +164,7 @@ class DedupModules extends Transform {
       }
       val finalPorts = invertSeqs(ms.map(_.ports)).map { jPorts => 
         jPorts.tail.foldLeft(jPorts.head) { (p1, p2) =>
-          Port(p1.info ++ p2.info, p1.name, p1.direction, p1.tpe)
+          Port(p1.info ++ p2.info, p1.name, p1.direction, p1.tpe, p1.lbl)
         }
       }
       val finalInfo = ms.map(getInfo).reduce(_ ++ _)

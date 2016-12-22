@@ -6,14 +6,13 @@ abstract class Label extends FirrtlNode {
   def accept(visitor : LabelSwapVisitor) : Label
   def join(that: Label) = JoinLabel(this, that)
   def meet(that: Label) = MeetLabel(this, that)
-  def serialize = "TODO Label.serialize"
+  def serialize = ""
 }
 
-case class UnknownLabel(val nodeName: String) extends Label {
-  override def toString = s"<${nodeName}>"
-  override def accept[T](visitor : LabelVisitor[T]) : T = visitor visit this
-  override def accept(visitor : LabelSwapVisitor) : Label =
-    visitor visit this
+case object UnknownLabel extends Label {
+  override def toString = s"UNKNOWN"
+  override def accept[T](visitor : LabelVisitor[T]) : T = visitor.default
+  override def accept(visitor : LabelSwapVisitor) : Label = this
 }
 
 case class Level(var label: String)  extends Label{
@@ -118,7 +117,7 @@ object CaseLabel {
 abstract class LabelVisitor[T] {
   def default : T
   def reduce(a: T, b: T) : T
-  def visit(s: UnknownLabel) : T = default
+  //def visit(s: UnknownLabel) : T = default
   def visit(s: Level) : T = default
   def visit(s: JoinLabel) : T = s match {
     case JoinLabel(l, r) =>
@@ -138,7 +137,7 @@ abstract class LabelVisitor[T] {
 }
 
 abstract class LabelSwapVisitor {
-  def visit(s: UnknownLabel) : Label = s
+ // def visit(s: UnknownLabel) : Label = s
   def visit(s: Level) : Label = s
   def visit(s: JoinLabel) : Label = s match {
     case JoinLabel(l, r) =>

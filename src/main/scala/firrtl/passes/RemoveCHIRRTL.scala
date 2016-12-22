@@ -92,7 +92,7 @@ object RemoveCHIRRTL extends Pass {
         set_enable(rws, "wmode") ++
         set_enable(rws, "en") ++
         set_write(rws, "wdata", "wmask")
-      val mem = DefMemory(sx.info, sx.name, sx.tpe, sx.size, 1, if (sx.seq) 1 else 0,
+      val mem = DefMemory(sx.info, sx.name, sx.tpe, sx.lbl, sx.size, 1, if (sx.seq) 1 else 0,
                   rds map (_.name), wrs map (_.name), rws map (_.name))
       Block(mem +: stmts)
     case sx: CDefMPort =>

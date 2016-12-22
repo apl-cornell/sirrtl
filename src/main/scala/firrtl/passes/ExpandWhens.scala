@@ -147,7 +147,7 @@ object ExpandWhens extends Pass {
       }
       val netlist = new Netlist
       // Add ports to netlist
-      netlist ++= (m.ports flatMap { case Port(_, name, dir, tpe) =>
+      netlist ++= (m.ports flatMap { case Port(_, name, dir, tpe, lbl) =>
         getFemaleRefs(name, tpe, to_gender(dir)) map (ref => we(ref) -> WVoid)
       })
       (netlist, simlist, expandWhens(netlist, Seq(netlist), one)(m.body))

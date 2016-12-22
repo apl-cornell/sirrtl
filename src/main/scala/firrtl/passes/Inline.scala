@@ -135,7 +135,7 @@ class InlineInstances extends Transform {
             case m: ExtModule => throw new PassException("Cannot inline external module")
             case m: Module => m
           }
-          val stmts = toInline.ports.map(p => DefWire(p.info, p.name, p.tpe)) :+ toInline.body
+          val stmts = toInline.ports.map(p => DefWire(p.info, p.name, p.tpe, p.lbl)) :+ toInline.body
           onStmt(prefix + instName + inlineDelim, moduleName)(Block(stmts))
         } else s
       case sx => sx map appendRefPrefix(prefix, currentModule) map onStmt(prefix, currentModule) map appendNamePrefix(prefix)

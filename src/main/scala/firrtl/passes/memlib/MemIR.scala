@@ -27,7 +27,7 @@ case class DefAnnotatedMemory(
   def mapExpr(f: Expression => Expression): Statement = this
   def mapType(f: Type => Type): Statement = this.copy(dataType = f(dataType))
   def mapString(f: String => String): Statement = this.copy(name = f(name))
-  def toMem = DefMemory(info, name, dataType, depth,
+  def toMem = DefMemory(info, name, dataType, UnknownLabel, depth,
     writeLatency, readLatency, readers, writers,
     readwriters, readUnderWrite)
 }

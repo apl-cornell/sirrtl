@@ -40,55 +40,55 @@ class ReplaceMemMacros(writer: ConfWriter) extends Transform {
   }
 
   private def rPortToBundle(mem: DefAnnotatedMemory) = BundleType(
-    defaultPortSeq(mem) :+ Field("data", Flip, mem.dataType))
+    defaultPortSeq(mem) :+ Field("data", Flip, mem.dataType, UnknownLabel))
   private def rPortToFlattenBundle(mem: DefAnnotatedMemory) = BundleType(
-    defaultPortSeq(mem) :+ Field("data", Flip, flattenType(mem.dataType)))
+    defaultPortSeq(mem) :+ Field("data", Flip, flattenType(mem.dataType), UnknownLabel))
 
   private def wPortToBundle(mem: DefAnnotatedMemory) = BundleType(
-    (defaultPortSeq(mem) :+ Field("data", Default, mem.dataType)) ++ (mem.maskGran match {
+    (defaultPortSeq(mem) :+ Field("data", Default, mem.dataType, UnknownLabel)) ++ (mem.maskGran match {
       case None => Nil
-      case Some(_) => Seq(Field("mask", Default, createMask(mem.dataType)))
+      case Some(_) => Seq(Field("mask", Default, createMask(mem.dataType), UnknownLabel))
     })
   )
   private def wPortToFlattenBundle(mem: DefAnnotatedMemory) = BundleType(
-    (defaultPortSeq(mem) :+ Field("data", Default, flattenType(mem.dataType))) ++ (mem.maskGran match {
+    (defaultPortSeq(mem) :+ Field("data", Default, flattenType(mem.dataType), UnknownLabel)) ++ (mem.maskGran match {
       case None => Nil
-      case Some(_) if getFillWMask(mem) => Seq(Field("mask", Default, flattenType(mem.dataType)))
-      case Some(_) => Seq(Field("mask", Default, flattenType(createMask(mem.dataType))))
+      case Some(_) if getFillWMask(mem) => Seq(Field("mask", Default, flattenType(mem.dataType), UnknownLabel))
+      case Some(_) => Seq(Field("mask", Default, flattenType(createMask(mem.dataType)), UnknownLabel))
     })
   )
   // TODO(shunshou): Don't use createMask???
 
   private def rwPortToBundle(mem: DefAnnotatedMemory) = BundleType(
     defaultPortSeq(mem) ++ Seq(
-      Field("wmode", Default, BoolType),
-      Field("wdata", Default, mem.dataType),
-      Field("rdata", Flip, mem.dataType)
+      Field("wmode", Default, BoolType, UnknownLabel),
+      Field("wdata", Default, mem.dataType, UnknownLabel),
+      Field("rdata", Flip, mem.dataType, UnknownLabel)
     ) ++ (mem.maskGran match {
       case None => Nil
-      case Some(_) => Seq(Field("wmask", Default, createMask(mem.dataType)))
+      case Some(_) => Seq(Field("wmask", Default, createMask(mem.dataType), UnknownLabel))
     })
   )
   private def rwPortToFlattenBundle(mem: DefAnnotatedMemory) = BundleType(
     defaultPortSeq(mem) ++ Seq(
-      Field("wmode", Default, BoolType),
-      Field("wdata", Default, flattenType(mem.dataType)),
-      Field("rdata", Flip, flattenType(mem.dataType))
+      Field("wmode", Default, BoolType, UnknownLabel),
+      Field("wdata", Default, flattenType(mem.dataType), UnknownLabel),
+      Field("rdata", Flip, flattenType(mem.dataType), UnknownLabel)
     ) ++ (mem.maskGran match {
       case None => Nil
-      case Some(_) if (getFillWMask(mem)) => Seq(Field("wmask", Default, flattenType(mem.dataType)))
-      case Some(_) => Seq(Field("wmask", Default, flattenType(createMask(mem.dataType))))
+      case Some(_) if (getFillWMask(mem)) => Seq(Field("wmask", Default, flattenType(mem.dataType), UnknownLabel))
+      case Some(_) => Seq(Field("wmask", Default, flattenType(createMask(mem.dataType)), UnknownLabel))
     })
   )
 
   def memToBundle(s: DefAnnotatedMemory) = BundleType(
-    s.readers.map(Field(_, Flip, rPortToBundle(s))) ++
-    s.writers.map(Field(_, Flip, wPortToBundle(s))) ++
-    s.readwriters.map(Field(_, Flip, rwPortToBundle(s))))
+    s.readers.map(Field(_, Flip, rPortToBundle(s), UnknownLabel)) ++
+    s.writers.map(Field(_, Flip, wPortToBundle(s), UnknownLabel)) ++
+    s.readwriters.map(Field(_, Flip, rwPortToBundle(s), UnknownLabel)))
   def memToFlattenBundle(s: DefAnnotatedMemory) = BundleType(
-    s.readers.map(Field(_, Flip, rPortToFlattenBundle(s))) ++
-    s.writers.map(Field(_, Flip, wPortToFlattenBundle(s))) ++
-    s.readwriters.map(Field(_, Flip, rwPortToFlattenBundle(s))))
+    s.readers.map(Field(_, Flip, rPortToFlattenBundle(s), UnknownLabel)) ++
+    s.writers.map(Field(_, Flip, wPortToFlattenBundle(s), UnknownLabel)) ++
+    s.readwriters.map(Field(_, Flip, rwPortToFlattenBundle(s), UnknownLabel)))
 
   /** Creates a wrapper module and external module to replace a candidate memory
    *  The wrapper module has the same type as the memory it replaces
@@ -97,10 +97,10 @@ class ReplaceMemMacros(writer: ConfWriter) extends Transform {
   def createMemModule(m: DefAnnotatedMemory, wrapperName: String): Seq[DefModule] = {
     assert(m.dataType != UnknownType)
     val wrapperIoType = memToBundle(m)
-    val wrapperIoPorts = wrapperIoType.fields map (f => Port(NoInfo, f.name, Input, f.tpe))
+    val wrapperIoPorts = wrapperIoType.fields map (f => Port(NoInfo, f.name, Input, f.tpe, f.lbl))
     // Creates a type with the write/readwrite masks omitted if necessary
     val bbIoType = memToFlattenBundle(m)
-    val bbIoPorts = bbIoType.fields map (f => Port(NoInfo, f.name, Input, f.tpe))
+    val bbIoPorts = bbIoType.fields map (f => Port(NoInfo, f.name, Input, f.tpe, f.lbl))
     val bbRef = createRef(m.name, bbIoType)
     val hasMask = m.maskGran.isDefined
     val fillMask = getFillWMask(m)

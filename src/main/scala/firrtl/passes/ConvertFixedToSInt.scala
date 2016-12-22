@@ -65,21 +65,21 @@ object ConvertFixedToSInt extends Pass {
         }
       }
       def updateStmtType(s: Statement): Statement = s match {
-        case DefRegister(info, name, tpe, clock, reset, init) =>
+        case DefRegister(info, name, tpe, lbl, clock, reset, init) =>
           val newType = toSIntType(tpe)
           types(name) = newType
-          DefRegister(info, name, newType, clock, reset, init) map updateExpType
-        case DefWire(info, name, tpe) =>
+          DefRegister(info, name, newType, lbl, clock, reset, init) map updateExpType
+        case DefWire(info, name, tpe, lbl) =>
           val newType = toSIntType(tpe)
           types(name) = newType
-          DefWire(info, name, newType)
+          DefWire(info, name, newType, lbl)
         case DefNode(info, name, value) =>
           val newValue = updateExpType(value)
           val newType = toSIntType(newValue.tpe)
           types(name) = newType
           DefNode(info, name, newValue)
-        case DefMemory(info, name, dt, depth, wL, rL, rs, ws, rws, ruw) =>
-          val newStmt = DefMemory(info, name, toSIntType(dt), depth, wL, rL, rs, ws, rws, ruw)
+        case DefMemory(info, name, dt, lbl, depth, wL, rL, rs, ws, rws, ruw) =>
+          val newStmt = DefMemory(info, name, toSIntType(dt), lbl, depth, wL, rL, rs, ws, rws, ruw)
           val newType = MemPortUtils.memType(newStmt)
           types(name) = newType
           newStmt
@@ -107,7 +107,7 @@ object ConvertFixedToSInt extends Pass {
     }
  
     val newModules = for(m <- c.modules) yield { 
-      val newPorts = m.ports.map(p => Port(p.info,p.name,p.direction,toSIntType(p.tpe)))
+      val newPorts = m.ports.map(p => Port(p.info,p.name,p.direction,toSIntType(p.tpe),p.lbl))
       m match {
          case Module(info, name, ports, body) => Module(info,name,newPorts,body)
          case ext: ExtModule => ext.copy(ports = newPorts)

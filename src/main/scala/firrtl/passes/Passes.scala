@@ -308,7 +308,7 @@ object VerilogPrep extends Pass {
         }))
         val wires = exps.map ( e => e.tpe match {
           case AnalogType(w) => EmptyStmt
-          case _ => DefWire(info, LowerTypes.loweredName(e), e.tpe)
+          case _ => DefWire(info, LowerTypes.loweredName(e), e.tpe, UnknownLabel)
         })
         Block(Seq(wcon) ++ wires)
       case Attach(info, source, exps) => EmptyStmt

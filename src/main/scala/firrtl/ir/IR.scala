@@ -33,7 +33,10 @@ trait HasName {
 trait HasInfo {
   val info: Info
 }
-trait IsDeclaration extends HasName with HasInfo
+trait HasLabel {
+  val lbl: Label
+}
+trait IsDeclaration extends HasName with HasInfo 
 
 case class StringLit(array: Array[Byte]) extends FirrtlNode {
   def serialize: String = FIRRTLStringLitHandler.escape(this)
@@ -132,26 +135,28 @@ abstract class Statement extends FirrtlNode {
   def mapType(f: Type => Type): Statement
   def mapString(f: String => String): Statement
 }
-case class DefWire(info: Info, name: String, tpe: Type) extends Statement with IsDeclaration {
+case class DefWire(info: Info, name: String, tpe: Type, lbl: Label)
+  extends Statement with IsDeclaration with HasLabel {
   def serialize: String = s"wire $name : ${tpe.serialize}" + info.serialize
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement = this
-  def mapType(f: Type => Type): Statement = DefWire(info, name, f(tpe))
-  def mapString(f: String => String): Statement = DefWire(info, f(name), tpe)
+  def mapType(f: Type => Type): Statement = DefWire(info, name, f(tpe), lbl)
+  def mapString(f: String => String): Statement = DefWire(info, f(name), tpe, lbl)
 }
 case class DefRegister(
     info: Info,
     name: String,
     tpe: Type,
+    lbl: Label,
     clock: Expression,
     reset: Expression,
-    init: Expression) extends Statement with IsDeclaration {
+    init: Expression) extends Statement with IsDeclaration with HasLabel {
   def serialize: String =
     s"reg $name : ${tpe.serialize}, ${clock.serialize} with :" +
     indent("\n" + s"reset => (${reset.serialize}, ${init.serialize})" + info.serialize)
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement =
-    DefRegister(info, name, tpe, f(clock), f(reset), f(init))
+    DefRegister(info, name, tpe, lbl, f(clock), f(reset), f(init))
   def mapType(f: Type => Type): Statement = this.copy(tpe = f(tpe))
   def mapString(f: String => String): Statement = this.copy(name = f(name))
 
@@ -167,6 +172,7 @@ case class DefMemory(
     info: Info,
     name: String,
     dataType: Type,
+    lbl: Label,
     depth: Int,
     writeLatency: Int,
     readLatency: Int,
@@ -174,7 +180,8 @@ case class DefMemory(
     writers: Seq[String],
     readwriters: Seq[String],
     // TODO: handle read-under-write
-    readUnderWrite: Option[String] = None) extends Statement with IsDeclaration {
+    readUnderWrite: Option[String] = None) extends Statement
+  with IsDeclaration with HasLabel{
   def serialize: String =
     s"mem $name :" + info.serialize +
     indent(
@@ -346,7 +353,8 @@ case object Flip extends Orientation {
 }
 
 /** Field of [[BundleType]] */
-case class Field(name: String, flip: Orientation, tpe: Type) extends FirrtlNode with HasName {
+case class Field(name: String, flip: Orientation, tpe: Type, lbl: Label)
+  extends FirrtlNode with HasName with HasLabel {
   def serialize: String = flip.serialize + name + " : " + tpe.serialize
 }
 
@@ -417,7 +425,8 @@ case class Port(
     info: Info,
     name: String,
     direction: Direction,
-    tpe: Type) extends FirrtlNode with IsDeclaration {
+    tpe: Type,
+    lbl: Label) extends FirrtlNode with IsDeclaration with HasLabel {
   def serialize: String = s"${direction.serialize} $name : ${tpe.serialize}" + info.serialize
 }
 

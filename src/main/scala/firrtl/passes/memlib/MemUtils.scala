@@ -158,27 +158,27 @@ object MemPortUtils {
   type Modules = collection.mutable.ArrayBuffer[DefModule]
 
   def defaultPortSeq(mem: DefMemory): Seq[Field] = Seq(
-    Field("addr", Default, UIntType(IntWidth(ceilLog2(mem.depth) max 1))),
-    Field("en", Default, BoolType),
-    Field("clk", Default, ClockType)
+    Field("addr", Default, UIntType(IntWidth(ceilLog2(mem.depth) max 1)), mem.lbl),
+    Field("en", Default, BoolType, mem.lbl),
+    Field("clk", Default, ClockType, mem.lbl)
   )
 
   // Todo: merge it with memToBundle
   def memType(mem: DefMemory): Type = {
     val rType = BundleType(defaultPortSeq(mem) :+
-      Field("data", Flip, mem.dataType))
+      Field("data", Flip, mem.dataType, mem.lbl))
     val wType = BundleType(defaultPortSeq(mem) ++ Seq(
-      Field("data", Default, mem.dataType),
-      Field("mask", Default, createMask(mem.dataType))))
+      Field("data", Default, mem.dataType, mem.lbl),
+      Field("mask", Default, createMask(mem.dataType), mem.lbl)))
     val rwType = BundleType(defaultPortSeq(mem) ++ Seq(
-      Field("rdata", Flip, mem.dataType),
-      Field("wmode", Default, BoolType),
-      Field("wdata", Default, mem.dataType),
-      Field("wmask", Default, createMask(mem.dataType))))
+      Field("rdata", Flip, mem.dataType, mem.lbl),
+      Field("wmode", Default, BoolType, mem.lbl),
+      Field("wdata", Default, mem.dataType, mem.lbl),
+      Field("wmask", Default, createMask(mem.dataType), mem.lbl)))
     BundleType(
-      (mem.readers map (Field(_, Flip, rType))) ++
-      (mem.writers map (Field(_, Flip, wType))) ++
-      (mem.readwriters map (Field(_, Flip, rwType))))
+      (mem.readers map (Field(_, Flip, rType, mem.lbl))) ++
+      (mem.writers map (Field(_, Flip, wType, mem.lbl))) ++
+      (mem.readwriters map (Field(_, Flip, rwType, mem.lbl))))
   }
 
   def memPortField(s: DefMemory, p: String, f: String): Expression = {

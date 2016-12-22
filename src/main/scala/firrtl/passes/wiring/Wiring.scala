@@ -99,10 +99,12 @@ class Wiring(wiSeq: Seq[WiringInfo]) extends Pass {
         l.addPort match {
           case None =>
           case Some((s, dt)) => dt match {
-            case DecInput => ports += Port(NoInfo, s, Input, t)
-            case DecOutput => ports += Port(NoInfo, s, Output, t)
+            // TODO
+            case DecInput => ports += Port(NoInfo, s, Input, t, UnknownLabel)
+            case DecOutput => ports += Port(NoInfo, s, Output, t, UnknownLabel)
             case DecWire =>
-              stmts += DefWire(NoInfo, s, t)
+              // TODO
+              stmts += DefWire(NoInfo, s, t, UnknownLabel)
           }
         }
         stmts ++= (l.cons map { case ((l, r)) =>
@@ -129,10 +131,10 @@ class Wiring(wiSeq: Seq[WiringInfo]) extends Pass {
     val root = getRoot(eComp)
     var tpe: Option[Type] = None
     def getType(s: Statement): Statement = s match {
-      case DefRegister(_, n, t, _, _, _) if n == root =>
+      case DefRegister(_, n, t, _, _, _, _) if n == root =>
         tpe = Some(t)
         s
-      case DefWire(_, n, t) if n == root =>
+      case DefWire(_, n, t, _) if n == root =>
         tpe = Some(t)
         s
       case WDefInstance(_, n, m, t) if n == root => 

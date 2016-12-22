@@ -121,7 +121,7 @@ object LowerTypes extends Pass {
       case s: DefWire => s.tpe match {
         case _: GroundType => s
         case _ => Block(create_exps(s.name, s.tpe) map (
-          e => DefWire(s.info, loweredName(e), e.tpe)))
+          e => DefWire(s.info, loweredName(e), e.tpe, s.lbl)))
       }
       case sx: DefRegister => sx.tpe match {
         case _: GroundType => sx map lowerTypesExp(memDataTypeMap, info, mname)
@@ -131,7 +131,7 @@ object LowerTypes extends Pass {
           val clock = lowerTypesExp(memDataTypeMap, info, mname)(sx.clock)
           val reset = lowerTypesExp(memDataTypeMap, info, mname)(sx.reset)
           Block(es zip inits map { case (e, i) =>
-            DefRegister(sx.info, loweredName(e), e.tpe, clock, reset, i)
+            DefRegister(sx.info, loweredName(e), e.tpe, sx.lbl, clock, reset, i)
           })
       }
       // Could instead just save the type of each Module as it gets processed
@@ -140,7 +140,7 @@ object LowerTypes extends Pass {
           val fieldsx = t.fields flatMap (f =>
             create_exps(WRef(f.name, f.tpe, ExpKind, times(f.flip, MALE))) map (
               // Flip because inst genders are reversed from Module type
-              e => Field(loweredName(e), swap(to_flip(gender(e))), e.tpe)))
+              e => Field(loweredName(e), swap(to_flip(gender(e))), e.tpe, UnknownLabel)))
           WDefInstance(sx.info, sx.name, sx.module, BundleType(fieldsx))
         case _ => error("WDefInstance type should be Bundle!")(info, mname)
       }
@@ -183,7 +183,7 @@ object LowerTypes extends Pass {
     // Lower Ports
     val portsx = m.ports flatMap { p =>
       val exps = create_exps(WRef(p.name, p.tpe, PortKind, to_gender(p.direction)))
-      exps map (e => Port(p.info, loweredName(e), to_dir(gender(e)), e.tpe))
+      exps map (e => Port(p.info, loweredName(e), to_dir(gender(e)), e.tpe, UnknownLabel))
     }
     m match {
       case m: ExtModule =>
