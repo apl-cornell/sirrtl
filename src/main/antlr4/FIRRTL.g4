@@ -173,6 +173,11 @@ exp
   | primop exp* IntLit*  ')' 
   ;
 
+/*
+seclabel
+  : '{' id '}'
+*/
+
 id
   : Id
   | keyword
