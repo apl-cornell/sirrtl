@@ -139,6 +139,11 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
     }
   }
 
+  private def visitType[FirrtlNode](ctx: FIRRTLParser.LabelContext): Label = {
+    println(ctx.id.getText)
+    return Level(ctx.id.getText)
+  }
+
   private def visitField[FirrtlNode](ctx: FIRRTLParser.FieldContext): Field = {
     val flip = if (ctx.getChild(0).getText == "flip") Flip else Default
     Field(ctx.id.getText, flip, visitType(ctx.`type`))

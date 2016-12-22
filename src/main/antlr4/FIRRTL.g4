@@ -43,7 +43,7 @@ module
   ;
 
 port
-  : dir id ':' type info? NEWLINE
+  : dir id ':' label? type info? NEWLINE
   ;
 
 dir
@@ -61,8 +61,12 @@ type
   | type '[' IntLit ']'   // Vector
   ;
 
+label
+  : '{' id '}'
+  ;
+
 field
-  : 'flip'? id ':' type
+  : 'flip'? id ':' label? type
   ;
 
 defname
@@ -93,11 +97,11 @@ reset_block
   ;
 
 stmt
-  : 'wire' id ':' type info?
-  | 'reg' id ':' type exp ('with' ':' reset_block)? info?
+  : 'wire' id ':' label? type info?
+  | 'reg' id ':' label? type exp ('with' ':' reset_block)? info?
   | 'mem' id ':' info? INDENT memField* DEDENT
-  | 'cmem' id ':' type info?
-  | 'smem' id ':' type info?
+  | 'cmem' id ':' label? type info?
+  | 'smem' id ':' label? type info?
   | mdir 'mport' id '=' id '[' exp ']' exp info?
   | 'inst' id 'of' id info?
   | 'node' id '=' exp info?
@@ -112,7 +116,7 @@ stmt
   ;
 
 memField
-	:  'data-type' '=>' type NEWLINE
+	:  'data-type' '=>' label? type NEWLINE
 	| 'depth' '=>' IntLit NEWLINE
 	| 'read-latency' '=>' IntLit NEWLINE
 	| 'write-latency' '=>' IntLit NEWLINE
