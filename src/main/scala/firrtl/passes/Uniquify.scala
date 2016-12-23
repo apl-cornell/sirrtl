@@ -148,7 +148,7 @@ object Uniquify extends Pass {
       case e: WRef =>
         if (m.contains(e.name)) {
           val node = m(e.name)
-          (WRef(node.name, e.tpe, e.kind, e.gender), node.elts)
+          (WRef(node.name, e.tpe, e.lbl, e.kind, e.gender), node.elts)
         }
         else (e, Map())
       case e: WSubField =>
@@ -160,14 +160,14 @@ object Uniquify extends Pass {
           } else {
             (e.name, Map[String, NameMapNode]())
           }
-        (WSubField(subExp, retName, e.tpe, e.gender), retMap)
+        (WSubField(subExp, retName, e.tpe, e.lbl, e.gender), retMap)
       case e: WSubIndex =>
         val (subExp, subMap) = rec(e.exp, m)
-        (WSubIndex(subExp, e.value, e.tpe, e.gender), subMap)
+        (WSubIndex(subExp, e.value, e.tpe, e.lbl, e.gender), subMap)
       case e: WSubAccess =>
         val (subExp, subMap) = rec(e.exp, m)
         val index = uniquifyNamesExp(e.index, map)
-        (WSubAccess(subExp, index, e.tpe, e.gender), subMap)
+        (WSubAccess(subExp, index, e.tpe, e.lbl, e.gender), subMap)
       case (_: UIntLiteral | _: SIntLiteral) => (exp, m)
       case (_: Mux | _: ValidIf | _: DoPrim) =>
         (exp map ((e: Expression) => uniquifyNamesExp(e, map)), m)

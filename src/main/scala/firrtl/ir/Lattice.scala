@@ -1,13 +1,16 @@
 package firrtl
 package ir
 
+// It's quite important that covers is an immutable map.
+import scala.collection.immutable.Map
+
 // This is a singleton object that holds the security relation on security 
 // levels. The policy is an extensional definition of the covered-by relation. 
 // Each level is mapped to the set of levels it is covered by (i.e., 
 // immediately lower than on the Hasse diagram of the lattice).
 object PolicyHolder {
-  var policy = new Lattice[Level]{
-    def covers : Map[Level,Set[Level]] = Map(
+  val policy = new Lattice[Level]{
+    val covers : Map[Level,Set[Level]] = Map(
       Level("L") -> Set(Level("D1"),Level("D2")),
       Level("D1") -> Set(Level("H")),
       Level("D2") -> Set(Level("H")),
@@ -23,7 +26,7 @@ abstract class Lattice[T] {
   // Department of ECE at UT Austin.
 
   // covers(x) = { y | y covers x }
-  def covers : Map[T,Set[T]]
+  val covers : Map[T,Set[T]]
 
   // Does a DFS of covers producing a set of elements reachable from x.
   def reachable(x: T) : Set[T] =
@@ -49,11 +52,11 @@ abstract class Lattice[T] {
     candidates.iterator.next
   }
 
-  def bottom = covers.keys.fold(covers.keys.head)(meet(_,_))
-  def top = covers.keys.fold(covers.keys.head)(join(_,_))
+  val bottom = covers.keys.fold(covers.keys.head)(meet(_,_))
+  val top = covers.keys.fold(covers.keys.head)(join(_,_))
 
   // Helper methods for readability
-  def levels = covers.keys
+  val levels = covers.keys
 
 }
 

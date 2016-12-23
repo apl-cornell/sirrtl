@@ -11,10 +11,10 @@ object seqCat {
   def apply(args: Seq[Expression]): Expression = args.length match {
     case 0 => error("Empty Seq passed to seqcat")
     case 1 => args.head
-    case 2 => DoPrim(PrimOps.Cat, args, Nil, UIntType(UnknownWidth))
+    case 2 => DoPrim(PrimOps.Cat, args, Nil, UIntType(UnknownWidth), UnknownLabel)
     case _ =>
       val (high, low) = args splitAt (args.length / 2)
-      DoPrim(PrimOps.Cat, Seq(seqCat(high), seqCat(low)), Nil, UIntType(UnknownWidth))
+      DoPrim(PrimOps.Cat, Seq(seqCat(high), seqCat(low)), Nil, UIntType(UnknownWidth), UnknownLabel)
   }
 }
 
@@ -28,9 +28,9 @@ object toBits {
   }
   private def hiercat(e: Expression): Expression = e.tpe match {
     case t: VectorType => seqCat((0 until t.size).reverse map (i =>
-      hiercat(WSubIndex(e, i, t.tpe, UNKNOWNGENDER))))
+      hiercat(WSubIndex(e, i, t.tpe, e.lbl, UNKNOWNGENDER))))
     case t: BundleType => seqCat(t.fields map (f =>
-      hiercat(WSubField(e, f.name, f.tpe, UNKNOWNGENDER))))
+      hiercat(WSubField(e, f.name, f.tpe, e.lbl, UNKNOWNGENDER))))
     case t: GroundType => e
     case t => error("Unknown type encountered in toBits!")
   }
@@ -59,11 +59,11 @@ object toBitMask {
     (mask.tpe, dataType) match {
       case (mt: VectorType, dt: VectorType) =>
         seqCat((0 until mt.size).reverse map { i =>
-          hiermask(WSubIndex(mask, i, mt.tpe, UNKNOWNGENDER), dt.tpe)
+          hiermask(WSubIndex(mask, i, mt.tpe, mask.lbl, UNKNOWNGENDER), dt.tpe)
         })
       case (mt: BundleType, dt: BundleType) =>
         seqCat((mt.fields zip dt.fields) map { case (mf, df) =>
-          hiermask(WSubField(mask, mf.name, mf.tpe, UNKNOWNGENDER), df.tpe)
+          hiermask(WSubField(mask, mf.name, mf.tpe, mask.lbl, UNKNOWNGENDER), df.tpe)
         })
       case (UIntType(width), dt: GroundType) if width == IntWidth(BigInt(1)) =>
         seqCat(List.fill(bitWidth(dt).intValue)(mask))
@@ -102,7 +102,7 @@ object fromBits {
                             rhs: Expression,
                             offset: BigInt): (BigInt, Seq[Statement]) = {
     val intWidth = bitWidth(lhst)
-    val sel = DoPrim(PrimOps.Bits, Seq(rhs), Seq(offset + intWidth - 1, offset), UnknownType)
+    val sel = DoPrim(PrimOps.Bits, Seq(rhs), Seq(offset + intWidth - 1, offset), UnknownType, UnknownLabel)
     (offset + intWidth, Seq(Connect(NoInfo, lhs, sel)))
   }
   private def getPart(lhs: Expression,
@@ -112,13 +112,13 @@ object fromBits {
     lhst match {
       case t: VectorType => (0 until t.size foldLeft (offset, Seq[Statement]())) {
         case ((curOffset, stmts), i) =>
-          val subidx = WSubIndex(lhs, i, t.tpe, UNKNOWNGENDER)
+          val subidx = WSubIndex(lhs, i, t.tpe, lhs.lbl, UNKNOWNGENDER)
           val (tmpOffset, substmts) = getPart(subidx, t.tpe, rhs, curOffset)
           (tmpOffset, stmts ++ substmts)
       }
       case t: BundleType => (t.fields foldRight (offset, Seq[Statement]())) {
         case (f, (curOffset, stmts)) =>
-          val subfield = WSubField(lhs, f.name, f.tpe, UNKNOWNGENDER)
+          val subfield = WSubField(lhs, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
           val (tmpOffset, substmts) = getPart(subfield, f.tpe, rhs, curOffset)
           (tmpOffset, stmts ++ substmts)
       }
@@ -136,11 +136,11 @@ object createMask {
 }
 
 object createRef {
-  def apply(n: String, t: Type = UnknownType, k: Kind = ExpKind) = WRef(n, t, k, UNKNOWNGENDER)
+  def apply(n: String, t: Type = UnknownType, l: Label = UnknownLabel, k: Kind = ExpKind) = WRef(n, t, l, k, UNKNOWNGENDER)
 }
 
 object createSubField {
-  def apply(exp: Expression, n: String) = WSubField(exp, n, field_type(exp.tpe, n), UNKNOWNGENDER)
+  def apply(exp: Expression, n: String) = WSubField(exp, n, field_type(exp.tpe, n), exp.lbl, UNKNOWNGENDER)
 }
 
 object connectFields {
@@ -182,9 +182,9 @@ object MemPortUtils {
   }
 
   def memPortField(s: DefMemory, p: String, f: String): Expression = {
-    val mem = WRef(s.name, memType(s), MemKind, UNKNOWNGENDER)
+    val mem = WRef(s.name, memType(s), s.lbl, MemKind, UNKNOWNGENDER)
     val t1 = field_type(mem.tpe, p)
     val t2 = field_type(t1, f)
-    WSubField(WSubField(mem, p, t1, UNKNOWNGENDER), f, t2, UNKNOWNGENDER)
+    WSubField(WSubField(mem, p, t1, mem.lbl, UNKNOWNGENDER), f, t2, mem.lbl, UNKNOWNGENDER)
   }
 }

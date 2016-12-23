@@ -35,10 +35,10 @@ object ToWorkingIR extends Pass {
   def name = "Working IR"
 
   def toExp(e: Expression): Expression = e map toExp match {
-    case ex: Reference => WRef(ex.name, ex.tpe, NodeKind, UNKNOWNGENDER)
-    case ex: SubField => WSubField(ex.expr, ex.name, ex.tpe, UNKNOWNGENDER)
-    case ex: SubIndex => WSubIndex(ex.expr, ex.value, ex.tpe, UNKNOWNGENDER)
-    case ex: SubAccess => WSubAccess(ex.expr, ex.index, ex.tpe, UNKNOWNGENDER)
+    case ex: Reference => WRef(ex.name, ex.tpe, ex.lbl, NodeKind, UNKNOWNGENDER)
+    case ex: SubField => WSubField(ex.expr, ex.name, ex.tpe, ex.lbl, UNKNOWNGENDER)
+    case ex: SubIndex => WSubIndex(ex.expr, ex.value, ex.tpe, ex.lbl, UNKNOWNGENDER)
+    case ex: SubAccess => WSubAccess(ex.expr, ex.index, ex.tpe, ex.lbl, UNKNOWNGENDER)
     case ex => ex // This might look like a case to use case _ => e, DO NOT!
   }
 
@@ -57,26 +57,26 @@ object PullMuxes extends Pass {
      def pull_muxes_e(e: Expression): Expression = e map pull_muxes_e match {
        case ex: WSubField => ex.exp match {
          case exx: Mux => Mux(exx.cond,
-           WSubField(exx.tval, ex.name, ex.tpe, ex.gender),
-           WSubField(exx.fval, ex.name, ex.tpe, ex.gender), ex.tpe)
+           WSubField(exx.tval, ex.name, ex.tpe, ex.lbl, ex.gender),
+           WSubField(exx.fval, ex.name, ex.tpe, ex.lbl, ex.gender), ex.tpe, ex.lbl)
          case exx: ValidIf => ValidIf(exx.cond,
-           WSubField(exx.value, ex.name, ex.tpe, ex.gender), ex.tpe)
+           WSubField(exx.value, ex.name, ex.tpe, ex.lbl, ex.gender), ex.tpe, ex.lbl)
          case _ => ex  // case exx => exx causes failed tests
        }
        case ex: WSubIndex => ex.exp match {
          case exx: Mux => Mux(exx.cond,
-           WSubIndex(exx.tval, ex.value, ex.tpe, ex.gender),
-           WSubIndex(exx.fval, ex.value, ex.tpe, ex.gender), ex.tpe)
+           WSubIndex(exx.tval, ex.value, ex.tpe, ex.lbl, ex.gender),
+           WSubIndex(exx.fval, ex.value, ex.tpe, ex.lbl, ex.gender), ex.tpe, ex.lbl)
          case exx: ValidIf => ValidIf(exx.cond,
-           WSubIndex(exx.value, ex.value, ex.tpe, ex.gender), ex.tpe)
+           WSubIndex(exx.value, ex.value, ex.tpe, ex.lbl, ex.gender), ex.tpe, ex.lbl)
          case _ => ex  // case exx => exx causes failed tests
        }
        case ex: WSubAccess => ex.exp match {
          case exx: Mux => Mux(exx.cond,
-           WSubAccess(exx.tval, ex.index, ex.tpe, ex.gender),
-           WSubAccess(exx.fval, ex.index, ex.tpe, ex.gender), ex.tpe)
+           WSubAccess(exx.tval, ex.index, ex.tpe, ex.lbl, ex.gender),
+           WSubAccess(exx.fval, ex.index, ex.tpe, ex.lbl, ex.gender), ex.tpe, ex.lbl)
          case exx: ValidIf => ValidIf(exx.cond,
-           WSubAccess(exx.value, ex.index, ex.tpe, ex.gender), ex.tpe)
+           WSubAccess(exx.value, ex.index, ex.tpe, ex.lbl, ex.gender), ex.tpe, ex.lbl)
          case _ => ex  // case exx => exx causes failed tests
        }
        case ex => ex
@@ -97,13 +97,13 @@ object ExpandConnects extends Pass {
       val genders = collection.mutable.LinkedHashMap[String,Gender]()
       def expand_s(s: Statement): Statement = {
         def set_gender(e: Expression): Expression = e map set_gender match {
-          case ex: WRef => WRef(ex.name, ex.tpe, ex.kind, genders(ex.name))
+          case ex: WRef => WRef(ex.name, ex.tpe, ex.lbl, ex.kind, genders(ex.name))
           case ex: WSubField =>
             val f = get_field(ex.exp.tpe, ex.name)
             val genderx = times(gender(ex.exp), f.flip)
-            WSubField(ex.exp, ex.name, ex.tpe, genderx)
-          case ex: WSubIndex => WSubIndex(ex.exp, ex.value, ex.tpe, gender(ex.exp))
-          case ex: WSubAccess => WSubAccess(ex.exp, ex.index, ex.tpe, gender(ex.exp))
+            WSubField(ex.exp, ex.name, ex.tpe, ex.lbl, genderx)
+          case ex: WSubIndex => WSubIndex(ex.exp, ex.value, ex.tpe, ex.lbl, gender(ex.exp))
+          case ex: WSubAccess => WSubAccess(ex.exp, ex.index, ex.tpe, ex.lbl, gender(ex.exp))
           case ex => ex
         }
         s match {
@@ -174,8 +174,8 @@ object Legalize extends Pass {
       e.tpe match {
         case UIntType(_) => zero
         case SIntType(_) =>
-          val bits = DoPrim(Bits, e.args, Seq(msb, msb), BoolType)
-          DoPrim(AsSInt, Seq(bits), Seq.empty, SIntType(IntWidth(1)))
+          val bits = DoPrim(Bits, e.args, Seq(msb, msb), BoolType, UnknownLabel)
+          DoPrim(AsSInt, Seq(bits), Seq.empty, SIntType(IntWidth(1)), UnknownLabel)
         case t => error(s"Unsupported type $t for Primop Shift Right")
       }
     } else {
@@ -206,10 +206,10 @@ object Legalize extends Pass {
     if (w >= bitWidth(c.expr.tpe)) {
       c
     } else {
-      val bits = DoPrim(Bits, Seq(c.expr), Seq(w - 1, 0), UIntType(IntWidth(w)))
+      val bits = DoPrim(Bits, Seq(c.expr), Seq(w - 1, 0), UIntType(IntWidth(w)), UnknownLabel)
       val expr = t match {
         case UIntType(_) => bits
-        case SIntType(_) => DoPrim(AsSInt, Seq(bits), Seq(), SIntType(IntWidth(w)))
+        case SIntType(_) => DoPrim(AsSInt, Seq(bits), Seq(), SIntType(IntWidth(w)), UnknownLabel)
         //case FixedType(width, point) => FixedType(width, point)
       }
       Connect(c.info, c.loc, expr)
@@ -242,8 +242,8 @@ object VerilogWrap extends Pass {
     case e: DoPrim => e.op match {
       case Tail => e.args.head match {
         case e0: DoPrim => e0.op match {
-          case Add => DoPrim(Addw, e0.args, Nil, e.tpe)
-          case Sub => DoPrim(Subw, e0.args, Nil, e.tpe)
+          case Add => DoPrim(Addw, e0.args, Nil, e.tpe, e.lbl)
+          case Sub => DoPrim(Subw, e0.args, Nil, e.tpe, e.lbl)
           case _ => e
         }
         case _ => e
@@ -296,19 +296,19 @@ object VerilogPrep extends Pass {
     }
     def lowerE(e: Expression): Expression = e match {
       case _: WRef|_: WSubField if kind(e) == InstanceKind =>
-        WRef(LowerTypes.loweredName(e), e.tpe, kind(e), gender(e))
+        WRef(LowerTypes.loweredName(e), e.tpe, e.lbl, kind(e), gender(e))
       case _ => e map lowerE
     }
     def lowerS(attaches: InstAttaches)(s: Statement): Statement = s match {
       case WDefInstance(info, name, module, tpe) =>
-        val exps = create_exps(WRef(name, tpe, ExpKind, MALE))
+        val exps = create_exps(WRef(name, tpe, UnknownLabel, ExpKind, MALE))
         val wcon = WDefInstanceConnector(info, name, module, tpe, exps.map( e => e.tpe match {
           case AnalogType(w) => attaches(e.serialize)
-          case _ => WRef(LowerTypes.loweredName(e), e.tpe, WireKind, MALE)
+          case _ => WRef(LowerTypes.loweredName(e), e.tpe, e.lbl, WireKind, MALE)
         }))
         val wires = exps.map ( e => e.tpe match {
           case AnalogType(w) => EmptyStmt
-          case _ => DefWire(info, LowerTypes.loweredName(e), e.tpe, UnknownLabel)
+          case _ => DefWire(info, LowerTypes.loweredName(e), e.tpe, e.lbl)
         })
         Block(Seq(wcon) ++ wires)
       case Attach(info, source, exps) => EmptyStmt

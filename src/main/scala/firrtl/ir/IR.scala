@@ -33,9 +33,6 @@ trait HasName {
 trait HasInfo {
   val info: Info
 }
-trait HasLabel {
-  val lbl: Label
-}
 trait IsDeclaration extends HasName with HasInfo 
 
 case class StringLit(array: Array[Byte]) extends FirrtlNode {
@@ -52,56 +49,66 @@ abstract class PrimOp extends FirrtlNode {
 
 abstract class Expression extends FirrtlNode {
   def tpe: Type
+  def lbl: Label
   def mapExpr(f: Expression => Expression): Expression
+  def mapLabel(f: Label => Label): Expression
   def mapType(f: Type => Type): Expression
   def mapWidth(f: Width => Width): Expression
 }
-case class Reference(name: String, tpe: Type) extends Expression with HasName {
+case class Reference(name: String, tpe: Type, lbl: Label) extends Expression with HasName {
   def serialize: String = name
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
-case class SubField(expr: Expression, name: String, tpe: Type) extends Expression with HasName {
+case class SubField(expr: Expression, name: String, tpe: Type, lbl: Label) extends Expression with HasName {
   def serialize: String = s"${expr.serialize}.$name"
   def mapExpr(f: Expression => Expression): Expression = this.copy(expr = f(expr))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
-case class SubIndex(expr: Expression, value: Int, tpe: Type) extends Expression {
+case class SubIndex(expr: Expression, value: Int, tpe: Type, lbl: Label) extends Expression {
   def serialize: String = s"${expr.serialize}[$value]"
   def mapExpr(f: Expression => Expression): Expression = this.copy(expr = f(expr))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
-case class SubAccess(expr: Expression, index: Expression, tpe: Type) extends Expression {
+case class SubAccess(expr: Expression, index: Expression, tpe: Type, lbl: Label) extends Expression {
   def serialize: String = s"${expr.serialize}[${index.serialize}]"
   def mapExpr(f: Expression => Expression): Expression =
     this.copy(expr = f(expr), index = f(index))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
-case class Mux(cond: Expression, tval: Expression, fval: Expression, tpe: Type) extends Expression {
+case class Mux(cond: Expression, tval: Expression, fval: Expression, tpe: Type, lbl: Label) extends Expression {
   def serialize: String = s"mux(${cond.serialize}, ${tval.serialize}, ${fval.serialize})"
-  def mapExpr(f: Expression => Expression): Expression = Mux(f(cond), f(tval), f(fval), tpe)
+  def mapExpr(f: Expression => Expression): Expression = Mux(f(cond), f(tval), f(fval), tpe, lbl)
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
-case class ValidIf(cond: Expression, value: Expression, tpe: Type) extends Expression {
+case class ValidIf(cond: Expression, value: Expression, tpe: Type, lbl: Label) extends Expression {
   def serialize: String = s"validif(${cond.serialize}, ${value.serialize})"
-  def mapExpr(f: Expression => Expression): Expression = ValidIf(f(cond), f(value), tpe)
+  def mapExpr(f: Expression => Expression): Expression = ValidIf(f(cond), f(value), tpe, lbl)
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
 abstract class Literal extends Expression {
   val value: BigInt
   val width: Width
+  def lbl = PolicyHolder.policy.bottom
 }
 case class UIntLiteral(value: BigInt, width: Width) extends Literal {
   def tpe = UIntType(width)
   def serialize = s"UInt${width.serialize}(" + Utils.serialize(value) + ")"
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
+  def mapLabel(f: Label => Label): Expression = this
   def mapWidth(f: Width => Width): Expression = UIntLiteral(value, f(width))
 }
 case class SIntLiteral(value: BigInt, width: Width) extends Literal {
@@ -109,6 +116,7 @@ case class SIntLiteral(value: BigInt, width: Width) extends Literal {
   def serialize = s"SInt${width.serialize}(" + Utils.serialize(value) + ")"
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
+  def mapLabel(f: Label => Label): Expression = this
   def mapWidth(f: Width => Width): Expression = SIntLiteral(value, f(width))
 }
 case class FixedLiteral(value: BigInt, width: Width, point: Width) extends Literal {
@@ -119,13 +127,15 @@ case class FixedLiteral(value: BigInt, width: Width, point: Width) extends Liter
   }
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
+  def mapLabel(f: Label => Label): Expression = this
   def mapWidth(f: Width => Width): Expression = FixedLiteral(value, f(width), f(point))
 }
-case class DoPrim(op: PrimOp, args: Seq[Expression], consts: Seq[BigInt], tpe: Type) extends Expression {
+case class DoPrim(op: PrimOp, args: Seq[Expression], consts: Seq[BigInt], tpe: Type, lbl: Label) extends Expression {
   def serialize: String = op.serialize + "(" +
     (args.map(_.serialize) ++ consts.map(_.toString)).mkString(", ") + ")"
   def mapExpr(f: Expression => Expression): Expression = this.copy(args = args map f)
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
 
@@ -136,7 +146,7 @@ abstract class Statement extends FirrtlNode {
   def mapString(f: String => String): Statement
 }
 case class DefWire(info: Info, name: String, tpe: Type, lbl: Label)
-  extends Statement with IsDeclaration with HasLabel {
+  extends Statement with IsDeclaration {
   def serialize: String = s"wire $name : ${tpe.serialize}" + info.serialize
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement = this
@@ -150,7 +160,7 @@ case class DefRegister(
     lbl: Label,
     clock: Expression,
     reset: Expression,
-    init: Expression) extends Statement with IsDeclaration with HasLabel {
+    init: Expression) extends Statement with IsDeclaration {
   def serialize: String =
     s"reg $name : ${tpe.serialize}, ${clock.serialize} with :" +
     indent("\n" + s"reset => (${reset.serialize}, ${init.serialize})" + info.serialize)
@@ -181,7 +191,7 @@ case class DefMemory(
     readwriters: Seq[String],
     // TODO: handle read-under-write
     readUnderWrite: Option[String] = None) extends Statement
-  with IsDeclaration with HasLabel{
+  with IsDeclaration {
   def serialize: String =
     s"mem $name :" + info.serialize +
     indent(
@@ -354,7 +364,7 @@ case object Flip extends Orientation {
 
 /** Field of [[BundleType]] */
 case class Field(name: String, flip: Orientation, tpe: Type, lbl: Label)
-  extends FirrtlNode with HasName with HasLabel {
+  extends FirrtlNode with HasName {
   def serialize: String = flip.serialize + name + " : " + tpe.serialize
 }
 
@@ -426,7 +436,7 @@ case class Port(
     name: String,
     direction: Direction,
     tpe: Type,
-    lbl: Label) extends FirrtlNode with IsDeclaration with HasLabel {
+    lbl: Label) extends FirrtlNode with IsDeclaration {
   def serialize: String = s"${direction.serialize} $name : ${tpe.serialize}" + info.serialize
 }
 

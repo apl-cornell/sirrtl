@@ -20,13 +20,13 @@ object PadWidths extends Pass {
       // default case should never be reached
     }
     width(e) match {
-      case j if i > j => DoPrim(Pad, Seq(e), Seq(i), tx)
+      case j if i > j => DoPrim(Pad, Seq(e), Seq(i), tx, e.lbl)
       case j if i < j =>
-        val e2 = DoPrim(Bits, Seq(e), Seq(i - 1, 0), UIntType(IntWidth(i)))
+        val e2 = DoPrim(Bits, Seq(e), Seq(i - 1, 0), UIntType(IntWidth(i)),e.lbl )
         // Bit Select always returns UInt, cast if selecting from SInt
         e.tpe match {
           case UIntType(_) => e2
-          case SIntType(_) => DoPrim(AsSInt, Seq(e2), Seq.empty, SIntType(IntWidth(i)))
+          case SIntType(_) => DoPrim(AsSInt, Seq(e2), Seq.empty, SIntType(IntWidth(i)), e.lbl )
         }
       case _ => e
     }
@@ -34,8 +34,8 @@ object PadWidths extends Pass {
 
   // Recursive, updates expression so children exp's have correct widths
   private def onExp(e: Expression): Expression = e map onExp match {
-    case Mux(cond, tval, fval, tpe) =>
-      Mux(cond, fixup(width(tpe))(tval), fixup(width(tpe))(fval), tpe)
+    case Mux(cond, tval, fval, tpe, lbl) =>
+      Mux(cond, fixup(width(tpe))(tval), fixup(width(tpe))(fval), tpe, lbl)
     case ex: ValidIf => ex copy (value = fixup(width(ex.tpe))(ex.value))
     case ex: DoPrim => ex.op match {
       case Lt | Leq | Gt | Geq | Eq | Neq | Not | And | Or | Xor |

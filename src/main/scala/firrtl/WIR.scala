@@ -24,50 +24,60 @@ case object FEMALE extends Gender
 case object BIGENDER extends Gender
 case object UNKNOWNGENDER extends Gender
 
-case class WRef(name: String, tpe: Type, kind: Kind, gender: Gender) extends Expression {
+case class WRef(name: String, tpe: Type, lbl: Label, kind: Kind, gender: Gender) extends Expression {
   def serialize: String = name
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
-case class WSubField(exp: Expression, name: String, tpe: Type, gender: Gender) extends Expression {
+case class WSubField(exp: Expression, name: String, tpe: Type, lbl: Label, gender: Gender) extends Expression {
   def serialize: String = s"${exp.serialize}.$name"
   def mapExpr(f: Expression => Expression): Expression = this.copy(exp = f(exp))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
-case class WSubIndex(exp: Expression, value: Int, tpe: Type, gender: Gender) extends Expression {
+case class WSubIndex(exp: Expression, value: Int, tpe: Type, lbl: Label, gender: Gender) extends Expression {
   def serialize: String = s"${exp.serialize}[$value]"
   def mapExpr(f: Expression => Expression): Expression = this.copy(exp = f(exp))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
-case class WSubAccess(exp: Expression, index: Expression, tpe: Type, gender: Gender) extends Expression {
+case class WSubAccess(exp: Expression, index: Expression, tpe: Type, lbl: Label, gender: Gender) extends Expression {
   def serialize: String = s"${exp.serialize}[${index.serialize}]"
   def mapExpr(f: Expression => Expression): Expression = this.copy(exp = f(exp), index = f(index))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
 case object WVoid extends Expression {
   def tpe = UnknownType
+  def lbl = UnknownLabel
   def serialize: String = "VOID"
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
+  def mapLabel(f: Label => Label): Expression = this
   def mapWidth(f: Width => Width): Expression = this
 }
 case object WInvalid extends Expression {
   def tpe = UnknownType
+  def lbl = UnknownLabel
   def serialize: String = "INVALID"
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
+  def mapLabel(f: Label => Label): Expression = this
   def mapWidth(f: Width => Width): Expression = this
 }
 // Useful for splitting then remerging references
 case object EmptyExpression extends Expression {
   def tpe = UnknownType
+  def lbl = UnknownLabel
   def serialize: String = "EMPTY"
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
+  def mapLabel(f: Label => Label): Expression = this
   def mapWidth(f: Width => Width): Expression = this
 }
 case class WDefInstance(info: Info, name: String, module: String, tpe: Type) extends Statement with IsDeclaration {

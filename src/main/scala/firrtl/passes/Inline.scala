@@ -119,9 +119,9 @@ class InlineInstances extends Transform {
 
     def appendNamePrefix(prefix: String)(name:String): String = prefix + name
     def appendRefPrefix(prefix: String, currentModule: String)(e: Expression): Expression = e match {
-      case WSubField(WRef(ref, _, InstanceKind, _), field, tpe, gen) if flatInstances.contains(currentModule + "." + ref) =>
-        WRef(prefix + ref + inlineDelim + field, tpe, WireKind, gen)
-      case WRef(name, tpe, kind, gen) => WRef(prefix + name, tpe, kind, gen)
+      case WSubField(WRef(ref, _, _, InstanceKind, _), field, tpe, lbl, gen) if flatInstances.contains(currentModule + "." + ref) =>
+        WRef(prefix + ref + inlineDelim + field, tpe, lbl, WireKind, gen)
+      case WRef(name, tpe, lbl, kind, gen) => WRef(prefix + name, tpe, lbl, kind, gen)
       case ex => ex map appendRefPrefix(prefix, currentModule)
     }
 

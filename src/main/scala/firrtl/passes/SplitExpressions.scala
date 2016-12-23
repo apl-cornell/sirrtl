@@ -24,15 +24,15 @@ object SplitExpressions extends Pass {
           case e: DoPrim =>
             val name = namespace.newTemp
             v += DefNode(get_info(s), name, e)
-            WRef(name, e.tpe, kind(e), gender(e))
+            WRef(name, e.tpe, e.lbl, kind(e), gender(e))
           case e: Mux =>
             val name = namespace.newTemp
             v += DefNode(get_info(s), name, e)
-            WRef(name, e.tpe, kind(e), gender(e))
+            WRef(name, e.tpe, e.lbl, kind(e), gender(e))
           case e: ValidIf =>
             val name = namespace.newTemp
             v += DefNode(get_info(s), name, e)
-            WRef(name, e.tpe, kind(e), gender(e))
+            WRef(name, e.tpe, e.lbl, kind(e), gender(e))
           case _ => e
         }
 

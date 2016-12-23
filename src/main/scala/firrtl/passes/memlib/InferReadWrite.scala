@@ -39,10 +39,10 @@ object InferReadWritePass extends Pass {
 
   def getProductTerms(connects: Connects)(e: Expression): Seq[Expression] = e match {
     // No ConstProp yet...
-    case Mux(cond, tval, fval, _) if weq(tval, one) && weq(fval, zero) =>
+    case Mux(cond, tval, fval, _, _) if weq(tval, one) && weq(fval, zero) =>
       getProductTerms(connects)(cond)
     // Visit each term of AND operation
-    case DoPrim(op, args, consts, tpe) if op == And =>
+    case DoPrim(op, args, consts, tpe, lbl) if op == And =>
       e +: (args flatMap getProductTerms(connects))
     // Visit connected nodes to references
     case _: WRef | _: WSubField | _: WSubIndex => connects get e match {
@@ -55,15 +55,15 @@ object InferReadWritePass extends Pass {
 
   def checkComplement(a: Expression, b: Expression) = (a, b) match {
     // b ?= Not(a)
-    case (_, DoPrim(Not, args, _, _)) => weq(args.head, a)
+    case (_, DoPrim(Not, args, _, _, _)) => weq(args.head, a)
     // a ?= Not(b)
-    case (DoPrim(Not, args, _, _), _) => weq(args.head, b)
+    case (DoPrim(Not, args, _, _, _), _) => weq(args.head, b)
     // b ?= Eq(a, 0) or b ?= Eq(0, a)
-    case (_, DoPrim(Eq, args, _, _)) =>
+    case (_, DoPrim(Eq, args, _, _, _)) =>
       weq(args.head, a) && weq(args(1), zero) ||
       weq(args(1), a) && weq(args.head, zero)
     // a ?= Eq(b, 0) or b ?= Eq(0, a)
-    case (DoPrim(Eq, args, _, _), _) =>
+    case (DoPrim(Eq, args, _, _, _), _) =>
       weq(args.head, b) && weq(args(1), zero) ||
       weq(args(1), b) && weq(args.head, zero)
     case _ => false
@@ -117,11 +117,11 @@ object InferReadWritePass extends Pass {
           stmts += Connect(NoInfo, createSubField(rwExp, "clk"), wclk)
           stmts += Connect(NoInfo, createSubField(rwExp, "en"),
              DoPrim(Or, Seq(connects(memPortField(mem, r, "en")),
-                            connects(memPortField(mem, w, "en"))), Nil, BoolType))
+                            connects(memPortField(mem, w, "en"))), Nil, BoolType, mem.lbl))
           stmts += Connect(NoInfo, createSubField(rwExp, "addr"),
                         Mux(connects(memPortField(mem, w, "en")),
                             connects(memPortField(mem, w, "addr")),
-                            connects(memPortField(mem, r, "addr")), UnknownType))
+                            connects(memPortField(mem, r, "addr")), UnknownType, UnknownLabel))
         }
       }
       if (readwriters.isEmpty) mem else mem copy (

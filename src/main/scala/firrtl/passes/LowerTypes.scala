@@ -71,7 +71,7 @@ object LowerTypes extends Pass {
           case _: GroundType => Seq(e)
           case memType => create_exps(mem.name, memType) map { e =>
             val loMemName = loweredName(e)
-            val loMem = WRef(loMemName, UnknownType, kind(mem), UNKNOWNGENDER)
+            val loMem = WRef(loMemName, UnknownType, UnknownLabel, kind(mem), UNKNOWNGENDER)
             mergeRef(loMem, mergeRef(port, field))
           }
         }
@@ -83,7 +83,7 @@ object LowerTypes extends Pass {
           case Some(ex) =>
             val loMemExp = mergeRef(mem, ex)
             val loMemName = loweredName(loMemExp)
-            WRef(loMemName, UnknownType, kind(mem), UNKNOWNGENDER)
+            WRef(loMemName, UnknownType, UnknownLabel, kind(mem), UNKNOWNGENDER)
           case None => mem
         }
         Seq(mergeRef(loMem, mergeRef(port, field)))
@@ -98,7 +98,7 @@ object LowerTypes extends Pass {
       case InstanceKind =>
         val (root, tail) = splitRef(e)
         val name = loweredName(tail)
-        WSubField(root, name, e.tpe, gender(e))
+        WSubField(root, name, e.tpe, e.lbl, gender(e))
       case MemKind =>
         val exps = lowerTypesMemExp(memDataTypeMap, info, mname)(e)
         exps.size match {
@@ -106,7 +106,7 @@ object LowerTypes extends Pass {
           case _ => error("Error! lowerTypesExp called on MemKind " + 
                           "SubField that needs to be expanded!")(info, mname)
         }
-      case _ => WRef(loweredName(e), e.tpe, kind(e), gender(e))
+      case _ => WRef(loweredName(e), e.tpe, e.lbl, kind(e), gender(e))
     }
     case e: Mux => e map lowerTypesExp(memDataTypeMap, info, mname)
     case e: ValidIf => e map lowerTypesExp(memDataTypeMap, info, mname)
@@ -138,7 +138,7 @@ object LowerTypes extends Pass {
       case sx: WDefInstance => sx.tpe match {
         case t: BundleType =>
           val fieldsx = t.fields flatMap (f =>
-            create_exps(WRef(f.name, f.tpe, ExpKind, times(f.flip, MALE))) map (
+            create_exps(WRef(f.name, f.tpe, f.lbl ExpKind, times(f.flip, MALE))) map (
               // Flip because inst genders are reversed from Module type
               e => Field(loweredName(e), swap(to_flip(gender(e))), e.tpe, UnknownLabel)))
           WDefInstance(sx.info, sx.name, sx.module, BundleType(fieldsx))
@@ -182,7 +182,7 @@ object LowerTypes extends Pass {
     val memDataTypeMap = new MemDataTypeMap
     // Lower Ports
     val portsx = m.ports flatMap { p =>
-      val exps = create_exps(WRef(p.name, p.tpe, PortKind, to_gender(p.direction)))
+      val exps = create_exps(WRef(p.name, p.tpe, p.lbl, PortKind, to_gender(p.direction)))
       exps map (e => Port(p.info, loweredName(e), to_dir(gender(e)), e.tpe, UnknownLabel))
     }
     m match {
