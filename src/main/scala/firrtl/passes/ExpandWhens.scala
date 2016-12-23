@@ -11,6 +11,9 @@ import firrtl.WrappedExpression._
 
 import annotation.tailrec
 
+// TODO: Secure-FIRRTL. If labels matter after this pass, then getFemaleRefs 
+// needs to be fixed.
+
 /** Expand Whens
 *
 * @note This pass does three things: remove last connect semantics,
@@ -29,7 +32,9 @@ object ExpandWhens extends Pass {
   // ========== Expand When Utilz ==========
   private def getFemaleRefs(n: String, t: Type, g: Gender): Seq[Expression] = {
     def getGender(t: Type, i: Int, g: Gender): Gender = times(g, get_flip(t, i, Default))
-    val exps = create_exps(WRef(n, t, ExpKind, g))
+    // TODO this function probably needs a label if labels matter after this 
+    // pass.
+    val exps = create_exps(WRef(n, t, UnknownLabel, ExpKind, g))
     (exps.zipWithIndex foldLeft Seq[Expression]()){
       case (expsx, (exp, j)) => exp.tpe match {
         case AnalogType(w) => expsx
@@ -59,9 +64,9 @@ object ExpandWhens extends Pass {
   }
 
   private def AND(e1: Expression, e2: Expression) =
-    DoPrim(And, Seq(e1, e2), Nil, BoolType)
+    DoPrim(And, Seq(e1, e2), Nil, BoolType, JoinLabel(e1.lbl, e2.lbl))
   private def NOT(e: Expression) =
-    DoPrim(Eq, Seq(e, zero), Nil, BoolType)
+    DoPrim(Eq, Seq(e, zero), Nil, BoolType, e.lbl)
 
   // ------------ Pass -------------------
   def run(c: Circuit): Circuit = {
@@ -111,9 +116,12 @@ object ExpandWhens extends Pass {
                 val falseValue = altNetlist getOrElse (lvalue, defaultValue)
                 (trueValue, falseValue) match {
                   case (WInvalid, WInvalid) => WInvalid
-                  case (WInvalid, fv) => ValidIf(NOT(sx.pred), fv, fv.tpe)
-                  case (tv, WInvalid) => ValidIf(sx.pred, tv, tv.tpe)
-                  case (tv, fv) => Mux(sx.pred, tv, fv, mux_type_and_widths(tv, fv))
+                  case (WInvalid, fv) => ValidIf(NOT(sx.pred), fv, fv.tpe, fv.lbl)
+                  case (tv, WInvalid) => ValidIf(sx.pred, tv, tv.tpe, tv.lbl)
+                  case (tv, fv) => Mux(sx.pred, tv, fv, mux_type_and_widths(tv, fv),
+                    // TODO this is conservative if labels matter after this 
+                    // pass.
+                    JoinLabel(sx.pred.lbl, JoinLabel(tv.lbl, fv.lbl)))
                 }
               case None =>
                 // Since not in netlist, lvalue must be declared in EXACTLY one of conseq or alt
@@ -123,12 +131,12 @@ object ExpandWhens extends Pass {
             res match {
               case _: ValidIf | _: Mux | _: DoPrim => nodes get res match {
                 case Some(name) =>
-                  netlist(lvalue) = WRef(name, res.tpe, NodeKind, MALE)
+                  netlist(lvalue) = WRef(name, res.tpe, res.lbl, NodeKind, MALE)
                   EmptyStmt
                 case None =>
                   val name = namespace.newTemp
                   nodes(res) = name
-                  netlist(lvalue) = WRef(name, res.tpe, NodeKind, MALE)
+                  netlist(lvalue) = WRef(name, res.tpe, res.lbl, NodeKind, MALE)
                   DefNode(sx.info, name, res)
               }
               case _ =>

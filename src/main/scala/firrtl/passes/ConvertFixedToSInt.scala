@@ -16,9 +16,9 @@ object ConvertFixedToSInt extends Pass {
   def alignArg(e: Expression, point: BigInt): Expression = e.tpe match {
     case FixedType(IntWidth(w), IntWidth(p)) => // assert(point >= p)
       if((point - p) > 0) {
-        DoPrim(Shl, Seq(e), Seq(point - p), UnknownType)
+        DoPrim(Shl, Seq(e), Seq(point - p), UnknownType, e.lbl)
       } else if (point - p < 0) {
-        DoPrim(Shr, Seq(e), Seq(p - point), UnknownType)
+        DoPrim(Shr, Seq(e), Seq(p - point), UnknownType, e.lbl)
       } else e
     case FixedType(w, p) => error("Shouldn't be here")
     case _ => e
@@ -38,30 +38,30 @@ object ConvertFixedToSInt extends Pass {
     def onModule(m:DefModule) : DefModule = {
       val types = mutable.HashMap[String,Type]()
       def updateExpType(e:Expression): Expression = e match {
-        case DoPrim(Mul, args, consts, tpe) => e map updateExpType
-        case DoPrim(AsFixedPoint, args, consts, tpe) => DoPrim(AsSInt, args, Seq.empty, tpe)
-        case DoPrim(BPShl, args, consts, tpe) => DoPrim(Shl, args, consts, tpe)
-        case DoPrim(BPShr, args, consts, tpe) => DoPrim(Shr, args, consts, tpe)
-        case DoPrim(BPSet, args, consts, FixedType(w, IntWidth(p))) => alignArg(args.head, p)
-        case DoPrim(op, args, consts, tpe) =>
+        case DoPrim(Mul, args, consts, tpe, lbl) => e map updateExpType
+        case DoPrim(AsFixedPoint, args, consts, tpe, lbl) => DoPrim(AsSInt, args, Seq.empty, tpe, lbl)
+        case DoPrim(BPShl, args, consts, tpe, lbl) => DoPrim(Shl, args, consts, tpe, lbl)
+        case DoPrim(BPShr, args, consts, tpe, lbl) => DoPrim(Shr, args, consts, tpe, lbl)
+        case DoPrim(BPSet, args, consts, FixedType(w, IntWidth(p)), lbl) => alignArg(args.head, p)
+        case DoPrim(op, args, consts, tpe, lbl) =>
           val point = calcPoint(args)
-          val newExp = DoPrim(op, args.map(x => alignArg(x, point)), consts, UnknownType)
+          val newExp = DoPrim(op, args.map(x => alignArg(x, point)), consts, UnknownType, lbl)
           newExp map updateExpType match {
-            case DoPrim(AsFixedPoint, args, consts, tpe) => DoPrim(AsSInt, args, Seq.empty, tpe)
+            case DoPrim(AsFixedPoint, args, consts, tpe, lbl) => DoPrim(AsSInt, args, Seq.empty, tpe, lbl)
             case e => e
           }
-        case Mux(cond, tval, fval, tpe) =>
+        case Mux(cond, tval, fval, tpe, lbl) =>
           val point = calcPoint(Seq(tval, fval))
-          val newExp = Mux(cond, alignArg(tval, point), alignArg(fval, point), UnknownType)
+          val newExp = Mux(cond, alignArg(tval, point), alignArg(fval, point), UnknownType, lbl)
           newExp map updateExpType
         case e: UIntLiteral => e
         case e: SIntLiteral => e
         case _ => e map updateExpType match {
-          case ValidIf(cond, value, tpe) => ValidIf(cond, value, value.tpe)
-          case WRef(name, tpe, k, g) => WRef(name, types(name), k, g)
-          case WSubField(exp, name, tpe, g) => WSubField(exp, name, field_type(exp.tpe, name), g)
-          case WSubIndex(exp, value, tpe, g) => WSubIndex(exp, value, sub_type(exp.tpe), g)
-          case WSubAccess(exp, index, tpe, g) => WSubAccess(exp, index, sub_type(exp.tpe), g)
+          case ValidIf(cond, value, tpe, lbl) => ValidIf(cond, value, value.tpe, lbl)
+          case WRef(name, tpe, lbl, k, g) => WRef(name, types(name), lbl, k, g)
+          case WSubField(exp, name, tpe, lbl, g) => WSubField(exp, name, field_type(exp.tpe, name), lbl, g)
+          case WSubIndex(exp, value, tpe, lbl, g) => WSubIndex(exp, value, sub_type(exp.tpe), lbl, g)
+          case WSubAccess(exp, index, tpe, lbl, g) => WSubAccess(exp, index, sub_type(exp.tpe), lbl, g)
         }
       }
       def updateStmtType(s: Statement): Statement = s match {

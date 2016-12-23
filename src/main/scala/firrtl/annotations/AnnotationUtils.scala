@@ -55,15 +55,15 @@ object AnnotationUtils {
         case "[" :: tail =>
           val indexOrAccess = findClose(tokens, 0, 0)
           val exp = indexOrAccess.head match {
-            case DecPattern(d) => SubIndex(e, d.toInt, UnknownType)
-            case _ => SubAccess(e, parse(indexOrAccess), UnknownType)
+            case DecPattern(d) => SubIndex(e, d.toInt, UnknownType, UnknownLabel)
+            case _ => SubAccess(e, parse(indexOrAccess), UnknownType, UnknownLabel)
           }
           buildup(exp, tokens.drop(2 + indexOrAccess.size))
         case "." :: tail =>
-          buildup(SubField(e, tokens(1), UnknownType), tokens.drop(2))
+          buildup(SubField(e, tokens(1), UnknownType, UnknownLabel), tokens.drop(2))
         case Nil => e
       }
-      val root = Reference(tokens.head, UnknownType)
+      val root = Reference(tokens.head, UnknownType, UnknownLabel)
       buildup(root, tokens.tail)
     }
     if(validComponentName(s)) {

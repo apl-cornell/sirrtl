@@ -59,21 +59,24 @@ object Utils extends LazyLogging {
   def uint(i: BigInt): UIntLiteral = UIntLiteral(i, IntWidth(1 max i.bitLength))
 
   def create_exps(n: String, t: Type): Seq[Expression] =
-    create_exps(WRef(n, t, ExpKind, UNKNOWNGENDER))
+    create_exps(WRef(n, t, UnknownLabel, ExpKind, UNKNOWNGENDER))
   def create_exps(e: Expression): Seq[Expression] = e match {
     case ex: Mux =>
       val e1s = create_exps(ex.tval)
       val e2s = create_exps(ex.fval)
       e1s zip e2s map {case (e1, e2) =>
-        Mux(ex.cond, e1, e2, mux_type_and_widths(e1, e2))
+        // TODO if this label matters, it is overly conservative and should 
+        // become a deptype
+        Mux(ex.cond, e1, e2, mux_type_and_widths(e1, e2), 
+          JoinLabel(ex.cond.lbl,JoinLabel(e1.lbl,e2.lbl)))
       }
-    case ex: ValidIf => create_exps(ex.value) map (e1 => ValidIf(ex.cond, e1, e1.tpe))
+    case ex: ValidIf => create_exps(ex.value) map (e1 => ValidIf(ex.cond, e1, e1.tpe, e1.lbl))
     case ex => ex.tpe match {
       case (_: GroundType) => Seq(ex)
       case (t: BundleType) => (t.fields foldLeft Seq[Expression]())((exps, f) =>
-        exps ++ create_exps(WSubField(ex, f.name, f.tpe,times(gender(ex), f.flip))))
+        exps ++ create_exps(WSubField(ex, f.name, f.tpe, f.lbl, times(gender(ex), f.flip))))
       case (t: VectorType) => (0 until t.size foldLeft Seq[Expression]())((exps, i) =>
-        exps ++ create_exps(WSubIndex(ex, i, t.tpe,gender(ex))))
+        exps ++ create_exps(WSubIndex(ex, i, t.tpe, ex.lbl,  gender(ex))))
     }
   }
    def get_flip(t: Type, i: Int, f: Orientation): Orientation = {
@@ -424,23 +427,23 @@ object Utils extends LazyLogging {
     case e: WRef => (e, EmptyExpression)
     case e: WSubIndex =>
       val (root, tail) = splitRef(e.exp)
-      (root, WSubIndex(tail, e.value, e.tpe, e.gender))
+      (root, WSubIndex(tail, e.value, e.tpe, e.lbl, e.gender))
     case e: WSubField =>
       val (root, tail) = splitRef(e.exp)
       tail match {
-        case EmptyExpression => (root, WRef(e.name, e.tpe, root.kind, e.gender))
-        case exp => (root, WSubField(tail, e.name, e.tpe, e.gender))
+        case EmptyExpression => (root, WRef(e.name, e.tpe, e.lbl, root.kind, e.gender))
+        case exp => (root, WSubField(tail, e.name, e.tpe, e.lbl, e.gender))
       }
   }
 
   /** Adds a root reference to some SubField/SubIndex chain */
   def mergeRef(root: WRef, body: Expression): Expression = body match {
     case e: WRef =>
-      WSubField(root, e.name, e.tpe, e.gender)
+      WSubField(root, e.name, e.tpe, e.lbl, e.gender)
     case e: WSubIndex =>
-      WSubIndex(mergeRef(root, e.exp), e.value, e.tpe, e.gender)
+      WSubIndex(mergeRef(root, e.exp), e.value, e.tpe, e.lbl, e.gender)
     case e: WSubField =>
-      WSubField(mergeRef(root, e.exp), e.name, e.tpe, e.gender)
+      WSubField(mergeRef(root, e.exp), e.name, e.tpe, e.lbl, e.gender)
     case EmptyExpression => root
   }
 

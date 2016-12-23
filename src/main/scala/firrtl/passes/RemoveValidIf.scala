@@ -11,7 +11,7 @@ object RemoveValidIf extends Pass {
    // Recursive. Removes ValidIf's
    private def onExp(e: Expression): Expression = {
       e map onExp match {
-         case ValidIf(cond, value, tpe) => value
+         case ValidIf(cond, value, tpe, lbl) => value
          case x => x
       }
    }

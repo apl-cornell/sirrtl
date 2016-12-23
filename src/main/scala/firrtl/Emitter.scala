@@ -28,11 +28,13 @@ class FirrtlEmitter extends Emitter {
 
 case class VRandom(width: BigInt) extends Expression {
   def tpe = UIntType(IntWidth(width))
+  def lbl = UnknownLabel
   def nWords = (width + 31) / 32
   def realWidth = nWords * 32
   def serialize: String = "RANDOM"
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
+  def mapLabel(f: Label => Label): Expression = this
   def mapWidth(f: Width => Width): Expression = this
 }
 
@@ -43,13 +45,15 @@ class VerilogEmitter extends Emitter with PassBased {
     else if ((e1 == we(zero)) | (e2 == we(zero))) zero
     else if (e1 == we(one)) e2.e1
     else if (e2 == we(one)) e1.e1
-    else DoPrim(And, Seq(e1.e1, e2.e1), Nil, UIntType(IntWidth(1)))
+    else DoPrim(And, Seq(e1.e1, e2.e1), Nil, UIntType(IntWidth(1)), JoinLabel(e1.e1.lbl, e2.e1.lbl))
   }
-  def wref(n: String, t: Type) = WRef(n, t, ExpKind, UNKNOWNGENDER)
+  // TODO I am assuming that labels are no longer important by the time the 
+  // emitter is called.
+  def wref(n: String, t: Type) = WRef(n, t, UnknownLabel, ExpKind, UNKNOWNGENDER)
   def remove_root(ex: Expression): Expression = ex match {
     case ex: WSubField => ex.exp match {
       case (e: WSubField) => remove_root(e)
-      case (_: WRef) => WRef(ex.name, ex.tpe, InstanceKind, UNKNOWNGENDER)
+      case (_: WRef) => WRef(ex.name, ex.tpe, ex.lbl, InstanceKind, UNKNOWNGENDER)
     }
     case _ => error("Shouldn't be here")
   }
@@ -230,7 +234,7 @@ class VerilogEmitter extends Emitter with PassBased {
           netlist(sx.expr) = wref(namespace.newTemp, sx.expr.tpe)
           sx
         case sx: DefNode =>
-          val e = WRef(sx.name, sx.value.tpe, NodeKind, MALE)
+          val e = WRef(sx.name, sx.value.tpe, sx.value.lbl, NodeKind, MALE)
           netlist(e) = sx.value
           sx
         case sx => sx
@@ -311,7 +315,8 @@ class VerilogEmitter extends Emitter with PassBased {
           if (weq(tv, r))
             addUpdate(fv, "")
           else
-            addUpdate(Mux(reset, tv, fv, mux_type_and_widths(tv, fv)), "")
+            addUpdate(Mux(reset, tv, fv, mux_type_and_widths(tv, fv),
+              JoinLabel(reset.lbl, JoinLabel(tv.e1.lbl, fv.e1.lbl))), "")
         }
       }
 
@@ -347,7 +352,7 @@ class VerilogEmitter extends Emitter with PassBased {
         val rstring = rand_string(s.dataType)
         initials += Seq("`ifdef RANDOMIZE_MEM_INIT")
         initials += Seq("for (initvar = 0; initvar < ", s.depth, "; initvar = initvar+1)")
-        initials += Seq(tab, WSubAccess(wref(s.name, s.dataType), index, s.dataType, FEMALE),
+        initials += Seq(tab, WSubAccess(wref(s.name, s.dataType), index, s.dataType, s.lbl, FEMALE),
                              " = ", rstring,";")
         initials += Seq("`endif")
       }
@@ -387,7 +392,7 @@ class VerilogEmitter extends Emitter with PassBased {
           case (_, Input) =>
             Seq(p.direction, "  ", p.tpe, " ", p.name)
           case (_, Output) =>
-            val ex = WRef(p.name, p.tpe, PortKind, FEMALE)
+            val ex = WRef(p.name, p.tpe, p.lbl, PortKind, FEMALE)
             assign(ex, netlist(ex))
             Seq(p.direction, " ", p.tpe, " ", p.name)
         }
@@ -415,7 +420,7 @@ class VerilogEmitter extends Emitter with PassBased {
           sx
         case sx: DefNode =>
           declare("wire", sx.name, sx.value.tpe)
-          assign(WRef(sx.name, sx.value.tpe, NodeKind, MALE), sx.value)
+          assign(WRef(sx.name, sx.value.tpe, sx.value.lbl, NodeKind, MALE), sx.value)
           sx
         case sx: Stop =>
           val errorString = StringLit(s"${sx.ret}\n".getBytes)
@@ -429,7 +434,7 @@ class VerilogEmitter extends Emitter with PassBased {
             case ExtModule(_, _, _, extname, params) => (extname, params)
             case Module(_, name, _, _) => (name, Seq.empty)
           }
-          val es = create_exps(WRef(sx.name, sx.tpe, InstanceKind, MALE))
+          val es = create_exps(WRef(sx.name, sx.tpe, UnknownLabel, InstanceKind, MALE))
           val ps = if (params.nonEmpty) params map stringify mkString ("#(", ", ", ") ") else ""
           instdeclares += Seq(module, " ", ps, sx.name ," (")
           (es zip sx.exprs).zipWithIndex foreach {case ((l, r), i) =>
@@ -459,10 +464,10 @@ class VerilogEmitter extends Emitter with PassBased {
             //; Read port
             assign(addr, netlist(addr)) //;Connects value to m.r.addr
             // assign(en, netlist(en))     //;Connects value to m.r.en
-            val mem = WRef(sx.name, memType(sx), MemKind, UNKNOWNGENDER)
-            val memPort = WSubAccess(mem, addr, sx.dataType, UNKNOWNGENDER)
+            val mem = WRef(sx.name, memType(sx), sx.lbl, MemKind, UNKNOWNGENDER)
+            val memPort = WSubAccess(mem, addr, sx.dataType, sx.lbl, UNKNOWNGENDER)
             val depthValue = UIntLiteral(sx.depth, IntWidth(BigInt(sx.depth).bitLength))
-            val garbageGuard = DoPrim(Geq, Seq(addr, depthValue), Seq(), UnknownType)
+            val garbageGuard = DoPrim(Geq, Seq(addr, depthValue), Seq(), UnknownType, UnknownLabel)
 
             if ((sx.depth & (sx.depth - 1)) == 0)
               assign(data, memPort)
@@ -489,8 +494,8 @@ class VerilogEmitter extends Emitter with PassBased {
             assign(mask, netlist(mask))
             assign(en, netlist(en))
 
-            val mem = WRef(sx.name, memType(sx), MemKind, UNKNOWNGENDER)
-            val memPort = WSubAccess(mem, addr, sx.dataType, UNKNOWNGENDER)
+            val mem = WRef(sx.name, memType(sx), sx.lbl, MemKind, UNKNOWNGENDER)
+            val memPort = WSubAccess(mem, addr, sx.dataType, sx.lbl, UNKNOWNGENDER)
             update(memPort, data, clk, AND(en, mask))
           }
 

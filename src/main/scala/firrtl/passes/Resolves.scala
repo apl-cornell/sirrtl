@@ -50,10 +50,10 @@ object ResolveGenders extends Pass {
   def resolve_e(g: Gender)(e: Expression): Expression = e match {
     case ex: WRef => ex copy (gender = g)
     case WSubField(exp, name, tpe, lbl, _) => WSubField(
-      Utils.field_flip(exp.tpe, lbl, name) match {
+      Utils.field_flip(exp.tpe, name) match {
         case Default => resolve_e(g)(exp)
         case Flip => resolve_e(Utils.swap(g))(exp)
-      }, name, tpe, g)
+      }, name, tpe, lbl, g)
     case WSubIndex(exp, value, tpe, lbl, _) =>
       WSubIndex(resolve_e(g)(exp), value, tpe, lbl, g)
     case WSubAccess(exp, index, tpe, lbl, _) =>

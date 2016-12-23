@@ -17,10 +17,10 @@ object RemoveAccesses extends Pass {
   def name = "Remove Accesses"
 
   private def AND(e1: Expression, e2: Expression) =
-    DoPrim(And, Seq(e1, e2), Nil, BoolType)
+    DoPrim(And, Seq(e1, e2), Nil, BoolType, JoinLabel(e1.lbl,e2.lbl))
 
   private def EQV(e1: Expression, e2: Expression): Expression =
-    DoPrim(Eq, Seq(e1, e2), Nil, e1.tpe)
+    DoPrim(Eq, Seq(e1, e2), Nil, e1.tpe, JoinLabel(e1.lbl, e2.lbl))
 
   /** Container for a base expression and its corresponding guard
     */
@@ -85,7 +85,7 @@ object RemoveAccesses extends Pass {
       def onStmt(s: Statement): Statement = {
         def create_temp(e: Expression): (Statement, Expression) = {
           val n = namespace.newTemp
-          (DefWire(get_info(s), n, e.tpe, UnknownLabel), WRef(n, e.tpe, kind(e), gender(e)))
+          (DefWire(get_info(s), n, e.tpe, e.lbl), WRef(n, e.tpe, e.lbl, kind(e), gender(e)))
         }
 
         /** Replaces a subaccess in a given male expression
@@ -133,7 +133,7 @@ object RemoveAccesses extends Pass {
           * Otherwise, map to children.
           */
         def fixMale(e: Expression): Expression = e match {
-          case w: WSubAccess => removeMale(WSubAccess(w.exp, fixMale(w.index), w.tpe, w.gender))
+          case w: WSubAccess => removeMale(WSubAccess(w.exp, fixMale(w.index), w.tpe, w.lbl, w.gender))
           //case w: WSubIndex => removeMale(w)
           //case w: WSubField => removeMale(w)
           case x => x map fixMale
@@ -144,7 +144,7 @@ object RemoveAccesses extends Pass {
           * Otherwise, map to children.
           */
         def fixFemale(e: Expression): Expression = e match {
-          case w: WSubAccess => WSubAccess(fixFemale(w.exp), fixMale(w.index), w.tpe, w.gender)
+          case w: WSubAccess => WSubAccess(fixFemale(w.exp), fixMale(w.index), w.tpe, w.lbl, w.gender)
           case x => x map fixFemale
         }
 

@@ -69,13 +69,13 @@ object CheckWidths extends Pass {
             errors append new WidthTooSmall(info, mname, e.value)
           case _ =>
         }
-        case DoPrim(Bits, Seq(a), Seq(hi, lo), _) if (hasWidth(a.tpe) && bitWidth(a.tpe) <= hi) =>
+        case DoPrim(Bits, Seq(a), Seq(hi, lo), _,_) if (hasWidth(a.tpe) && bitWidth(a.tpe) <= hi) =>
           errors append new BitsWidthException(info, mname, hi, bitWidth(a.tpe))
-        case DoPrim(Head, Seq(a), Seq(n), _) if (hasWidth(a.tpe) && bitWidth(a.tpe) < n) =>
+        case DoPrim(Head, Seq(a), Seq(n), _,_) if (hasWidth(a.tpe) && bitWidth(a.tpe) < n) =>
           errors append new HeadWidthException(info, mname, n, bitWidth(a.tpe))
-        case DoPrim(Tail, Seq(a), Seq(n), _) if (hasWidth(a.tpe) && bitWidth(a.tpe) <= n) =>
+        case DoPrim(Tail, Seq(a), Seq(n), _,_) if (hasWidth(a.tpe) && bitWidth(a.tpe) <= n) =>
           errors append new TailWidthException(info, mname, n, bitWidth(a.tpe))
-        case DoPrim(Dshl, Seq(a, b), _, _) if (hasWidth(a.tpe) && bitWidth(b.tpe) >= DshlMaxWidth) =>
+        case DoPrim(Dshl, Seq(a, b), _, _,_) if (hasWidth(a.tpe) && bitWidth(b.tpe) >= DshlMaxWidth) =>
           errors append new DshlTooBig(info, mname)
         case _ =>
       }

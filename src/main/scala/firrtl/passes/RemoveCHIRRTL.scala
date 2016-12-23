@@ -36,7 +36,7 @@ object RemoveCHIRRTL extends Pass {
       case t: BundleType => (t.fields foldLeft Seq[Expression]())((exps, f) =>
         exps ++ create_exps(SubField(ex, f.name, f.tpe, f.lbl)))
       case t: VectorType => ((0 until t.size) foldLeft Seq[Expression]())((exps, i) =>
-        exps ++ create_exps(SubIndex(ex, i, t.tpe, t.lbl)))
+        exps ++ create_exps(SubIndex(ex, i, t.tpe, ex.lbl)))
       case UnknownType => Seq(ex)
     }
   }

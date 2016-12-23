@@ -271,7 +271,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
               (visitExp(sr.exp(0)), visitExp(sr.exp(1)))
             }
             else
-              (UIntLiteral(0, IntWidth(1)), Reference(name, tpe))
+              (UIntLiteral(0, IntWidth(1)), Reference(name, tpe, lbl))
           }
           DefRegister(info, name, tpe, lbl, visitExp(ctx.exp(0)), reset, init)
         case "mem" => visitMem(ctx)
@@ -318,7 +318,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
   // - Add validif
   private def visitExp[FirrtlNode](ctx: FIRRTLParser.ExpContext): Expression =
     if (ctx.getChildCount == 1)
-      Reference(ctx.getText, UnknownType)
+      Reference(ctx.getText, UnknownType, UnknownLabel)
     else
       ctx.getChild(0).getText match {
         case "UInt" =>
@@ -340,17 +340,17 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
               (IntWidth(BigInt(bigint.bitLength + 1)), bigint)
             }
           SIntLiteral(value, width)
-        case "validif(" => ValidIf(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), UnknownType)
-        case "mux(" => Mux(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), visitExp(ctx.exp(2)), UnknownType)
+        case "validif(" => ValidIf(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), UnknownType, UnknownLabel)
+        case "mux(" => Mux(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), visitExp(ctx.exp(2)), UnknownType, UnknownLabel)
         case _ =>
           ctx.getChild(1).getText match {
-            case "." => new SubField(visitExp(ctx.exp(0)), ctx.id.getText, UnknownType)
+            case "." => new SubField(visitExp(ctx.exp(0)), ctx.id.getText, UnknownType, UnknownLabel)
             case "[" => if (ctx.exp(1) == null)
-              new SubIndex(visitExp(ctx.exp(0)), string2Int(ctx.IntLit(0).getText), UnknownType)
-            else new SubAccess(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), UnknownType)
+              new SubIndex(visitExp(ctx.exp(0)), string2Int(ctx.IntLit(0).getText), UnknownType, UnknownLabel)
+            else new SubAccess(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), UnknownType, UnknownLabel)
             // Assume primop
             case _ => DoPrim(visitPrimop(ctx.primop), ctx.exp.map(visitExp),
-              ctx.IntLit.map(x => string2BigInt(x.getText)), UnknownType)
+              ctx.IntLit.map(x => string2BigInt(x.getText)), UnknownType, UnknownLabel)
           }
       }
 

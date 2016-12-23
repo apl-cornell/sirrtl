@@ -18,7 +18,7 @@ object DeadCodeElimination extends Pass {
 
     def checkExpressionUse(e: Expression): Expression = {
       e match {
-        case WRef(name, _, _, _) => referenced += name
+        case WRef(name, _, _, _, _) => referenced += name
         case _ => e map checkExpressionUse
       }
       e

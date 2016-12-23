@@ -16,8 +16,9 @@ object VerilogMemDelays extends Pass {
   val ug = UNKNOWNGENDER
   type Netlist = collection.mutable.HashMap[String, Expression]
   implicit def expToString(e: Expression): String = e.serialize
-  private def NOT(e: Expression) = DoPrim(Not, Seq(e), Nil, BoolType)
-  private def AND(e1: Expression, e2: Expression) = DoPrim(And, Seq(e1, e2), Nil, BoolType)
+  private def NOT(e: Expression) = DoPrim(Not, Seq(e), Nil, BoolType, e.lbl)
+  private def AND(e1: Expression, e2: Expression) = DoPrim(And, Seq(e1, e2), Nil,
+    BoolType, JoinLabel(e1.lbl, e2.lbl))
 
   def buildNetlist(netlist: Netlist)(s: Statement): Statement = {
     s match {
@@ -60,17 +61,17 @@ object VerilogMemDelays extends Pass {
         // 1) reference to the last pipe register
         // 2) pipe registers and connects
         val node = DefNode(NoInfo, namespace.newTemp, netlist(e))
-        val wref = WRef(node.name, e.tpe, NodeKind, MALE)
+        val wref = WRef(node.name, e.tpe, e.lbl, NodeKind, MALE)
         ((0 until n) foldLeft (wref, Seq[Statement](node))){case ((ex, stmts), i) =>
           val name = namespace newName s"${LowerTypes.loweredName(e)}_pipe_$i"
-          val exx = WRef(name, e.tpe, RegKind, ug)
+          val exx = WRef(name, e.tpe, e.lbl, RegKind, ug)
           //TODO
-          (exx, stmts ++ Seq(DefRegister(NoInfo, name, e.tpe,UnknownLabel, clk, zero, exx)) ++
+          (exx, stmts ++ Seq(DefRegister(NoInfo, name, e.tpe, e.lbl, clk, zero, exx)) ++
             (if (i < n - 1 && WrappedExpression.weq(cond, one)) Seq(Connect(NoInfo, exx, ex)) else {
               val condn = namespace newName s"${LowerTypes.loweredName(e)}_en"
-              val condx = WRef(condn, BoolType, NodeKind, FEMALE)
+              val condx = WRef(condn, BoolType, e.lbl, NodeKind, FEMALE)
               Seq(DefNode(NoInfo, condn, cond),
-                  Connect(NoInfo, exx, Mux(condx, ex, exx, e.tpe)))
+                  Connect(NoInfo, exx, Mux(condx, ex, exx, e.tpe, JoinLabel(ex.lbl, exx.lbl))))
             })
           )
         }

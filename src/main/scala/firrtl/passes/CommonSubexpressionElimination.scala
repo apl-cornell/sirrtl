@@ -26,11 +26,11 @@ object CommonSubexpressionElimination extends Pass {
     }
 
     def eliminateNodeRef(e: Expression): Expression = e match {
-      case WRef(name, tpe, kind, gender) => nodes get name match {
+      case WRef(name, tpe, lbl, kind, gender) => nodes get name match {
         case Some(expression) => expressions get expression match {
           case Some(cseName) if cseName != name =>
             nEliminated += 1
-            WRef(cseName, tpe, kind, gender)
+            WRef(cseName, tpe, lbl, kind, gender)
           case _ => e
         }
         case _ => e

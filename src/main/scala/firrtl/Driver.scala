@@ -133,8 +133,8 @@ object Driver {
             val message = s"Input file $inputFileName not found"
             dramaticError(message)
             return FirrtlExecutionFailure(message)
-          }
         }
+    }
 
     loadAnnotations(optionsManager)
 
