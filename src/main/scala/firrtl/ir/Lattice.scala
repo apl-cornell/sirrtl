@@ -9,8 +9,8 @@ import scala.collection.immutable.Map
 // Each level is mapped to the set of levels it is covered by (i.e., 
 // immediately lower than on the Hasse diagram of the lattice).
 object PolicyHolder {
-  val policy = new Lattice[Level]{
-    val covers : Map[Level,Set[Level]] = Map(
+  def policy = new Lattice[Level]{
+    def covers : Map[Level,Set[Level]] = Map(
       Level("L") -> Set(Level("D1"),Level("D2")),
       Level("D1") -> Set(Level("H")),
       Level("D2") -> Set(Level("H")),
@@ -26,7 +26,7 @@ abstract class Lattice[T] {
   // Department of ECE at UT Austin.
 
   // covers(x) = { y | y covers x }
-  val covers : Map[T,Set[T]]
+  def covers : Map[T,Set[T]]
 
   // Does a DFS of covers producing a set of elements reachable from x.
   def reachable(x: T) : Set[T] =
