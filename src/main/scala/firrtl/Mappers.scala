@@ -72,6 +72,22 @@ object Mappers {
     def map[T](f: T => T)(implicit magnet: (T => T) => TypeMagnet): Type = magnet(f).map(tpe)
   }
 
+  // ********** Label Mappers **********
+  private trait LabelMagnet {
+    def map(lbl: Label): Label
+  }
+  private object LabelMagnet {
+    implicit def forLabel(f: Label => Label): LabelMagnet = new LabelMagnet {
+      override def map(lbl: Label): Label = lbl mapLabel f
+    }
+    implicit def forExpr(f: Expression => Expression): LabelMagnet = new LabelMagnet {
+      override def map(lbl: Label): Label = lbl mapExpr f
+    }
+  }
+  implicit class LabelMap(val lbl: Label) extends AnyVal {
+    def map[T](f: T => T)(implicit magnet: (T => T) => LabelMagnet): Label = magnet(f).map(lbl)
+  }
+
   // ********** Width Mappers **********
   private trait WidthMagnet {
     def map(width: Width): Width

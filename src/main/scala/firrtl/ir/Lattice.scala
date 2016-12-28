@@ -38,18 +38,38 @@ abstract class Lattice[T] {
 
   def leq(x: T, y: T) = reachable(x).contains(y)
 
-  def join(x: T, y: T) : T = {
+  def join(x: T, y: T) = join_opt(x, y)
+
+  def join_core(x: T, y: T) : T = {
     val upper = reachable(x) & reachable(y)
     val candidates = upper.map{ e => (e, (canReach(e) & upper).size)}.filter{
       _._2 == 1}.map{ _._1 }
     candidates.iterator.next
   }
 
-  def meet(x: T, y: T) : T = {
+  def join_opt(x: T, y: T) : T = (x, y) match {
+    case _ if x == top => top
+    case _ if y == top => top
+    case _ if x == bottom => y
+    case _ if y == bottom => x
+    case _ => join_core(x, y)
+  }
+
+  def meet(x: T, y: T) = meet_opt(x, y)
+  
+  def meet_core(x: T, y: T) : T = {
     val lower = canReach(x) & canReach(y)
     val candidates = lower.map{ e => (e, (reachable(e) & lower).size)}.filter{
       _._2 == 1}.map{ _._1 }
     candidates.iterator.next
+  }
+
+  def meet_opt(x: T, y: T) : T = (x, y) match {
+    case _ if x == top => y
+    case _ if y == top => x
+    case _ if x == bottom => bottom
+    case _ if y == bottom => bottom
+    case _ => join_core(x, y)
   }
 
   val bottom = covers.keys.fold(covers.keys.head)(meet(_,_))
