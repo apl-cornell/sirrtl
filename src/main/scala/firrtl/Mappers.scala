@@ -24,6 +24,9 @@ object Mappers {
     implicit def forString(f: String => String): StmtMagnet = new StmtMagnet {
       override def map(stmt: Statement): Statement = stmt mapString f
     }
+    implicit def forLabel(f: Label => Label): StmtMagnet = new StmtMagnet {
+      override def map(stmt: Statement): Statement = stmt mapLabel f
+    }
   }
   implicit class StmtMap(val stmt: Statement) extends AnyVal {
     // Using implicit types to allow overloading of function type to map, see StmtMagnet above
@@ -44,6 +47,10 @@ object Mappers {
     implicit def forWidth(f: Width => Width): ExprMagnet = new ExprMagnet {
       override def map(expr: Expression): Expression = expr mapWidth f
     }
+    implicit def forLabel(f: Label => Label): ExprMagnet = new ExprMagnet {
+      override def map(expr: Expression): Expression = expr mapLabel f
+    }
+
   }
   implicit class ExprMap(val expr: Expression) extends AnyVal {
     def map[T](f: T => T)(implicit magnet: (T => T) => ExprMagnet): Expression = magnet(f).map(expr)

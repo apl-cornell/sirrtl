@@ -254,6 +254,13 @@ object Utils extends LazyLogging {
     }
     case vx => UnknownType
   }
+  def field_label(v: Label, s: String) : Label = v match {
+    case vx: BundleLabel => vx.fields find (_.name == s) match {
+      case Some(f) => f.lbl
+      case None => UnknownLabel
+    }
+    case vx => UnknownLabel
+  }
 //>>>>>>> e54fb610c6bf0a7fe5c9c0f0e0b3acbb3728cfd0
    
 // =================================

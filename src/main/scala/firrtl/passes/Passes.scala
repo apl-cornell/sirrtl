@@ -10,6 +10,11 @@ import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.PrimOps._
 
+object LabelDebug {
+  val debugIflow = true
+  def p(s:String) = if(debugIflow) { println(s) } 
+}
+
 trait Pass extends LazyLogging {
   def name: String
   def run(c: Circuit): Circuit

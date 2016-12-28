@@ -30,4 +30,5 @@ case class DefAnnotatedMemory(
   def toMem = DefMemory(info, name, dataType, UnknownLabel, depth,
     writeLatency, readLatency, readers, writers,
     readwriters, readUnderWrite)
+  def mapLabel(f: Label => Label): Statement = this
 }

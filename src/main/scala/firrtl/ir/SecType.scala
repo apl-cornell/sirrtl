@@ -2,17 +2,18 @@ package firrtl
 package ir
 
 abstract class Label extends FirrtlNode {
-  def accept[T](visitor : LabelVisitor[T]) : T
-  def accept(visitor : LabelSwapVisitor) : Label
+  // def accept[T](visitor : LabelVisitor[T]) : T
+  // def accept(visitor : LabelSwapVisitor) : Label
   def join(that: Label) = JoinLabel(this, that)
   def meet(that: Label) = MeetLabel(this, that)
-  def serialize = ""
+  def serialize : String
+  override def toString = serialize
 }
 
 case object UnknownLabel extends Label {
-  override def toString = s"UNKNOWN"
-  override def accept[T](visitor : LabelVisitor[T]) : T = visitor.default
-  override def accept(visitor : LabelSwapVisitor) : Label = this
+  def serialize = "{UNKNOWN}"
+  // override def accept[T](visitor : LabelVisitor[T]) : T = visitor.default
+  // override def accept(visitor : LabelSwapVisitor) : Label = this
 }
 
 case class Level(var label: String)  extends Label{
@@ -21,26 +22,30 @@ case class Level(var label: String)  extends Label{
     case _ => false
   }
   def <=(that: Level) = PolicyHolder.policy.leq(this,that)
-  override def hashCode = label.hashCode
-  override def toString = label
+  def serialize = s"{${label}}"
+  /*
   override def accept[T](visitor : LabelVisitor[T]) : T = visitor visit this
   override def accept(visitor : LabelSwapVisitor) : Label =
     visitor visit this
+  */
 }
 
 object JoinLabel {
-  def apply(l : Label, r: Label) = (l, r) match {
-    case (tl: Level, _) if tl == PolicyHolder.policy.bottom => r
-    case (_, tr: Level) if tr == PolicyHolder.policy.bottom => l
-    case (tl: Level, _) if tl == PolicyHolder.policy.top => 
-      PolicyHolder.policy.top
-    case (_, tr: Level) if tr == PolicyHolder.policy.top => 
-      PolicyHolder.policy.top
+  val bot : Label = PolicyHolder.policy.bottom
+  val top : Label = PolicyHolder.policy.top
+  def apply(l : Label, r: Label) : Label = (l, r) match {
+    // TODO move these optimizations into the lattice...
+    case (tl: Level, _) if tl == bot => r
+    case (_, tr: Level) if tr == bot => l
+    case (tl: Level, _) if tl == top => top
+    case (_, tr: Level) if tr == top => top
     case (tl: Label, tr: Label) if tl == tr => tl
-    case (tl: Level, tr: Level)  => 
-      PolicyHolder.policy.join(tl, tr)
+
+    // This is the only part that should happen here
+    case (tl: Level, tr: Level)  => PolicyHolder.policy.join(tl, tr)
     case _ => new JoinLabel(l,r)
   }
+  def apply(l: Label*) : Label = l.foldRight(bot) { apply(_,_) }
   def unapply(j: JoinLabel) = Some((j.type_l, j.type_r))
 }
 
@@ -50,19 +55,24 @@ class JoinLabel private (var type_l : Label, var type_r: Label) extends Label{
     case JoinLabel(l,r) => l == type_l && r == type_r
     case _ => false
   }
-  override def toString = type_l.toString + " join " + type_r.toString
+  def serialize=  s"${type_l.serialize} join ${type_r.serialize}"
+  /*
   override def accept[T](visitor : LabelVisitor[T]) : T = visitor visit this
   override def accept(visitor : LabelSwapVisitor) : Label =
     visitor visit this
+  */
 
 }
 
 object MeetLabel {
+  val bot : Label = PolicyHolder.policy.bottom
+  val top : Label = PolicyHolder.policy.top
   def apply(l : Label, r: Label) = (l, r) match {
     case (tl: Level, tr: Level)  => 
       PolicyHolder.policy.meet(tl, tr)
     case _ => new MeetLabel(l,r)
   }
+  def apply(l: Label*) : Label = l.foldRight(top) { apply(_,_) }
   def unapply(m: MeetLabel) = Some((m.type_l, m.type_r))
 }
 
@@ -72,10 +82,19 @@ class MeetLabel private (var type_l : Label, var type_r: Label) extends Label{
     case MeetLabel(l,r) => l == type_l && r == type_r
     case _ => false
   }
-  override def toString = type_l.toString + " join " + type_r.toString
+  def serialize = type_l.serialize + " join " + type_r.serialize
+  /*
   override def accept[T](visitor : LabelVisitor[T]) : T = visitor visit this
   override def accept(visitor : LabelSwapVisitor) : Label =
     visitor visit this
+  */
+}
+
+case class BundleLabel(fields: Seq[Field]) extends Label {
+  def serializeField(f: Field) = f.flip.serialize + f.name + " : " + f.lbl.serialize
+  def serialize: String = "{ " + (fields map (serializeField(_)) mkString ", ") + "}"
+  def mapLabel(f: Label => Label): Label = 
+    BundleLabel( fields map ( x => x.copy(lbl = f(x.lbl))))
 }
 
 // Labels which are possibly dependent and contain subexpressions
@@ -114,6 +133,7 @@ object CaseLabel {
 }
 */
 
+/*
 abstract class LabelVisitor[T] {
   def default : T
   def reduce(a: T, b: T) : T
@@ -128,14 +148,14 @@ abstract class LabelVisitor[T] {
       reduce((l accept this),(r accept this))
   }
 
-  /*
   def visit(s: IfLabel) : T = s match {
     case IfLabel(cond, tType, fType) =>
       reduce((tType accept this),(fType accept this))
   }
-  */
 }
+*/
 
+/*
 abstract class LabelSwapVisitor {
  // def visit(s: UnknownLabel) : Label = s
   def visit(s: Level) : Label = s
@@ -148,11 +168,10 @@ abstract class LabelSwapVisitor {
       MeetLabel((l accept this),(r accept this))
   }
 
-  /*
   def visit(s: IfLabel) : Label = s match {
     case IfLabel(cond, tType, fType) =>
       IfLabel(cond, tType accept this, fType accept this)
   }
-  */
     
 }
+*/

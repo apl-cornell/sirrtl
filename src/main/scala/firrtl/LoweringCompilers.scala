@@ -44,7 +44,9 @@ class ResolveAndCheck extends CoreTransform {
     passes.ResolveGenders,
     passes.CheckGenders,
     passes.InferWidths,
-    passes.CheckWidths)
+    passes.CheckWidths,
+    passes.InferLabels,
+    passes.LabelCheck)
 }
 
 /** Expands aggregate connects, removes dynamic accesses, and when

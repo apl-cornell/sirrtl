@@ -86,6 +86,7 @@ case class WDefInstance(info: Info, name: String, module: String, tpe: Type) ext
   def mapStmt(f: Statement => Statement): Statement = this
   def mapType(f: Type => Type): Statement = this.copy(tpe = f(tpe))
   def mapString(f: String => String): Statement = this.copy(name = f(name))
+  def mapLabel(f: Label => Label): Statement = this
 }
 case class WDefInstanceConnector(info: Info, name: String, module: String, tpe: Type, exprs: Seq[Expression]) extends Statement with IsDeclaration {
   def serialize: String = s"inst $name of $module with ${tpe.serialize} connected to (" + exprs.map(_.serialize).mkString(", ") + ")" + info.serialize
@@ -93,6 +94,7 @@ case class WDefInstanceConnector(info: Info, name: String, module: String, tpe: 
   def mapStmt(f: Statement => Statement): Statement = this
   def mapType(f: Type => Type): Statement = this.copy(tpe = f(tpe))
   def mapString(f: String => String): Statement = this.copy(name = f(name))
+  def mapLabel(f: Label => Label): Statement = this
 }
 
 
@@ -271,6 +273,7 @@ case class CDefMemory(
   def mapStmt(f: Statement => Statement): Statement = this
   def mapType(f: Type => Type): Statement = this.copy(tpe = f(tpe))
   def mapString(f: String => String): Statement = this.copy(name = f(name))
+  def mapLabel(f: Label => Label): Statement = this.copy(lbl = f(lbl))
 }
 case class CDefMPort(info: Info,
     name: String,
@@ -287,5 +290,6 @@ case class CDefMPort(info: Info,
   def mapStmt(f: Statement => Statement): Statement = this
   def mapType(f: Type => Type): Statement = this.copy(tpe = f(tpe))
   def mapString(f: String => String): Statement = this.copy(name = f(name))
+  def mapLabel(f: Label => Label): Statement = this.copy(lbl = f(lbl))
 }
 

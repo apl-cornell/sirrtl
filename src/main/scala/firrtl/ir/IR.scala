@@ -143,6 +143,7 @@ abstract class Statement extends FirrtlNode {
   def mapStmt(f: Statement => Statement): Statement
   def mapExpr(f: Expression => Expression): Statement
   def mapType(f: Type => Type): Statement
+  def mapLabel(f: Label => Label): Statement
   def mapString(f: String => String): Statement
 }
 case class DefWire(info: Info, name: String, tpe: Type, lbl: Label)
@@ -152,6 +153,7 @@ case class DefWire(info: Info, name: String, tpe: Type, lbl: Label)
   def mapExpr(f: Expression => Expression): Statement = this
   def mapType(f: Type => Type): Statement = DefWire(info, name, f(tpe), lbl)
   def mapString(f: String => String): Statement = DefWire(info, f(name), tpe, lbl)
+  def mapLabel(f: Label => Label): Statement = this.copy(lbl = f(lbl))
 }
 case class DefRegister(
     info: Info,
@@ -169,6 +171,7 @@ case class DefRegister(
     DefRegister(info, name, tpe, lbl, f(clock), f(reset), f(init))
   def mapType(f: Type => Type): Statement = this.copy(tpe = f(tpe))
   def mapString(f: String => String): Statement = this.copy(name = f(name))
+  def mapLabel(f: Label => Label): Statement = this.copy(lbl = f(lbl))
 
 }
 case class DefInstance(info: Info, name: String, module: String) extends Statement with IsDeclaration {
@@ -177,6 +180,7 @@ case class DefInstance(info: Info, name: String, module: String) extends Stateme
   def mapExpr(f: Expression => Expression): Statement = this
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = DefInstance(info, f(name), module)
+  def mapLabel(f: Label => Label): Statement = this
 }
 case class DefMemory(
     info: Info,
@@ -207,6 +211,7 @@ case class DefMemory(
   def mapExpr(f: Expression => Expression): Statement = this
   def mapType(f: Type => Type): Statement = this.copy(dataType = f(dataType))
   def mapString(f: String => String): Statement = this.copy(name = f(name))
+  def mapLabel(f: Label => Label): Statement = this.copy(lbl = f(lbl))
 }
 case class DefNode(info: Info, name: String, value: Expression) extends Statement with IsDeclaration {
   def serialize: String = s"node $name = ${value.serialize}" + info.serialize
@@ -214,6 +219,7 @@ case class DefNode(info: Info, name: String, value: Expression) extends Statemen
   def mapExpr(f: Expression => Expression): Statement = DefNode(info, name, f(value))
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = DefNode(info, f(name), value)
+  def mapLabel(f: Label => Label): Statement = this
 }
 case class Conditionally(
     info: Info,
@@ -229,6 +235,7 @@ case class Conditionally(
   def mapExpr(f: Expression => Expression): Statement = Conditionally(info, f(pred), conseq, alt)
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
+  def mapLabel(f: Label => Label): Statement = this
 }
 case class Block(stmts: Seq[Statement]) extends Statement {
   def serialize: String = stmts map (_.serialize) mkString "\n"
@@ -236,6 +243,7 @@ case class Block(stmts: Seq[Statement]) extends Statement {
   def mapExpr(f: Expression => Expression): Statement = this
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
+  def mapLabel(f: Label => Label): Statement = this
 }
 case class PartialConnect(info: Info, loc: Expression, expr: Expression) extends Statement with HasInfo {
   def serialize: String =  s"${loc.serialize} <- ${expr.serialize}" + info.serialize
@@ -243,6 +251,7 @@ case class PartialConnect(info: Info, loc: Expression, expr: Expression) extends
   def mapExpr(f: Expression => Expression): Statement = PartialConnect(info, f(loc), f(expr))
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
+  def mapLabel(f: Label => Label): Statement = this
 }
 case class Connect(info: Info, loc: Expression, expr: Expression) extends Statement with HasInfo {
   def serialize: String =  s"${loc.serialize} <= ${expr.serialize}" + info.serialize
@@ -250,6 +259,7 @@ case class Connect(info: Info, loc: Expression, expr: Expression) extends Statem
   def mapExpr(f: Expression => Expression): Statement = Connect(info, f(loc), f(expr))
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
+  def mapLabel(f: Label => Label): Statement = this
 }
 case class IsInvalid(info: Info, expr: Expression) extends Statement with HasInfo {
   def serialize: String =  s"${expr.serialize} is invalid" + info.serialize
@@ -257,6 +267,7 @@ case class IsInvalid(info: Info, expr: Expression) extends Statement with HasInf
   def mapExpr(f: Expression => Expression): Statement = IsInvalid(info, f(expr))
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
+  def mapLabel(f: Label => Label): Statement = this
 }
 case class Attach(info: Info, source: Expression, exprs: Seq[Expression]) extends Statement with HasInfo {
   def serialize: String = "attach " + source.serialize + " to (" + exprs.map(_.serialize).mkString(", ") + ")"
@@ -264,6 +275,7 @@ case class Attach(info: Info, source: Expression, exprs: Seq[Expression]) extend
   def mapExpr(f: Expression => Expression): Statement = Attach(info, f(source), exprs map f)
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
+  def mapLabel(f: Label => Label) : Statement = this
 }
 case class Stop(info: Info, ret: Int, clk: Expression, en: Expression) extends Statement with HasInfo {
   def serialize: String = s"stop(${clk.serialize}, ${en.serialize}, $ret)" + info.serialize
@@ -271,6 +283,7 @@ case class Stop(info: Info, ret: Int, clk: Expression, en: Expression) extends S
   def mapExpr(f: Expression => Expression): Statement = Stop(info, ret, f(clk), f(en))
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
+  def mapLabel(f: Label => Label): Statement = this
 }
 case class Print(
     info: Info,
@@ -287,6 +300,7 @@ case class Print(
   def mapExpr(f: Expression => Expression): Statement = Print(info, string, args map f, f(clk), f(en))
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
+  def mapLabel(f: Label => Label): Statement = this 
 }
 case object EmptyStmt extends Statement {
   def serialize: String = "skip"
@@ -294,6 +308,7 @@ case object EmptyStmt extends Statement {
   def mapExpr(f: Expression => Expression): Statement = this
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
+  def mapLabel(f: Label => Label): Statement = this
 }
 
 abstract class Width extends FirrtlNode {
@@ -485,6 +500,7 @@ case class Module(info: Info, name: String, ports: Seq[Port], body: Statement) e
   def mapStmt(f: Statement => Statement): DefModule = this.copy(body = f(body))
   def mapPort(f: Port => Port): DefModule = this.copy(ports = ports map f)
   def mapString(f: String => String): DefModule = this.copy(name = f(name))
+  // TODO apply function to labels of ports?
 }
 /** External Module
   *
