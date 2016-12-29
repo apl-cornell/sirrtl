@@ -69,7 +69,7 @@ abstract class Lattice[T] {
     case _ if y == top => x
     case _ if x == bottom => bottom
     case _ if y == bottom => bottom
-    case _ => join_core(x, y)
+    case _ => meet_core(x, y)
   }
 
   val bottom = covers.keys.fold(covers.keys.head)(meet(_,_))

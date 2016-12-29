@@ -46,7 +46,7 @@ object Logger {
 
   // TODO make this a compile option. Possibly actually log this info rather 
   // than printing.
-  val debugIflow = true
+  val debugIflow = false
   def sdprint(s:String) = if(debugIflow) { println(s) } 
 
   def showMessage(level: LogLevel.Value, className: String, message: => String): Unit = {

@@ -137,6 +137,8 @@ trait HasCommonOptions {
 case class FirrtlExecutionOptions(
     inputFileNameOverride:  String = "",
     outputFileNameOverride: String = "",
+    constraintFileNameOverride: String = "",
+    doLabelChecking:        Boolean = false,
     compilerName:           String = "verilog",
     infoModeName:           String = "append",
     inferRW:                Seq[String] = Seq.empty,
@@ -194,6 +196,15 @@ case class FirrtlExecutionOptions(
     optionsManager.getBuildFileName(outputSuffix, outputFileNameOverride)
   }
   /**
+    * build the z3 constraint file name, taking overriding parameters
+    *
+    * @param optionsManager this is needed to access build function and its common options
+    * @return
+    */
+  def getConstraintFileName(optionsManager: ExecutionOptionsManager): String = {
+    optionsManager.getBuildFileName("z3", constraintFileNameOverride)
+  }
+  /**
     * build the annotation file name, taking overriding parameters
     *
     * @param optionsManager this is needed to access build function and its common options
@@ -226,6 +237,16 @@ trait HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(outputFileNameOverride = x)
     }.text {
     "use this to override the default output file name, default is empty"
+  }
+  
+  parser.opt[String]("output-file")
+    .abbr("z")
+    .valueName ("<constraint>").
+    foreach { x =>
+      firrtlOptions = firrtlOptions.copy(constraintFileNameOverride = x)
+      firrtlOptions = firrtlOptions.copy(doLabelChecking = true)
+    }.text {
+    "use this to override the default constraint file name, by default no constraint is generated"
   }
 
   parser.opt[String]("annotation-file")

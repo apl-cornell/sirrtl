@@ -60,6 +60,9 @@ object Driver {
     outputString
   }
 
+  var doLabelChecking = false
+  var constraintFileName = ""
+
   /**
     * print the message in red
     *
@@ -107,6 +110,9 @@ object Driver {
     val firrtlConfig = optionsManager.firrtlOptions
 
     Logger.setOptions(optionsManager)
+ 
+    doLabelChecking = firrtlConfig.doLabelChecking
+    constraintFileName = firrtlConfig.getConstraintFileName(optionsManager)
 
     val firrtlSource = firrtlConfig.firrtlSource match {
       case Some(text) => text.split("\n").toIterator
@@ -152,8 +158,10 @@ object Driver {
     outputFile.write(outputString)
     outputFile.close()
 
+
     FirrtlExecutionSuccess(firrtlConfig.compilerName, outputBuffer.toString)
   }
+    
 
   /**
     * this is a wrapper for execute that builds the options from a standard command line args,

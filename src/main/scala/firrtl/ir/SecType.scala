@@ -22,7 +22,7 @@ case class Level(label: String)  extends Label{
     case _ => false
   }
   def <=(that: Level) = PolicyHolder.policy.leq(this,that)
-  def serialize = s"{${label}}"
+  def serialize = label
   def mapExpr(f: Expression => Expression) = this
   def mapLabel(f: Label => Label) = this
 }
@@ -31,6 +31,8 @@ object JoinLabel {
   val bot : Label = PolicyHolder.policy.bottom
   val top : Label = PolicyHolder.policy.top
   def apply(l: Label, r: Label): Label = (l, r) match {
+    case(UnknownLabel, _) => UnknownLabel
+    case(_, UnknownLabel) => UnknownLabel
     case (tl: Level, tr: Level)  => PolicyHolder.policy.join(tl, tr)
     case _ => new JoinLabel(l,r)
   }
@@ -53,6 +55,8 @@ object MeetLabel {
   val bot : Label = PolicyHolder.policy.bottom
   val top : Label = PolicyHolder.policy.top
   def apply(l: Label, r: Label): Label = (l, r) match {
+    case(UnknownLabel, _) => UnknownLabel
+    case(_, UnknownLabel) => UnknownLabel
     case (tl: Level, tr: Level)  => PolicyHolder.policy.meet(tl, tr)
     case _ => new MeetLabel(l,r)
   }

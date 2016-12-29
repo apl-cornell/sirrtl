@@ -44,9 +44,14 @@ class ResolveAndCheck extends CoreTransform {
     passes.ResolveGenders,
     passes.CheckGenders,
     passes.InferWidths,
-    passes.CheckWidths,
+    passes.CheckWidths)
+}
+
+class ResolveAndCheckWLabels extends ResolveAndCheck {
+  override def passSeq = super.passSeq ++ Seq(
     passes.InferLabels,
-    passes.LabelCheck)
+    passes.LabelCheck
+  )
 }
 
 /** Expands aggregate connects, removes dynamic accesses, and when
