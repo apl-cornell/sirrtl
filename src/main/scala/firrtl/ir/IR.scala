@@ -148,7 +148,10 @@ abstract class Statement extends FirrtlNode {
 }
 case class DefWire(info: Info, name: String, tpe: Type, lbl: Label)
   extends Statement with IsDeclaration {
-  def serialize: String = s"wire $name : ${tpe.serialize}" + info.serialize
+  def serialize: String = {
+    val lbl_s = (lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "})
+    s"wire $name :${lbl_s}${tpe.serialize}" + info.serialize 
+  }
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement = this
   def mapType(f: Type => Type): Statement = DefWire(info, name, f(tpe), lbl)
@@ -163,9 +166,12 @@ case class DefRegister(
     clock: Expression,
     reset: Expression,
     init: Expression) extends Statement with IsDeclaration {
-  def serialize: String =
-    s"reg $name : ${tpe.serialize}, ${clock.serialize} with :" +
-    indent("\n" + s"reset => (${reset.serialize}, ${init.serialize})" + info.serialize)
+  def serialize: String = {
+    val lbl_s = lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "}
+    s"reg $name : ${lbl_s}${tpe.serialize}, ${clock.serialize} with :" +
+    indent("\n" + s"reset => (${reset.serialize}, ${init.serialize})"
+      + info.serialize) 
+  }
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement =
     DefRegister(info, name, tpe, lbl, f(clock), f(reset), f(init))
@@ -254,7 +260,12 @@ case class PartialConnect(info: Info, loc: Expression, expr: Expression) extends
   def mapLabel(f: Label => Label): Statement = this
 }
 case class Connect(info: Info, loc: Expression, expr: Expression) extends Statement with HasInfo {
-  def serialize: String =  s"${loc.serialize} <= ${expr.serialize}" + info.serialize
+  // def serialize: String =  s"${loc.serialize} <= ${expr.serialize}" + info.serialize
+  def serialize: String = {
+    val lbl_l = loc.lbl match { case UnknownLabel => ""; case _ => s" {${loc.lbl.serialize}}" }
+    val lbl_r = expr.lbl match { case UnknownLabel => ""; case _ => s" {${expr.lbl.serialize}}" }
+    s"${loc.serialize}${lbl_l} <= ${expr.serialize}${lbl_r}" + info.serialize
+  }
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement = Connect(info, f(loc), f(expr))
   def mapType(f: Type => Type): Statement = this
@@ -452,7 +463,10 @@ case class Port(
     direction: Direction,
     tpe: Type,
     lbl: Label) extends FirrtlNode with IsDeclaration {
-  def serialize: String = s"${direction.serialize} $name : ${tpe.serialize}" + info.serialize
+  def serialize: String = {
+    val lbl_s = lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "}
+    s"${direction.serialize} $name : ${lbl_s}${tpe.serialize}" + info.serialize
+  }
 }
 
 /** Parameters for external modules */

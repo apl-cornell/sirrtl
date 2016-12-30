@@ -11,7 +11,7 @@ abstract class Label extends FirrtlNode {
 }
 
 case object UnknownLabel extends Label {
-  def serialize = "{UNKNOWN}"
+  def serialize = ""
   def mapExpr(f: Expression => Expression) = this
   def mapLabel(f: Label => Label) = this
 }
@@ -77,7 +77,7 @@ class MeetLabel private (val l: Label, val r: Label) extends Label{
 
 case class BundleLabel(fields: Seq[Field]) extends Label {
   def serializeField(f: Field) = f.flip.serialize + f.name + " : " + f.lbl.serialize
-  def serialize: String = "{ " + (fields map (serializeField(_)) mkString ", ") + "}"
+  def serialize: String = (fields map (serializeField(_)) mkString ", ") 
   def mapLabel(f: Label => Label): Label = 
     BundleLabel( fields map ( x => x.copy(lbl = f(x.lbl))))
   def mapExpr(f: Expression => Expression): Label = this
