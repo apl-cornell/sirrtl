@@ -112,9 +112,9 @@ class VerilogEmitter extends Emitter with PassBased {
 
    //;------------- PASS -----------------
    def v_print(e: Expression)(implicit w: Writer) = e match {
-     case UIntLiteral(value, IntWidth(width)) =>
+     case UIntLiteral(value, IntWidth(width), _) =>
        w write s"$width'h${value.toString(16)}"
-     case SIntLiteral(value, IntWidth(width)) =>
+     case SIntLiteral(value, IntWidth(width), _) =>
        val unsignedValue = value + (if (value < 0) BigInt(1) << width.toInt else 0)
        w write s"$width'sh${unsignedValue.toString(16)}"
    }
@@ -466,7 +466,7 @@ class VerilogEmitter extends Emitter with PassBased {
             // assign(en, netlist(en))     //;Connects value to m.r.en
             val mem = WRef(sx.name, memType(sx), sx.lbl, MemKind, UNKNOWNGENDER)
             val memPort = WSubAccess(mem, addr, sx.dataType, sx.lbl, UNKNOWNGENDER)
-            val depthValue = UIntLiteral(sx.depth, IntWidth(BigInt(sx.depth).bitLength))
+            val depthValue = UIntLiteral(sx.depth, IntWidth(BigInt(sx.depth).bitLength), sx.lbl)
             val garbageGuard = DoPrim(Geq, Seq(addr, depthValue), Seq(), UnknownType, UnknownLabel)
 
             if ((sx.depth & (sx.depth - 1)) == 0)

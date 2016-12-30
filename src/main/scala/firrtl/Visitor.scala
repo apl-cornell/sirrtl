@@ -271,7 +271,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
               (visitExp(sr.exp(0)), visitExp(sr.exp(1)))
             }
             else
-              (UIntLiteral(0, IntWidth(1)), Reference(name, tpe, lbl))
+              (UIntLiteral(0, IntWidth(1), lbl), Reference(name, tpe, lbl))
           }
           DefRegister(info, name, tpe, lbl, visitExp(ctx.exp(0)), reset, init)
         case "mem" => visitMem(ctx)
@@ -330,7 +330,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
               val bigint = string2BigInt(ctx.IntLit(0).getText)
               (IntWidth(BigInt(scala.math.max(bigint.bitLength, 1))), bigint)
             }
-          UIntLiteral(value, width)
+          UIntLiteral(value, width, UnknownLabel)
         case "SInt" =>
           val (width, value) =
             if (ctx.getChildCount > 4)
@@ -339,7 +339,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
               val bigint = string2BigInt(ctx.IntLit(0).getText)
               (IntWidth(BigInt(bigint.bitLength + 1)), bigint)
             }
-          SIntLiteral(value, width)
+          SIntLiteral(value, width, UnknownLabel)
         case "validif(" => ValidIf(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), UnknownType, UnknownLabel)
         case "mux(" => Mux(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), visitExp(ctx.exp(2)), UnknownType, UnknownLabel)
         case _ =>

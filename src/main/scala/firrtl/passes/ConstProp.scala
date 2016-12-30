@@ -33,60 +33,60 @@ object ConstProp extends Pass {
   }
 
   object FoldAND extends FoldLogicalOp {
-    def fold(c1: Literal, c2: Literal) = UIntLiteral(c1.value & c2.value, c1.width max c2.width)
+    def fold(c1: Literal, c2: Literal) = UIntLiteral(c1.value & c2.value, c1.width max c2.width, UnknownLabel)
     def simplify(e: Expression, lhs: Literal, rhs: Expression) = lhs match {
-      case UIntLiteral(v, w) if v == BigInt(0) => UIntLiteral(0, w)
-      case SIntLiteral(v, w) if v == BigInt(0) => UIntLiteral(0, w)
-      case UIntLiteral(v, IntWidth(w)) if v == (BigInt(1) << bitWidth(rhs.tpe).toInt) - 1 => rhs
+      case UIntLiteral(v, w, lbl) if v == BigInt(0) => UIntLiteral(0, w, lbl)
+      case SIntLiteral(v, w, lbl) if v == BigInt(0) => UIntLiteral(0, w, lbl)
+      case UIntLiteral(v, IntWidth(w), _) if v == (BigInt(1) << bitWidth(rhs.tpe).toInt) - 1 => rhs
       case _ => e
     }
   }
 
   object FoldOR extends FoldLogicalOp {
-    def fold(c1: Literal, c2: Literal) = UIntLiteral(c1.value | c2.value, c1.width max c2.width)
+    def fold(c1: Literal, c2: Literal) = UIntLiteral(c1.value | c2.value, c1.width max c2.width, UnknownLabel)
     def simplify(e: Expression, lhs: Literal, rhs: Expression) = lhs match {
-      case UIntLiteral(v, _) if v == BigInt(0) => rhs
-      case SIntLiteral(v, _) if v == BigInt(0) => asUInt(rhs, e.tpe, e.lbl)
-      case UIntLiteral(v, IntWidth(w)) if v == (BigInt(1) << bitWidth(rhs.tpe).toInt) - 1 => lhs
+      case UIntLiteral(v, _, _) if v == BigInt(0) => rhs
+      case SIntLiteral(v, _, _) if v == BigInt(0) => asUInt(rhs, e.tpe, e.lbl)
+      case UIntLiteral(v, IntWidth(w), _) if v == (BigInt(1) << bitWidth(rhs.tpe).toInt) - 1 => lhs
       case _ => e
     }
   }
 
   object FoldXOR extends FoldLogicalOp {
-    def fold(c1: Literal, c2: Literal) = UIntLiteral(c1.value ^ c2.value, c1.width max c2.width)
+    def fold(c1: Literal, c2: Literal) = UIntLiteral(c1.value ^ c2.value, c1.width max c2.width, UnknownLabel)
     def simplify(e: Expression, lhs: Literal, rhs: Expression) = lhs match {
-      case UIntLiteral(v, _) if v == BigInt(0) => rhs
-      case SIntLiteral(v, _) if v == BigInt(0) => asUInt(rhs, e.tpe, e.lbl)
+      case UIntLiteral(v, _, _) if v == BigInt(0) => rhs
+      case SIntLiteral(v, _, _) if v == BigInt(0) => asUInt(rhs, e.tpe, e.lbl)
       case _ => e
     }
   }
 
   object FoldEqual extends FoldLogicalOp {
-    def fold(c1: Literal, c2: Literal) = UIntLiteral(if (c1.value == c2.value) 1 else 0, IntWidth(1))
+    def fold(c1: Literal, c2: Literal) = UIntLiteral(if (c1.value == c2.value) 1 else 0, IntWidth(1), UnknownLabel)
     def simplify(e: Expression, lhs: Literal, rhs: Expression) = lhs match {
-      case UIntLiteral(v, IntWidth(w)) if v == BigInt(1) && w == BigInt(1) && bitWidth(rhs.tpe) == BigInt(1) => rhs
+      case UIntLiteral(v, IntWidth(w), _) if v == BigInt(1) && w == BigInt(1) && bitWidth(rhs.tpe) == BigInt(1) => rhs
       case _ => e
     }
   }
 
   object FoldNotEqual extends FoldLogicalOp {
-    def fold(c1: Literal, c2: Literal) = UIntLiteral(if (c1.value != c2.value) 1 else 0, IntWidth(1))
+    def fold(c1: Literal, c2: Literal) = UIntLiteral(if (c1.value != c2.value) 1 else 0, IntWidth(1), UnknownLabel)
     def simplify(e: Expression, lhs: Literal, rhs: Expression) = lhs match {
-      case UIntLiteral(v, IntWidth(w)) if v == BigInt(0) && w == BigInt(1) && bitWidth(rhs.tpe) == BigInt(1) => rhs
+      case UIntLiteral(v, IntWidth(w), _) if v == BigInt(0) && w == BigInt(1) && bitWidth(rhs.tpe) == BigInt(1) => rhs
       case _ => e
     }
   }
 
   private def foldConcat(e: DoPrim) = (e.args.head, e.args(1)) match {
-    case (UIntLiteral(xv, IntWidth(xw)), UIntLiteral(yv, IntWidth(yw))) => UIntLiteral(xv << yw.toInt | yv, IntWidth(xw + yw))
+    case (UIntLiteral(xv, IntWidth(xw), _), UIntLiteral(yv, IntWidth(yw), _)) => UIntLiteral(xv << yw.toInt | yv, IntWidth(xw + yw), UnknownLabel)
     case _ => e
   }
 
   private def foldShiftLeft(e: DoPrim) = e.consts.head.toInt match {
     case 0 => e.args.head
     case x => e.args.head match {
-      case UIntLiteral(v, IntWidth(w)) => UIntLiteral(v << x, IntWidth(w + x))
-      case SIntLiteral(v, IntWidth(w)) => SIntLiteral(v << x, IntWidth(w + x))
+      case UIntLiteral(v, IntWidth(w), lbl) => UIntLiteral(v << x, IntWidth(w + x), lbl)
+      case SIntLiteral(v, IntWidth(w), lbl) => SIntLiteral(v << x, IntWidth(w + x), lbl)
       case _ => e
     }
   }
@@ -95,9 +95,9 @@ object ConstProp extends Pass {
     case 0 => e.args.head
     case x => e.args.head match {
       // TODO when amount >= x.width, return a zero-width wire
-      case UIntLiteral(v, IntWidth(w)) => UIntLiteral(v >> x, IntWidth((w - x) max 1))
+      case UIntLiteral(v, IntWidth(w), l) => UIntLiteral(v >> x, IntWidth((w - x) max 1), l)
       // take sign bit if shift amount is larger than arg width
-      case SIntLiteral(v, IntWidth(w)) => SIntLiteral(v >> x, IntWidth((w - x) max 1))
+      case SIntLiteral(v, IntWidth(w), l) => SIntLiteral(v >> x, IntWidth((w - x) max 1), l)
       case _ => e
     }
   }
@@ -109,8 +109,8 @@ object ConstProp extends Pass {
         case _ => false
       }
       def isZero(e: Expression) = e match {
-          case UIntLiteral(value, _) => value == BigInt(0)
-          case SIntLiteral(value, _) => value == BigInt(0)
+          case UIntLiteral(value, _, _) => value == BigInt(0)
+          case SIntLiteral(value, _, _) => value == BigInt(0)
           case _ => false
         }
       x match {
@@ -136,8 +136,8 @@ object ConstProp extends Pass {
         def <= (that: Range) = this.max <= that.min
       }
       def range(e: Expression): Range = e match {
-        case UIntLiteral(value, _) => Range(value, value)
-        case SIntLiteral(value, _) => Range(value, value)
+        case UIntLiteral(value, _, _) => Range(value, value)
+        case SIntLiteral(value, _, _) => Range(value, value)
         case _ => e.tpe match {
           case SIntType(IntWidth(width)) => Range(
             min = BigInt(0) - BigInt(2).pow(width.toInt - 1),
@@ -184,22 +184,22 @@ object ConstProp extends Pass {
     case Neq => FoldNotEqual(e)
     case (Lt | Leq | Gt | Geq) => foldComparison(e)
     case Not => e.args.head match {
-      case UIntLiteral(v, IntWidth(w)) => UIntLiteral(v ^ ((BigInt(1) << w.toInt) - 1), IntWidth(w))
+      case UIntLiteral(v, IntWidth(w), lbl) => UIntLiteral(v ^ ((BigInt(1) << w.toInt) - 1), IntWidth(w), lbl)
       case _ => e
     }
     case AsUInt => e.args.head match {
-      case SIntLiteral(v, IntWidth(w)) => UIntLiteral(v + (if (v < 0) BigInt(1) << w.toInt else 0), IntWidth(w))
+      case SIntLiteral(v, IntWidth(w), lbl) => UIntLiteral(v + (if (v < 0) BigInt(1) << w.toInt else 0), IntWidth(w), lbl)
       case u: UIntLiteral => u
       case _ => e
     }
     case AsSInt => e.args.head match {
-      case UIntLiteral(v, IntWidth(w)) => SIntLiteral(v - ((v >> (w.toInt-1)) << w.toInt), IntWidth(w))
+      case UIntLiteral(v, IntWidth(w), lbl) => SIntLiteral(v - ((v >> (w.toInt-1)) << w.toInt), IntWidth(w), lbl)
       case s: SIntLiteral => s
       case _ => e
     }
     case Pad => e.args.head match {
-      case UIntLiteral(v, _) => UIntLiteral(v, IntWidth(e.consts.head))
-      case SIntLiteral(v, _) => SIntLiteral(v, IntWidth(e.consts.head))
+      case UIntLiteral(v, _, lbl) => UIntLiteral(v, IntWidth(e.consts.head), lbl)
+      case SIntLiteral(v, _, lbl) => SIntLiteral(v, IntWidth(e.consts.head), lbl)
       case _ if bitWidth(e.args.head.tpe) == e.consts.head => e.args.head
       case _ => e
     }
@@ -208,7 +208,7 @@ object ConstProp extends Pass {
         val hi = e.consts.head.toInt
         val lo = e.consts(1).toInt
         require(hi >= lo)
-        UIntLiteral((lit.value >> lo) & ((BigInt(1) << (hi - lo + 1)) - 1), getWidth(e.tpe))
+        UIntLiteral((lit.value >> lo) & ((BigInt(1) << (hi - lo + 1)) - 1), getWidth(e.tpe), e.lbl)
       case x if bitWidth(e.tpe) == bitWidth(x.tpe) => x.tpe match {
         case t: UIntType => x
         case _ => asUInt(x, e.tpe, e.lbl)
@@ -219,7 +219,7 @@ object ConstProp extends Pass {
   }
 
   private def constPropMuxCond(m: Mux) = m.cond match {
-    case UIntLiteral(c, _) => pad(if (c == BigInt(1)) m.tval else m.fval, m.tpe, m.lbl)
+    case UIntLiteral(c, _, _) => pad(if (c == BigInt(1)) m.tval else m.fval, m.tpe, m.lbl)
     case _ => m
   }
 

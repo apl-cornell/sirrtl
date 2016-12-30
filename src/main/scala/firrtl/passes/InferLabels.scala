@@ -14,6 +14,10 @@ object InferLabels extends Pass {
   val debugInferLabels = true
   def dprint(s:String) = if(debugInferLabels) println(s)
   def dprintb(s:String) = dprint(Console.BLUE+ s + Console.RESET)
+  def bannerprintb(s:String) = {
+    val ndash = (78 - 2 - s.length) / 2
+    dprintb("-" * ndash + ' ' + s + ' ' + "-" * ndash)
+  }
 
   val bot = PolicyHolder.policy.bottom
   val top = PolicyHolder.policy.top
@@ -52,29 +56,22 @@ object InferLabels extends Pass {
     case _ => l
   }
 
-  def infer_labels_e(labels: LabelMap)(e: Expression) : Expression =  {
-    //dprint(s"infer_labels_e ${e.serialize}")
-    val ret = e map infer_labels_e(labels) match {
+  def infer_labels_e(labels: LabelMap)(e: Expression) : Expression =
+    e map infer_labels_e(labels) match {
       case e: WRef => e copy (lbl = labels(e.name))
       case e: WSubField =>
         e copy (lbl = field_label(e.exp.lbl, e.name))
       case e: WSubIndex => e copy (lbl = e.exp.lbl)
       case e: WSubAccess => e copy (lbl = JoinLabel(e.exp.lbl, e.index.lbl))
-      case e: DoPrim => e copy (lbl = JoinLabel((e.args map{ _.lbl }):_* ))
-      // TODO relax this when there are deptypes
+      case e: DoPrim => e copy(lbl = JoinLabel((e.args map{ _.lbl }):_* ))
       case e: Mux => e copy (lbl = JoinLabel(e.cond.lbl,
         e.tval.lbl,e.fval.lbl))
       case e: ValidIf => e copy (lbl = JoinLabel(e.cond.lbl, e.value.lbl))
-      case e @ (_: UIntLiteral | _: SIntLiteral) => e
-    }
-    
-    // dprint(s"${ret.serialize} : ${ret.lbl.serialize}")
-    ret
+      case e: UIntLiteral => e.copy(lbl = assumeL(e.lbl))
+      case e: SIntLiteral => e.copy(lbl = assumeL(e.lbl))
   }
 
-  def infer_labels_s(labels: LabelMap)(s: Statement): Statement = {
-    // dprint(s"infer_labels_s ${s.serialize}")
-    val ret = s match {
+  def infer_labels_s(labels: LabelMap)(s: Statement): Statement = s match {
       case sx: DefWire =>
         val lb = to_bundle(sx.tpe, sx.lbl)
         checkDeclared(lb, sx.info, sx.name)
@@ -106,22 +103,14 @@ object InferLabels extends Pass {
       // DefMemory
       case sx => 
         sx map infer_labels_s(labels) map infer_labels_e(labels)
-    }
-    // dprint(s"${ret.serialize}")
-    // dprint(s"labels : $labels")
-    ret
   }
 
   // Add each port declaration to the label context
   def infer_labels_p(labels: LabelMap)(p: Port) : Port = {
-    // dprint(s"infer_labels_p ${p.serialize} ")
     val lb = to_bundle(p.tpe, p.lbl)
     checkDeclared(lb, p.info, p.name)
     labels(p.name) = lb
-    val ret = p copy (lbl = lb)
-    // dprint(s"${ret.serialize} : ${ret.lbl.serialize}")
-    // dprint(s"labels : $labels")
-    ret
+    p copy (lbl = lb)
   }
 
   def infer_labels(m: DefModule) : DefModule = {
@@ -131,10 +120,6 @@ object InferLabels extends Pass {
   }
 
   def run(c: Circuit) = {
-    def bannerprintb(s:String) = {
-      val ndash = (78 - 2 - s.length) / 2
-      dprintb("-" * ndash + ' ' + s + ' ' + "-" * ndash)
-    }
     bannerprintb(name)
     dprint(c.serialize)
 

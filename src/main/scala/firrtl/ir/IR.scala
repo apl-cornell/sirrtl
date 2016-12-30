@@ -101,25 +101,24 @@ case class ValidIf(cond: Expression, value: Expression, tpe: Type, lbl: Label) e
 abstract class Literal extends Expression {
   val value: BigInt
   val width: Width
-  def lbl = PolicyHolder.policy.bottom
 }
-case class UIntLiteral(value: BigInt, width: Width) extends Literal {
+case class UIntLiteral(value: BigInt, width: Width, lbl: Label) extends Literal {
   def tpe = UIntType(width)
   def serialize = s"UInt${width.serialize}(" + Utils.serialize(value) + ")"
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
-  def mapLabel(f: Label => Label): Expression = this
-  def mapWidth(f: Width => Width): Expression = UIntLiteral(value, f(width))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
+  def mapWidth(f: Width => Width): Expression = this.copy(width = f(width))
 }
-case class SIntLiteral(value: BigInt, width: Width) extends Literal {
+case class SIntLiteral(value: BigInt, width: Width, lbl: Label) extends Literal {
   def tpe = SIntType(width)
   def serialize = s"SInt${width.serialize}(" + Utils.serialize(value) + ")"
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
-  def mapLabel(f: Label => Label): Expression = this
-  def mapWidth(f: Width => Width): Expression = SIntLiteral(value, f(width))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
+  def mapWidth(f: Width => Width): Expression = this.copy(width = f(width))
 }
-case class FixedLiteral(value: BigInt, width: Width, point: Width) extends Literal {
+case class FixedLiteral(value: BigInt, width: Width, point: Width, lbl: Label) extends Literal {
   def tpe = FixedType(width, point)
   def serialize = {
     val pstring = if(point == UnknownWidth) "" else s"<${point.serialize}>"
@@ -127,8 +126,8 @@ case class FixedLiteral(value: BigInt, width: Width, point: Width) extends Liter
   }
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this
-  def mapLabel(f: Label => Label): Expression = this
-  def mapWidth(f: Width => Width): Expression = FixedLiteral(value, f(width), f(point))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
+  def mapWidth(f: Width => Width): Expression = FixedLiteral(value, f(width), f(point), lbl)
 }
 case class DoPrim(op: PrimOp, args: Seq[Expression], consts: Seq[BigInt], tpe: Type, lbl: Label) extends Expression {
   def serialize: String = op.serialize + "(" +
