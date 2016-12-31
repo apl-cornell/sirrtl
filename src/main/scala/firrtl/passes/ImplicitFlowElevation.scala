@@ -4,14 +4,13 @@ import firrtl._
 import firrtl.ir._
 import firrtl.Utils._
 import firrtl.Mappers._
+import collection.mutable.Set
 
 object ImplicitFlowElevation extends Pass {
   def name    = "ImplicitFlowElevation"
-  type PredEnv = collection.mutable.Stack[Seq[Expression]]
-  type AsnEnv = collection.mutable.Set[String]
-
   def bot = PolicyHolder.policy.bottom
-  
+
+  // TODO generalize this debugging stuff and move it elsewhere
   val debugImplicitFlow = true
   def dprint(s:String) = if(debugImplicitFlow) println(s)
   def dprintb(s:String) = dprint(Console.BLUE+ s + Console.RESET)
@@ -20,50 +19,81 @@ object ImplicitFlowElevation extends Pass {
     dprintb("-" * ndash + ' ' + s + ' ' + "-" * ndash)
   }
 
-  def pcLabel(predEnv: PredEnv) = {
-    val exprs :Seq[Expression] = predEnv.toSeq.flatten
+  type PredStack = collection.mutable.Stack[Seq[Expression]]
+
+  class PredEnv extends collection.mutable.HashMap[String,PredStack] {
+    // by overriding this method, if there is no entry for the key, this hash 
+    // will return an empty stack of predicates when the key is accessed from 
+    // this hash rather than throwing an exception
+    override def default(key:String) = new PredStack
+
+    def pushContext(vars: Set[String]) {
+      vars.foreach { v => this(v) = this(v).push(Seq[Expression]()) }
+    }
+
+    // The explicit check that this contains v avoids creating a new entry for 
+    // v if one did not exist
+    def popContext(vars: Set[String]) {
+      vars.foreach { v => if(this.contains(v)) this(v).pop }
+    }
+
+    def appendContext(vars: Set[String], e: Expression) {
+      vars.foreach{ v => 
+        this(v) = this(v).push(this(v).pop ++ Seq(e))
+      }
+    }
+
+  }
+
+  // Compute the join over the elements in the predicate stack
+  def pcLabel(predStack: PredStack) = {
+    val exprs :Seq[Expression] = predStack.toSeq.flatten
     JoinLabel( Seq(bot,bot) ++ (exprs map { _.lbl }) :_* )
   }
 
-  def topBlock(predEnv: PredEnv) = predEnv.toSeq.size == 1
+  // Return a set containing all the variables assigned (recursively) in this 
+  // statement
+  def assignedIn(s: Statement) : Set[String] = {
+    val vars = Set[String]()
+    def assigned_rec(s: Statement) : Statement = s map assigned_rec match {
+      case sx : DefNode => vars += sx.name; sx
+      case sx : Connect => vars += sx.loc.serialize; sx
+      case sx : PartialConnect =>  vars += sx.loc.serialize; sx
+      case sx => sx
+    }
+    assigned_rec(s)
+    vars
+  }
 
-  def elevate_e(predEnv: PredEnv)(e: Expression): Expression = 
-    e mapLabel { _ join pcLabel(predEnv) }
+  def elevate_e(predStack: PredStack)(e: Expression): Expression = 
+    e mapLabel { _ join pcLabel(predStack) }
 
-  def elevate_s(predEnv: PredEnv, asnEnv:AsnEnv)(s: Statement): Statement = {
-
-    def weaklyElevate(n: String, weak: Statement, strong: Statement) = 
-      if(topBlock(predEnv) && !asnEnv.contains(n)){
-        weak
-      } else {
-        asnEnv +=  n
-        strong
-      }
+  def elevate_s(predEnv: PredEnv)(s: Statement): Statement = {
 
     s match {
       case sx: Block =>
-        predEnv.push(Seq[Expression]())
-        val sxx = sx copy (stmts = sx.stmts.reverse map elevate_s(predEnv,asnEnv))
-        predEnv.pop
+        val assigned = assignedIn(sx)
+        predEnv.pushContext(assigned)
+        val sxx = sx copy (stmts = sx.stmts.reverse map elevate_s(predEnv))
+        predEnv.popContext(assigned)
         sxx copy (stmts = sxx.stmts.reverse)
       case sx: Conditionally =>
-        predEnv.push(predEnv.pop ++ Seq(sx.pred))
-        sx map elevate_s(predEnv,asnEnv)
+        predEnv.appendContext(assignedIn(sx), sx.pred)
+        sx map elevate_s(predEnv)
       case sx: DefNode =>
-        weaklyElevate(sx.name, sx, sx map elevate_e(predEnv))
+        sx map elevate_e(predEnv(sx.name))
       case sx: Connect =>
-        weaklyElevate(sx.loc.serialize, sx, sx copy( expr = elevate_e(predEnv)(sx.expr) ))
+        sx copy( expr = elevate_e(predEnv(sx.loc.serialize))(sx.expr))
       case sx: PartialConnect =>
-        weaklyElevate(sx.loc.serialize, sx, sx copy( expr = elevate_e(predEnv)(sx.expr) ))
+        sx copy( expr = elevate_e(predEnv(sx.loc.serialize))(sx.expr))
       case sx => 
-        sx map elevate_s(predEnv,asnEnv)
+        sx map elevate_s(predEnv)
     }
   }
 
   def elevate(m: DefModule): DefModule = {
     val predEnv = new PredEnv
-    val asnEnv = collection.mutable.Set[String]()
-    m map elevate_s(predEnv,asnEnv)
+    m map elevate_s(predEnv)
   }
 
   def run(c: Circuit) = {
