@@ -20,6 +20,16 @@ trait Pass extends LazyLogging {
   def run(c: Circuit): Circuit
 }
 
+trait PassDebug {
+  def debugThisPass = false
+  def dprint(s:String) = if(debugThisPass) println(s)
+  def dprintb(s:String) = dprint(Console.BLUE+ s + Console.RESET)
+  def bannerprintb(s:String) = {
+    val ndash = (78 - 2 - s.length) / 2
+    dprintb("-" * ndash + ' ' + s + ' ' + "-" * ndash)
+  }
+}
+
 // Error handling
 class PassException(message: String) extends Exception(message)
 class PassExceptions(exceptions: Seq[PassException]) extends Exception("\n" + exceptions.mkString("\n"))

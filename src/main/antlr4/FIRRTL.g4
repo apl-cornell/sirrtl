@@ -62,7 +62,8 @@ type
   ;
 
 label
-  : '{' id '}'
+  : '{' id '}'       // Constant security level
+  | '{' id id '}'    // Dependent type function applied to prog variable
   ;
 
 field

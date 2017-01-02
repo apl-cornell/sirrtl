@@ -83,6 +83,11 @@ case class BundleLabel(fields: Seq[Field]) extends Label {
   def mapExpr(f: Expression => Expression): Label = this
 }
 
+case class FunLabel(fname: String, arg: Expression) extends Label {
+  def serialize = s"$fname ${arg.serialize}"
+  def mapLabel(f: Label => Label): Label = this
+  def mapExpr(f: Expression => Expression): Label = this.copy(arg = f(arg))
+}
 
 /*
 object IfLabel {
