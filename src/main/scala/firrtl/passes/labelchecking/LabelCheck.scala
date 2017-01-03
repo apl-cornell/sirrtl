@@ -69,10 +69,15 @@ class ConnectionEnv extends collection.mutable.HashMap[String,Constraint]
   { override def default(k:String) = CIdent(k) }
 
 abstract class ConstraintGenerator {
-  var whenConstraint : Constraint = CTrue
-
-  def locString(e: Expression): String
+  // Identifier used for reference expression in Z3 constraints
+  def refToIdent(e: Expression): String
+  // Representation of expression in Z3
   def exprToCons(e: Expression): Constraint
+
+  //---------------------------------------------------------------------------
+  // Connection Environment Population
+  //---------------------------------------------------------------------------
+  var whenConstraint : Constraint = CTrue
 
   def connect(conEnv: ConnectionEnv, loc: String, cprime: Constraint) {
     if(whenConstraint == CTrue || !conEnv.contains(loc)) {
@@ -106,15 +111,113 @@ abstract class ConstraintGenerator {
 }
 
 object BVConstraintGen extends ConstraintGenerator {
-  def locString(e: Expression) = ""
-  def exprToCons(e: Expression) = e match {
-    case ex : Literal => CIdent(ex.value.toString)
-    case ex : DoPrim => CEq(exprToCons(ex.args(0)), exprToCons(ex.args(1)))
-    case WRef(name,_,_,_,_) => CIdent(name)
+  def toBInt(w: Width) =
+    w.asInstanceOf[IntWidth].width
+
+  def exprToDeclaration(e: Expression) = e match {
+    case ex : WRef => 
+      val width = ex.tpe match {
+        case UIntType(w) => w
+        case SIntType(w) => w
+        case FixedType(w,_) => w
+      }
+      s"(declare-const ${refToIdent(ex)} (_ BitVec $width))"
+    case ex : WSubField  =>
+      val width = ex.tpe match {
+        case UIntType(w) => w
+        case SIntType(w) => w
+        case FixedType(w,_) => w
+      }
+      s"(declare_const ${refToIdent(ex)} (_ BitVec $width))"
+  }
+
+  def refToIdent(e: Expression) = e match {
+    case WRef(name,_,_,_,_) => name
     case WSubField(exp,name,_,_,_) => exp match {
-      case expx : WRef => CIdent(expx.name + "_" + name)
-      /// scala.lang.MatchERROAAAAARRRRRR or whatever
+      case expx : WRef => expx.name + "_" + name
+      // else match error
     }
+  }
+
+  def exprToCons(e: Expression) = e match {
+    case ex : Literal => CBVLit(ex.value, toBInt(ex.width))
+    case ex : DoPrim => primOpToBVOp(ex)
+    case ex : WRef => CIdent(refToIdent(ex))
+    case ex : WSubField => CIdent(refToIdent(ex))
+  }
+
+  def mkBin(op: String, e: DoPrim) =
+    CBinOp(op, exprToCons(e.args(0)), exprToCons(e.args(1)))
+
+  def unimpl(s: String) =
+    CIdent(s"UNIMPL $s")
+
+  def primOpToBVOp(e: DoPrim) = e.op.serialize match {
+    case "add" => mkBin("bvadd", e)
+    case "sub" => mkBin("bvsub", e)
+    case "mul" => mkBin("bvmul", e)
+    case "div" => e.tpe match {
+      case UIntType(_) => mkBin("bvudiv", e)
+      case SIntType(_) => mkBin("bvsdiv", e)
+    }
+    case "rem" => e.tpe match {
+      case UIntType(_) => mkBin("bvurem", e)
+      case SIntType(_) => mkBin("bvsrem", e)
+    }
+    case "lt" => e.tpe match {
+      case UIntType(_) => mkBin("bvult", e)
+      case SIntType(_) => mkBin("bvslt", e)
+    }
+    case "leq" => e.tpe match {
+      case UIntType(_) => mkBin("bvule", e)
+      case SIntType(_) => mkBin("bvsle", e)
+    }
+    case "gt" => e.tpe match {
+      case UIntType(_) => mkBin("bvugt", e)
+      case SIntType(_) => mkBin("bvsgt", e)
+    }
+    case "geq" => e.tpe match {
+      case UIntType(_) => mkBin("bvuge", e)
+      case SIntType(_) => mkBin("bvsge", e)
+    }
+    case "eq" => CEq(exprToCons(e.args(0)),exprToCons(e.args(1)))
+    case "neq" => CNot(CEq(exprToCons(e.args(0)),exprToCons(e.args(1))))
+    case "pad" => CBinOp("concat",
+      CBVLit(0, e.args(1).asInstanceOf[Literal].value),
+      exprToCons(e.args(0)))
+    case "asUInt" => exprToCons(e.args(0))
+    case "asSInt" => exprToCons(e.args(0))
+    case "asClock" => exprToCons(e.args(0))
+    case "shl" => mkBin("bvshl", e)
+    case "shr" => e.tpe match {
+      case UIntType(_) => mkBin("bvlshr", e)
+      case SIntType(_) => mkBin("bvashr", e)
+    }
+    case "dshl" => mkBin("bvshl", e)
+    case "dshr" => e.tpe match {
+      case UIntType(_) => mkBin("bvlshr", e)
+      case SIntType(_) => mkBin("bvashr", e)
+    }
+    case "cvt" => unimpl(e.op.serialize)
+    case "neg" => CUnOp("bvneg", exprToCons(e.args(0)))
+    case "not" => CNot(exprToCons(e.args(0)))
+    case "and" => mkBin("bvand", e)
+    case "or" => mkBin("bvor", e)
+    case "xor" => mkBin("bvxor", e)
+    case "andr" => unimpl(e.op.serialize)
+    case "orr" => unimpl(e.op.serialize)
+    case "xorr" => unimpl(e.op.serialize)
+    case "cat" => mkBin("concat", e)
+    case "bits" => CBVExtract(
+      e.args(1).asInstanceOf[Literal].value,
+      e.args(2).asInstanceOf[Literal].value,
+      exprToCons(e.args(0)))
+    case "head" => unimpl(e.op.serialize)
+    case "tail" => unimpl(e.op.serialize)
+    case "asFixedPoint" => unimpl(e.op.serialize)
+    case "bpshl" => unimpl(e.op.serialize)
+    case "bpshr" => unimpl(e.op.serialize)
+    case "bpset" => unimpl(e.op.serialize)
   }
 
 }
@@ -124,7 +227,15 @@ object LabelCheck extends Pass with PassDebug {
   override def debugThisPass = true
 
   val cgen = BVConstraintGen
-  
+
+  // To check an assignement:
+  // s1 = set of dependand expressions of lhs and rhs labels
+  // s2 = set of reference expressions which affect valuations of e in s1
+  // emit declarations for s2
+  // emit connections for s2
+  // emit constraint from when context
+  // check that label of lhs < rhs
+
   def run(c:Circuit) = {
     bannerprintb(name)
     dprint(c.serialize)
@@ -134,7 +245,7 @@ object LabelCheck extends Pass with PassDebug {
 
     //-------------------------------------------------------------------------
     // Constraint Generation
-    //---------.modules map----------------------------------------------------------------
+    //-------------------------------------------------------------------------
     val conEnv = new ConnectionEnv 
     val consGenerator = BVConstraintGen
     c.modules map consGenerator.gen_cons(conEnv)
@@ -142,7 +253,10 @@ object LabelCheck extends Pass with PassDebug {
     emit(ConstraintConst.latticeAxioms)
     emit(PolicyConstraints.declareLevels)
     emit(PolicyConstraints.declareOrder)
-
+    
+    //------------------------------------------------------------------------- 
+    // Temporary: Emit all connections
+    //-------------------------------------------------------------------------
     conEnv.foreach { case (loc, cons) =>
       emit(s"(assert (= $loc ${cons.serialize}))\n")
     }

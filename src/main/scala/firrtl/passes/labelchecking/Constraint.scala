@@ -50,6 +50,23 @@ case object CTrue extends Constraint {
   def mapCons(f: Constraint => Constraint) = this
 }
 
-//-----------------------------------------------------------------------------
-// Bit Vector Theory Constraints
-//-----------------------------------------------------------------------------
+case class CBinOp(op: String, c1: Constraint, c2: Constraint) extends Constraint{
+  def serialize = s"($op, ${c1.serialize} ${c2.serialize})"
+  def mapCons(f: Constraint => Constraint) = CBinOp(op, f(c1), f(c2))
+}
+
+case class CUnOp(op: String, c: Constraint) extends Constraint {
+  def serialize = s"($op ${c.serialize})"
+  def mapCons(f: Constraint => Constraint) = CUnOp(op, f(c))
+}
+
+case class CBVLit(value: BigInt, width: BigInt) extends Constraint {
+  def serialize = s"(_ bv$value $width)"
+  def mapCons(f: Constraint => Constraint) = this
+}
+
+case class CBVExtract(upper: BigInt, lower: BigInt, c: Constraint) extends Constraint {
+  def serialize = s"((_ extract $upper $lower) ${c.serialize})"
+  def mapCons(f: Constraint => Constraint) = CBVExtract(upper, lower, f(c))
+}
+
