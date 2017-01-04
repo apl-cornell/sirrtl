@@ -33,6 +33,14 @@ object ConstraintConst {
    |""".stripMargin
  }
 
+ def depTypeFuns: String = {
+   """; a simple function for testing
+      |(define-fun Dom ((x (_ BitVec 1))) Label
+      |  (ite (= x (_ bv0 1)) D1 D2))
+      |
+      |""".stripMargin
+ }
+
 }
 
 object PolicyConstraints {
@@ -350,6 +358,7 @@ object LabelCheck extends Pass with PassDebug {
     emit(ConstraintConst.latticeAxioms)
     emit(PolicyConstraints.declareLevels)
     emit(PolicyConstraints.declareOrder)
+    emit(ConstraintConst.depTypeFuns)
 
     c.modules foreach { m =>
       emit("(push)\n")

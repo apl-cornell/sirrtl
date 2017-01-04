@@ -33,6 +33,10 @@ object JoinLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
     case(UnknownLabel, _) => UnknownLabel
     case(_, UnknownLabel) => UnknownLabel
+    case(_, bot) => l
+    case(bot, _) => r
+    case(_, top) => top
+    case(top, _) => top
     case (tl: Level, tr: Level)  => PolicyHolder.policy.join(tl, tr)
     case _ => new JoinLabel(l,r)
   }
@@ -46,7 +50,7 @@ class JoinLabel private (val l: Label, val r: Label) extends Label{
     case JoinLabel(lx,rx) => lx == l && rx == r
     case _ => false
   }
-  def serialize=  s"${l.serialize} join ${r.serialize}"
+  def serialize=  s"(join ${l.serialize} ${r.serialize})"
   def mapExpr(f: Expression => Expression) = this
   def mapLabel(f: Label => Label) = JoinLabel(f(l), f(r))
 }
@@ -70,11 +74,12 @@ class MeetLabel private (val l: Label, val r: Label) extends Label{
     case MeetLabel(lx,rx) => lx == l && rx == r
     case _ => false
   }
-  def serialize = l.serialize + " join " + r.serialize
+  def serialize=  s"(meet ${l.serialize} ${r.serialize})"
   def mapExpr(f: Expression => Expression) = this
   def mapLabel(f: Label => Label) : Label = MeetLabel(f(l), f(r))
 }
 
+// These never get serialized in a z3 file
 case class BundleLabel(fields: Seq[Field]) extends Label {
   def serializeField(f: Field) = f.flip.serialize + f.name + " : " + f.lbl.serialize
   def serialize: String = (fields map (serializeField(_)) mkString ", ") 
@@ -84,7 +89,7 @@ case class BundleLabel(fields: Seq[Field]) extends Label {
 }
 
 case class FunLabel(fname: String, arg: Expression) extends Label {
-  def serialize = s"$fname ${arg.serialize}"
+  def serialize = s"($fname ${arg.serialize})"
   def mapLabel(f: Label => Label): Label = this
   def mapExpr(f: Expression => Expression): Label = this.copy(arg = f(arg))
 }
