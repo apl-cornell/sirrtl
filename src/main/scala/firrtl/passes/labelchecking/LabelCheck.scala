@@ -104,8 +104,10 @@ abstract class ConstraintGenerator {
       case sx => sx map gen_cons_s(conEnv)
   }
 
-  def gen_cons(conEnv: ConnectionEnv)(m: DefModule) =
+  def gen_cons(conEnv: ConnectionEnv)(m: DefModule) = {
+    whenConstraint = CTrue
     m map gen_cons_s(conEnv)
+  }
 
   //--------------------------------------------------------------------------- 
   // Collect Declarations for All References in Module 
@@ -287,39 +289,57 @@ object LabelCheck extends Pass with PassDebug {
 
     val constraintFile   = new java.io.PrintWriter(Driver.constraintFileName)
     def emit(s:String) = constraintFile.write(s)
-
-    //-------------------------------------------------------------------------
-    // Constraint Generation
-    //-------------------------------------------------------------------------
-    val conEnv = new ConnectionEnv 
-    val consGenerator = BVConstraintGen
-    c.modules map consGenerator.gen_cons(conEnv)
-
+   
+    //------------------------------------------------------------------------
+    // Emit constraints which are common to all modules
+    //------------------------------------------------------------------------
     emit(ConstraintConst.latticeAxioms)
     emit(PolicyConstraints.declareLevels)
     emit(PolicyConstraints.declareOrder)
 
-    //------------------------------------------------------------------------- 
-    // Emit all declarations
-    //------------------------------------------------------------------------- 
-    // This only really works if the file has a single module...
-    (c.modules map consGenerator.declarations).foreach { 
-      m => m.foreach { s => emit(s) }; emit("")
+    // For debugging only
+    def emitConEnv(conEnv:ConnectionEnv) = conEnv.foreach {
+      case(loc, cons) => emit(s"(assert (= $loc ${cons.serialize}))\n")
     }
-    
-    //------------------------------------------------------------------------- 
-    // Temporary: Emit all connections
-    //-------------------------------------------------------------------------
-    conEnv.foreach { case (loc, cons) =>
-      emit(s"(assert (= $loc ${cons.serialize}))\n")
+
+    val consGenerator = BVConstraintGen
+    c.modules foreach { m =>
+      emit("(push)\n")
+      emit(s"""(echo \"Checking Module: ${m.info}\")\n""")
+      emit("\n")
+      
+      //-----------------------------------------------------------------------
+      // Generate Z3-representation of connection graph
+      //-----------------------------------------------------------------------
+      val conEnv = new ConnectionEnv 
+      consGenerator.gen_cons(conEnv)(m)
+
+      //-----------------------------------------------------------------------
+      // Emit Declarations
+      //-----------------------------------------------------------------------
+      consGenerator.declarations(m).foreach { emit(_) }
+      emit("\n")
+
+      //-----------------------------------------------------------------------
+      // Dump Connection Environment 
+      //-----------------------------------------------------------------------
+      // This is temporary. In the future, connection checks should be scoped, 
+      // and only relevant parts of the connection graph will be printed within 
+      // that scope. Possibly the same should be done to the declarations.
+      emitConEnv(conEnv)
+      emit("\n")
+      
+      //-----------------------------------------------------------------------
+      // Check Assignments
+      //-----------------------------------------------------------------------
+
+      emit("(pop)")
     }
 
     constraintFile.close()
 
-    val cprime = c
-
     bannerprintb(s"after $name")
-    dprint(cprime.serialize)
-    cprime
+    dprint(c.serialize)
+    c
   }
 }
