@@ -33,15 +33,6 @@ object ConstraintConst {
    |""".stripMargin
  }
 
- def conversions: String = {
-"""|; int to bool and bool to int
-   |(define-fun toBool ((_ BitVec 1)) Bool
-   |    (ite (= x (_ bv0 1)) false true) ) 
-   |(define-fun toBV ((x Bool)) (_ BitVec 1)
-   |    (ite x (_ bv1 1) (_ bv0 1)) ) 
-   |""".stripMargin
- }
-
 }
 
 object PolicyConstraints {
@@ -179,8 +170,17 @@ object BVConstraintGen extends ConstraintGenerator {
   def exprToConsBool(e: Expression) =
     CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
 
-  def mkBin(op: String, e: DoPrim) =
-    CBinOp(op, exprToCons(e.args(0)), exprToCons(e.args(1)))
+  def mkBin(op: String, e: DoPrim) = {
+    def autoExpand(e1: Expression, e2: Expression) = {
+      val (w1, w2) = (bitWidth(e1.tpe).toInt, bitWidth(e2.tpe).toInt)
+      val w = Math.max(w1, w2)
+      val c1 = if(w1 < w) CBinOp("concat", CBVLit(0, w-w1), exprToCons(e1)) else exprToCons(e1)
+      val c2 = if(w2 < w) CBinOp("concat", CBVLit(0, w-w2), exprToCons(e2)) else exprToCons(e2)
+      (c1, c2)
+    }
+    val (c1, c2) = autoExpand(e.args(0), e.args(1))
+    CBinOp(op, c1, c2)
+  }
 
   def mkBinC(op: String, e: DoPrim) =
     CBinOp(op, exprToCons(e.args(0)), CBVLit(e.consts(0), bitWidth(e.args(0).tpe)))
@@ -244,7 +244,9 @@ object BVConstraintGen extends ConstraintGenerator {
       CBVWrappedBool(CNot(exprToConsBool(e.args(0))),bitWidth(e.tpe))
     case "and" => mkBin("bvand", e)
     case "or" => mkBin("bvor", e)
-    case "cat" => mkBin("concat", e)
+    case "cat" => 
+      // Don't autoExpand
+      CBinOp("concat", exprToCons(e.args(0)), exprToCons(e.args(1)))
     case "xor" => mkBin("bvxor", e)
     case "bits" => CBVExtract(e.consts(0),e.consts(1),exprToCons(e.args(0)))
 
