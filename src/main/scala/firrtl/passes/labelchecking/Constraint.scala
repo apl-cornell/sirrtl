@@ -101,7 +101,7 @@ object CBVWrappedBV {
   def apply(c: Constraint, w: BigInt): Constraint = c match {
     case cx : CBVWrappedBool => cx.c
     case cx : CBVWrappedBV => cx
-    case _ => new CBVWrappedBool(c, w)
+    case _ => new CBVWrappedBV(c, w)
   }
   def unapply(wbv: CBVWrappedBV) = Some((wbv.c,wbv.w))
 }

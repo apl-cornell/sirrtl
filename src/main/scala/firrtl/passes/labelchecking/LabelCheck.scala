@@ -75,6 +75,7 @@ abstract class ConstraintGenerator {
   def exprToDeclaration(e: Expression): String
   // Representation of expression in Z3
   def exprToCons(e: Expression): Constraint
+  def exprToCons(e: Expression, w: BigInt): Constraint
   // Representation of expression in Z3 as a boolean
   def exprToConsBool(e: Expression): Constraint
 
@@ -96,10 +97,12 @@ abstract class ConstraintGenerator {
         connect(conEnv, whenEnv, sx.name, exprToCons(sx.value))
         whenEnv(sx) = whenEnv.cur; sx
       case sx: Connect =>
-        connect(conEnv, whenEnv, exprToCons(sx.loc).serialize, exprToCons(sx.expr))
+        val w = bitWidth(sx.loc.tpe)
+        connect(conEnv, whenEnv, exprToCons(sx.loc).serialize, exprToCons(sx.expr, w))
         whenEnv(sx) = whenEnv.cur; sx
       case sx: PartialConnect =>
-        connect(conEnv, whenEnv, exprToCons(sx.loc).serialize, exprToCons(sx.expr))
+        val w = bitWidth(sx.loc.tpe)
+        connect(conEnv, whenEnv, exprToCons(sx.loc).serialize, exprToCons(sx.expr, w))
         whenEnv(sx) = whenEnv.cur; sx
       case sx: Conditionally =>
         val pred = exprToConsBool(sx.pred)
@@ -185,6 +188,14 @@ object BVConstraintGen extends ConstraintGenerator {
     case ex : WSubField => CIdent(refToIdent(ex))
   }
 
+  def exprToCons(e: Expression, w: BigInt) = e match {
+    case ex : Literal => CBVLit(ex.value, w)
+    case _ =>
+      val diff = w - bitWidth(e.tpe)
+      val c = exprToCons(e)
+      if(diff > 0) CBinOp("concat", CBVLit(0, diff), c) else c
+  }
+
   def exprToConsBool(e: Expression) =
     CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
 
@@ -192,9 +203,7 @@ object BVConstraintGen extends ConstraintGenerator {
     def autoExpand(e1: Expression, e2: Expression) = {
       val (w1, w2) = (bitWidth(e1.tpe).toInt, bitWidth(e2.tpe).toInt)
       val w = Math.max(w1, w2)
-      val c1 = if(w1 < w) CBinOp("concat", CBVLit(0, w-w1), exprToCons(e1)) else exprToCons(e1)
-      val c2 = if(w2 < w) CBinOp("concat", CBVLit(0, w-w2), exprToCons(e2)) else exprToCons(e2)
-      (c1, c2)
+      (exprToCons(e1, w), exprToCons(e2, w))
     }
     val (c1, c2) = autoExpand(e.args(0), e.args(1))
     CBinOp(op, c1, c2)
@@ -299,9 +308,42 @@ object LabelCheck extends Pass with PassDebug {
     bannerprintb(name)
     dprint(c.serialize)
 
+    val consGenerator = BVConstraintGen
     val constraintFile   = new java.io.PrintWriter(Driver.constraintFileName)
     def emit(s:String) = constraintFile.write(s)
    
+    // For debugging only
+    def emitConEnv(conEnv: ConnectionEnv) = conEnv.foreach {
+      case(loc, cons) => emit(s"(assert (= $loc ${cons.serialize}))\n")
+    }
+
+    def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement =
+      s map label_check(conEnv, whenEnv) match {
+        case sx: Connect =>
+          val lhs = sx.loc.lbl
+          val rhs = sx.expr.lbl
+          emit("(push)\n")
+          emit(s"""(echo \"Checking Connection: ${sx.info}\")\n""" )
+          emit(s"(assert ${whenEnv(s).serialize})\n")
+          emit(s"(assert (not (leq ${rhs.serialize} ${lhs.serialize}) ) )\n")
+          emit("(check-sat)\n")
+          emit("(pop)\n")
+          emit("\n")
+          sx
+        case sx: PartialConnect =>
+          val lhs = sx.loc.lbl
+          val rhs = sx.expr.lbl
+          emit("(push)\n")
+          emit(s"""(echo \"Checking Connection: ${sx.info}\")\n""" )
+          emit(s"(assert ${whenEnv(s).serialize})\n")
+          emit(s"(assert (not (leq ${rhs.serialize} ${lhs.serialize}) ) )\n")
+          emit("(check-sat)\n")
+          emit("(pop)\n")
+          emit("\n")
+          sx
+        case _ => s
+    }
+
     //------------------------------------------------------------------------
     // Emit constraints which are common to all modules
     //------------------------------------------------------------------------
@@ -309,12 +351,6 @@ object LabelCheck extends Pass with PassDebug {
     emit(PolicyConstraints.declareLevels)
     emit(PolicyConstraints.declareOrder)
 
-    // For debugging only
-    def emitConEnv(conEnv:ConnectionEnv) = conEnv.foreach {
-      case(loc, cons) => emit(s"(assert (= $loc ${cons.serialize}))\n")
-    }
-
-    val consGenerator = BVConstraintGen
     c.modules foreach { m =>
       emit("(push)\n")
       emit(s"""(echo \"Checking Module: ${m.info}\")\n""")
@@ -345,6 +381,8 @@ object LabelCheck extends Pass with PassDebug {
       //-----------------------------------------------------------------------
       // Check Assignments
       //-----------------------------------------------------------------------
+      m map label_check(conEnv, whenEnv)
+      emit("\n")
 
       emit("(pop)")
     }
