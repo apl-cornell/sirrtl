@@ -51,7 +51,7 @@ case object CTrue extends Constraint {
 }
 
 case class CBinOp(op: String, c1: Constraint, c2: Constraint) extends Constraint{
-  def serialize = s"($op, ${c1.serialize} ${c2.serialize})"
+  def serialize = s"($op ${c1.serialize} ${c2.serialize})"
   def mapCons(f: Constraint => Constraint) = CBinOp(op, f(c1), f(c2))
 }
 

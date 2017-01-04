@@ -5,6 +5,7 @@ import firrtl.ir._
 import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.Driver._
+import collection.mutable.Set
 
 object ConstraintConst {
   def latticeAxioms: String = {
@@ -61,7 +62,7 @@ object PolicyConstraints {
       (for( coveringLevel <- PolicyHolder.policy.covers(level) )
         yield s"(assert (leq $level $coveringLevel))\n").fold(""){_+_}
     }.fold(""){_+_} +
-    s"(assert (not (= $top $bot)))\n"
+    s"(assert (not (= $top $bot)))\n\n"
   }
 }
 
@@ -71,6 +72,8 @@ class ConnectionEnv extends collection.mutable.HashMap[String,Constraint]
 abstract class ConstraintGenerator {
   // Identifier used for reference expression in Z3 constraints
   def refToIdent(e: Expression): String
+  // Declaration string for reference expressions
+  def exprToDeclaration(e: Expression): String
   // Representation of expression in Z3
   def exprToCons(e: Expression): Constraint
 
@@ -88,6 +91,8 @@ abstract class ConstraintGenerator {
   }
 
   def gen_cons_s(conEnv: ConnectionEnv)(s: Statement): Statement = s match {
+    case sx: DefNode =>
+        connect(conEnv,sx.name,exprToCons(sx.value)); sx
       case sx: Connect =>
         connect(conEnv,exprToCons(sx.loc).serialize,exprToCons(sx.expr)); sx
       case sx: PartialConnect =>
@@ -108,6 +113,27 @@ abstract class ConstraintGenerator {
 
   def gen_cons(conEnv: ConnectionEnv)(m: DefModule) =
     m map gen_cons_s(conEnv)
+
+  //--------------------------------------------------------------------------- 
+  // Collect Declarations for All References in Module 
+  //---------------------------------------------------------------------------
+  type DeclSet = Set[String]
+  def decls_e(declSet: DeclSet)(e: Expression) : Expression = e match {
+    case ex : WRef => declSet += exprToDeclaration(ex); ex
+    case ex : WSubField => declSet +=  exprToDeclaration(ex); ex
+    case ex => ex map decls_e(declSet)
+  }
+  def decls_s(declSet: DeclSet)(s: Statement) : Statement = s match {
+    // do not count references in invalid
+    case sx : IsInvalid => sx 
+    case sx => sx map decls_s(declSet) map decls_e(declSet)
+  }
+
+  def declarations(m: DefModule) : Set[String] = {
+    val declSet = Set[String]()
+    m map decls_s(declSet)
+    declSet
+  }
 }
 
 object BVConstraintGen extends ConstraintGenerator {
@@ -117,18 +143,20 @@ object BVConstraintGen extends ConstraintGenerator {
   def exprToDeclaration(e: Expression) = e match {
     case ex : WRef => 
       val width = ex.tpe match {
-        case UIntType(w) => w
-        case SIntType(w) => w
-        case FixedType(w,_) => w
+        case UIntType(w) => toBInt(w)
+        case SIntType(w) => toBInt(w)
+        case FixedType(w,_) => toBInt(w)
+        case ClockType => 1
       }
-      s"(declare-const ${refToIdent(ex)} (_ BitVec $width))"
+      s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
     case ex : WSubField  =>
       val width = ex.tpe match {
-        case UIntType(w) => w
-        case SIntType(w) => w
-        case FixedType(w,_) => w
+        case UIntType(w) => toBInt(w)
+        case SIntType(w) => toBInt(w)
+        case FixedType(w,_) => toBInt(w)
+        case ClockType => 1
       }
-      s"(declare_const ${refToIdent(ex)} (_ BitVec $width))"
+      s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
   }
 
   def refToIdent(e: Expression) = e match {
@@ -148,6 +176,12 @@ object BVConstraintGen extends ConstraintGenerator {
 
   def mkBin(op: String, e: DoPrim) =
     CBinOp(op, exprToCons(e.args(0)), exprToCons(e.args(1)))
+
+  def bigIntToBVHex(i: BigInt) =
+    CIdent(s"#x${i.toString(16)}")
+
+  def mkBinC(op: String, e: DoPrim) =
+    CBinOp(op, exprToCons(e.args(0)), bigIntToBVHex(e.consts(0)))
 
   def unimpl(s: String) =
     CIdent(s"UNIMPL $s")
@@ -182,38 +216,40 @@ object BVConstraintGen extends ConstraintGenerator {
     }
     case "eq" => CEq(exprToCons(e.args(0)),exprToCons(e.args(1)))
     case "neq" => CNot(CEq(exprToCons(e.args(0)),exprToCons(e.args(1))))
-    case "pad" => CBinOp("concat",
-      CBVLit(0, e.args(1).asInstanceOf[Literal].value),
-      exprToCons(e.args(0)))
+    case "pad" => 
+      val w = bitWidth(e.args(0).tpe)
+      val diff = e.consts(0).toInt - w
+      CBinOp("concat", CBVLit(0, diff), exprToCons(e.args(0)))
     case "asUInt" => exprToCons(e.args(0))
     case "asSInt" => exprToCons(e.args(0))
     case "asClock" => exprToCons(e.args(0))
-    case "shl" => mkBin("bvshl", e)
+    case "shl" => mkBinC("bvshl", e)
     case "shr" => e.tpe match {
-      case UIntType(_) => mkBin("bvlshr", e)
-      case SIntType(_) => mkBin("bvashr", e)
+      case UIntType(_) => mkBinC("bvlshr", e)
+      case SIntType(_) => mkBinC("bvashr", e)
     }
     case "dshl" => mkBin("bvshl", e)
     case "dshr" => e.tpe match {
       case UIntType(_) => mkBin("bvlshr", e)
       case SIntType(_) => mkBin("bvashr", e)
     }
-    case "cvt" => unimpl(e.op.serialize)
     case "neg" => CUnOp("bvneg", exprToCons(e.args(0)))
     case "not" => CNot(exprToCons(e.args(0)))
     case "and" => mkBin("bvand", e)
     case "or" => mkBin("bvor", e)
+    case "cat" => mkBin("concat", e)
     case "xor" => mkBin("bvxor", e)
+    case "bits" => CBVExtract(e.consts(0),e.consts(1),exprToCons(e.args(0)))
+
+    // TODO Multi-arg ops
+    case "cvt" => unimpl(e.op.serialize)
     case "andr" => unimpl(e.op.serialize)
     case "orr" => unimpl(e.op.serialize)
     case "xorr" => unimpl(e.op.serialize)
-    case "cat" => mkBin("concat", e)
-    case "bits" => CBVExtract(
-      e.args(1).asInstanceOf[Literal].value,
-      e.args(2).asInstanceOf[Literal].value,
-      exprToCons(e.args(0)))
     case "head" => unimpl(e.op.serialize)
     case "tail" => unimpl(e.op.serialize)
+
+    // TODO FixPoint Ops
     case "asFixedPoint" => unimpl(e.op.serialize)
     case "bpshl" => unimpl(e.op.serialize)
     case "bpshr" => unimpl(e.op.serialize)
@@ -253,6 +289,14 @@ object LabelCheck extends Pass with PassDebug {
     emit(ConstraintConst.latticeAxioms)
     emit(PolicyConstraints.declareLevels)
     emit(PolicyConstraints.declareOrder)
+
+    //------------------------------------------------------------------------- 
+    // Emit all declarations
+    //------------------------------------------------------------------------- 
+    // This only really works if the file has a single module...
+    (c.modules map consGenerator.declarations).foreach { 
+      m => m.foreach { s => emit(s) }; emit("")
+    }
     
     //------------------------------------------------------------------------- 
     // Temporary: Emit all connections
