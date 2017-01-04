@@ -60,6 +60,14 @@ object PolicyConstraints {
 class ConnectionEnv extends collection.mutable.HashMap[String,Constraint]
   { override def default(k:String) = CIdent(k) }
 
+
+// Note that even seemingly identical statements are non-unique because they 
+// have uniquely identifying info objects, so this mapping correctly determines 
+// a fact that is known upon execution of the indexed statement.
+class WhenEnv extends collection.mutable.HashMap[Statement,Constraint] {
+  var cur : Constraint = CTrue
+}
+
 abstract class ConstraintGenerator {
   // Identifier used for reference expression in Z3 constraints
   def refToIdent(e: Expression): String
@@ -73,41 +81,49 @@ abstract class ConstraintGenerator {
   //---------------------------------------------------------------------------
   // Connection Environment Population
   //---------------------------------------------------------------------------
-  var whenConstraint : Constraint = CTrue
-
-  def connect(conEnv: ConnectionEnv, loc: String, cprime: Constraint) {
-    if(whenConstraint == CTrue || !conEnv.contains(loc)) {
+  def connect(conEnv: ConnectionEnv, whenEnv: WhenEnv, loc: String, cprime: Constraint) {
+    if(whenEnv.cur == CTrue || !conEnv.contains(loc)) {
       conEnv(loc) = cprime
     } else {
-      conEnv(loc) = CIfTE(whenConstraint, cprime, conEnv(loc))
+      conEnv(loc) = CIfTE(whenEnv.cur, cprime, conEnv(loc))
     }
   }
 
-  def gen_cons_s(conEnv: ConnectionEnv)(s: Statement): Statement = s match {
+  // Note: this is the identity function on the statement argument. The purpose 
+  // of this function is to mutate conEnv and whenEnv.
+  def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = s match {
     case sx: DefNode =>
-        connect(conEnv,sx.name,exprToCons(sx.value)); sx
+        connect(conEnv, whenEnv, sx.name, exprToCons(sx.value))
+        whenEnv(sx) = whenEnv.cur; sx
       case sx: Connect =>
-        connect(conEnv,exprToCons(sx.loc).serialize,exprToCons(sx.expr)); sx
+        connect(conEnv, whenEnv, exprToCons(sx.loc).serialize, exprToCons(sx.expr))
+        whenEnv(sx) = whenEnv.cur; sx
       case sx: PartialConnect =>
-        connect(conEnv,exprToCons(sx.loc).serialize,exprToCons(sx.expr)); sx
+        connect(conEnv, whenEnv, exprToCons(sx.loc).serialize, exprToCons(sx.expr))
+        whenEnv(sx) = whenEnv.cur; sx
       case sx: Conditionally =>
-        // TODO make the apply function of CConj magic and implement it as a 
-        // fake case class like JoinLabel
         val pred = exprToConsBool(sx.pred)
-        val oldWhen = whenConstraint
-        whenConstraint = if(whenConstraint == CTrue) pred else CConj(whenConstraint, pred)
-        val conseqx = sx.conseq map gen_cons_s(conEnv)
-        whenConstraint = CNot(whenConstraint)
-        val altx = sx.alt map gen_cons_s(conEnv)
-        whenConstraint = oldWhen
-        Conditionally(sx.info, sx.pred, conseqx, altx)
-      case sx => sx map gen_cons_s(conEnv)
+        val oldWhen = whenEnv.cur
+        // True side
+        whenEnv.cur = if(whenEnv.cur == CTrue) pred else CConj(whenEnv.cur, pred)
+        sx.conseq map gen_cons_s(conEnv, whenEnv)
+        whenEnv(sx.conseq) = whenEnv.cur
+        // False side
+        whenEnv.cur = CNot(whenEnv.cur)
+        sx.alt map gen_cons_s(conEnv, whenEnv)
+        whenEnv(sx.alt) = whenEnv.cur
+        // This statement
+        whenEnv.cur = oldWhen
+        whenEnv(sx) = whenEnv.cur
+        sx
+      case sx => 
+        sx map gen_cons_s(conEnv, whenEnv)
+        whenEnv(sx) = whenEnv.cur
+        sx
   }
 
-  def gen_cons(conEnv: ConnectionEnv)(m: DefModule) = {
-    whenConstraint = CTrue
-    m map gen_cons_s(conEnv)
-  }
+  def gen_cons(conEnv: ConnectionEnv, whenEnv: WhenEnv)(m: DefModule) =
+    m map gen_cons_s(conEnv, whenEnv)
 
   //--------------------------------------------------------------------------- 
   // Collect Declarations for All References in Module 
@@ -312,7 +328,8 @@ object LabelCheck extends Pass with PassDebug {
       // Generate Z3-representation of connection graph
       //-----------------------------------------------------------------------
       val conEnv = new ConnectionEnv 
-      consGenerator.gen_cons(conEnv)(m)
+      val whenEnv = new WhenEnv
+      consGenerator.gen_cons(conEnv, whenEnv)(m)
 
       //-----------------------------------------------------------------------
       // Emit Declarations
