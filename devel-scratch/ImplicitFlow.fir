@@ -17,7 +17,7 @@ circuit ImplicitFlow :
         z <= io.in0 @[rhs -> L]
             
         foo <= x @[rhs -> H]
-        when eq(y, UInt(3)):
+        when y:
             foo <= UInt(7) @[rhs -> D2]
             skip
         when eq(z, UInt(2)):

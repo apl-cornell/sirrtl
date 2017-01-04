@@ -35,10 +35,10 @@ object ConstraintConst {
 
  def conversions: String = {
 """|; int to bool and bool to int
-   |(define-fun toBool ((x Int)) Bool
-   |    (ite (= x 0) false true) ) 
-   |(define-fun toInt ((x Bool)) Int 
-   |    (ite x 1 0) ) 
+   |(define-fun toBool ((_ BitVec 1)) Bool
+   |    (ite (= x (_ bv0 1)) false true) ) 
+   |(define-fun toBV ((x Bool)) (_ BitVec 1)
+   |    (ite x (_ bv1 1) (_ bv0 1)) ) 
    |""".stripMargin
  }
 
@@ -76,6 +76,8 @@ abstract class ConstraintGenerator {
   def exprToDeclaration(e: Expression): String
   // Representation of expression in Z3
   def exprToCons(e: Expression): Constraint
+  // Representation of expression in Z3 as a boolean
+  def exprToConsBool(e: Expression): Constraint
 
   //---------------------------------------------------------------------------
   // Connection Environment Population
@@ -100,7 +102,7 @@ abstract class ConstraintGenerator {
       case sx: Conditionally =>
         // TODO make the apply function of CConj magic and implement it as a 
         // fake case class like JoinLabel
-        val pred = exprToCons(sx.pred)
+        val pred = exprToConsBool(sx.pred)
         val oldWhen = whenConstraint
         whenConstraint = if(whenConstraint == CTrue) pred else CConj(whenConstraint, pred)
         val conseqx = sx.conseq map gen_cons_s(conEnv)
@@ -174,14 +176,14 @@ object BVConstraintGen extends ConstraintGenerator {
     case ex : WSubField => CIdent(refToIdent(ex))
   }
 
+  def exprToConsBool(e: Expression) =
+    CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
+
   def mkBin(op: String, e: DoPrim) =
     CBinOp(op, exprToCons(e.args(0)), exprToCons(e.args(1)))
 
-  def bigIntToBVHex(i: BigInt) =
-    CIdent(s"#x${i.toString(16)}")
-
   def mkBinC(op: String, e: DoPrim) =
-    CBinOp(op, exprToCons(e.args(0)), bigIntToBVHex(e.consts(0)))
+    CBinOp(op, exprToCons(e.args(0)), CBVLit(e.consts(0), bitWidth(e.args(0).tpe)))
 
   def unimpl(s: String) =
     CIdent(s"UNIMPL $s")
@@ -198,24 +200,28 @@ object BVConstraintGen extends ConstraintGenerator {
       case UIntType(_) => mkBin("bvurem", e)
       case SIntType(_) => mkBin("bvsrem", e)
     }
-    case "lt" => e.tpe match {
+    case "lt" => CBVWrappedBool(e.tpe match {
       case UIntType(_) => mkBin("bvult", e)
       case SIntType(_) => mkBin("bvslt", e)
-    }
-    case "leq" => e.tpe match {
+    }, bitWidth(e.tpe))
+    case "leq" => CBVWrappedBool(e.tpe match {
       case UIntType(_) => mkBin("bvule", e)
       case SIntType(_) => mkBin("bvsle", e)
-    }
-    case "gt" => e.tpe match {
+    }, bitWidth(e.tpe))
+    case "gt" => CBVWrappedBool(e.tpe match {
       case UIntType(_) => mkBin("bvugt", e)
       case SIntType(_) => mkBin("bvsgt", e)
-    }
-    case "geq" => e.tpe match {
+    }, bitWidth(e.tpe))
+    case "geq" => CBVWrappedBool(e.tpe match {
       case UIntType(_) => mkBin("bvuge", e)
       case SIntType(_) => mkBin("bvsge", e)
-    }
-    case "eq" => CEq(exprToCons(e.args(0)),exprToCons(e.args(1)))
-    case "neq" => CNot(CEq(exprToCons(e.args(0)),exprToCons(e.args(1))))
+    }, bitWidth(e.tpe))
+    case "eq" => CBVWrappedBool(
+      CEq(exprToCons(e.args(0)),exprToCons(e.args(1))),
+      bitWidth(e.args(0).tpe))
+    case "neq" => CBVWrappedBool(
+      CNot(CEq(exprToCons(e.args(0)),exprToCons(e.args(1)))),
+      bitWidth(e.args(0).tpe))
     case "pad" => 
       val w = bitWidth(e.args(0).tpe)
       val diff = e.consts(0).toInt - w
@@ -234,7 +240,8 @@ object BVConstraintGen extends ConstraintGenerator {
       case SIntType(_) => mkBin("bvashr", e)
     }
     case "neg" => CUnOp("bvneg", exprToCons(e.args(0)))
-    case "not" => CNot(exprToCons(e.args(0)))
+    case "not" => 
+      CBVWrappedBool(CNot(exprToConsBool(e.args(0))),bitWidth(e.tpe))
     case "and" => mkBin("bvand", e)
     case "or" => mkBin("bvor", e)
     case "cat" => mkBin("concat", e)
