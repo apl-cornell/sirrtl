@@ -234,12 +234,8 @@ object BVConstraintGen extends ConstraintGenerator {
       case UIntType(_) => mkBin("bvuge", e)
       case SIntType(_) => mkBin("bvsge", e)
     }, bitWidth(e.tpe))
-    case "eq" => CBVWrappedBool(
-      CEq(exprToCons(e.args(0)),exprToCons(e.args(1))),
-      bitWidth(e.args(0).tpe))
-    case "neq" => CBVWrappedBool(
-      CNot(CEq(exprToCons(e.args(0)),exprToCons(e.args(1)))),
-      bitWidth(e.args(0).tpe))
+    case "eq"  => CBVWrappedBool(mkBin("=", e), bitWidth(e.args(0).tpe))
+    case "neq" => CBVWrappedBool(CNot(mkBin("=", e)), bitWidth(e.args(0).tpe))
     case "pad" => 
       val w = bitWidth(e.args(0).tpe)
       val diff = e.consts(0).toInt - w
