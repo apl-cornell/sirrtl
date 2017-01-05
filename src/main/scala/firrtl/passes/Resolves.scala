@@ -26,13 +26,17 @@ object ResolveKinds extends Pass {
     s map find_stmt(kinds)
   }
 
-  def resolve_expr(kinds: KindMap)(e: Expression): Expression = e match {
+  def resolve_lbl(kinds: KindMap)(l: Label): Label = 
+    l map resolve_expr(kinds) map resolve_lbl(kinds)
+
+  def resolve_expr(kinds: KindMap)(e: Expression): Expression = 
+    e map resolve_lbl(kinds) match {
     case ex: WRef => ex copy (kind = kinds(ex.name))
     case _ => e map resolve_expr(kinds)
   }
 
   def resolve_stmt(kinds: KindMap)(s: Statement): Statement =
-    s map resolve_stmt(kinds) map resolve_expr(kinds)
+    s map resolve_stmt(kinds) map resolve_expr(kinds) map resolve_lbl(kinds)
 
   def resolve_kinds(m: DefModule): DefModule = {
     val kinds = new KindMap
@@ -47,7 +51,8 @@ object ResolveKinds extends Pass {
 
 object ResolveGenders extends Pass {
   def name = "Resolve Genders"
-  def resolve_e(g: Gender)(e: Expression): Expression = e match {
+
+  def resolve_e(g: Gender)(e: Expression): Expression =  e match {
     case ex: WRef => ex copy (gender = g)
     case WSubField(exp, name, tpe, lbl, _) => WSubField(
       Utils.field_flip(exp.tpe, name) match {

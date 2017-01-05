@@ -51,6 +51,9 @@ class ResolveAndCheckWLabels extends ResolveAndCheck {
   override def passSeq = super.passSeq ++ Seq(
     passes.InferLabels,
     passes.ImplicitFlowElevation,
+    passes.ToWorkingIR, // for exprs in deptypes
+    passes.ResolveKinds, // for exprs in deptypes
+    passes.NextCycleTransform,
     passes.LabelCheck
   )
 }

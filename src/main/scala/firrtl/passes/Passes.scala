@@ -49,7 +49,9 @@ class Errors {
 object ToWorkingIR extends Pass {
   def name = "Working IR"
 
-  def toExp(e: Expression): Expression = e map toExp match {
+  def toLbl(l: Label): Label = l map toExp map toLbl
+
+  def toExp(e: Expression): Expression = e map toExp map toLbl match {
     case ex: Reference => WRef(ex.name, ex.tpe, ex.lbl, NodeKind, UNKNOWNGENDER)
     case ex: SubField => WSubField(ex.expr, ex.name, ex.tpe, ex.lbl, UNKNOWNGENDER)
     case ex: SubIndex => WSubIndex(ex.expr, ex.value, ex.tpe, ex.lbl, UNKNOWNGENDER)
@@ -57,7 +59,7 @@ object ToWorkingIR extends Pass {
     case ex => ex // This might look like a case to use case _ => e, DO NOT!
   }
 
-  def toStmt(s: Statement): Statement = s map toExp match {
+  def toStmt(s: Statement): Statement = s map toExp map toLbl match {
     case sx: DefInstance => WDefInstance(sx.info, sx.name, sx.module, UnknownType)
     case sx => sx map toStmt
   }

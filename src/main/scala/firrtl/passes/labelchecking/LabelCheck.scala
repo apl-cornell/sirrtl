@@ -38,8 +38,7 @@ object ConstraintConst {
       |(define-fun Dom ((x (_ BitVec 2))) Label
       |  (ite (= x (_ bv0 2)) L 
       |  (ite (= x (_ bv1 2)) D1
-      |  (ite (= x (_ bv2 2)) D2
-      |  (ite (= x (_ bv3 2)) H))))
+      |  (ite (= x (_ bv2 2)) D2 H))))
       |
       |""".stripMargin
  }
