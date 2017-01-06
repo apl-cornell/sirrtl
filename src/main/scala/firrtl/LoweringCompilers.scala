@@ -54,6 +54,7 @@ class ResolveAndCheckWLabels extends ResolveAndCheck {
     passes.ToWorkingIR, // for exprs in deptypes
     passes.ResolveKinds, // for exprs in deptypes
     passes.NextCycleTransform,
+    passes.EliminateUnusedConnections,
     passes.LabelCheck
   )
 }

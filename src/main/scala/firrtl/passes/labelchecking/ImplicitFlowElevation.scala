@@ -13,7 +13,11 @@ object ImplicitFlowElevation extends Pass with PassDebug {
   def bot = PolicyHolder.policy.bottom
 
   type PredStack = collection.mutable.Stack[Seq[Expression]]
-  
+
+  // This is a mapping from locations (names of objects which can be connected 
+  // to) to a stack of expression sequences. The stack a location is mapped to 
+  // contains all expressions which may indirectly affect the value of the 
+  // location through implcit flows.
   class PredEnv extends collection.mutable.HashMap[String,PredStack] {
     // by overriding this method, if there is no entry for the key, this hash 
     // will return an empty stack of predicates when the key is accessed from 
