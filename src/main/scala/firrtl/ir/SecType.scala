@@ -33,10 +33,10 @@ object JoinLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
     case(UnknownLabel, _) => UnknownLabel
     case(_, UnknownLabel) => UnknownLabel
-    case(_, bot) => l
-    case(bot, _) => r
-    case(_, top) => top
-    case(top, _) => top
+    case(_, b: Level) if b == bot => l
+    case(b: Level, _) if b == bot => r
+    case(_, t: Level) if t == top => top
+    case(t: Level, _) if t == top => top
     case (tl: Level, tr: Level)  => PolicyHolder.policy.join(tl, tr)
     case _ => new JoinLabel(l,r)
   }
