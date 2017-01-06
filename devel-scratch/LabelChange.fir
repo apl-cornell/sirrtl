@@ -17,10 +17,10 @@ circuit LabelChange:
         y <= UInt(5)
 
         bar <= UInt(0)
-        when eq(lbl, UInt(1)):
+        when eq(next(lbl), UInt(1)):
             foo <= x
             bar <= x
-        when eq(lbl, UInt(2)):
+        when eq(next(lbl), UInt(2)):
             foo <= y
             bar <= y
             

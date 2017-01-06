@@ -52,6 +52,7 @@ object InferLabels extends Pass with PassDebug {
   def infer_labels_e(labels: LabelMap)(e: Expression) : Expression =
     e map infer_labels_e(labels) match {
       case e: WRef => e copy (lbl = labels(e.name))
+      case e: Next => e copy (lbl = labels(e.name))
       case e: WSubField =>
         e copy (lbl = field_label(e.exp.lbl, e.name))
       case e: WSubIndex => e copy (lbl = e.exp.lbl)

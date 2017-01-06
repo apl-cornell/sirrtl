@@ -13,11 +13,6 @@ object NextCycleTransform extends Pass with PassDebug {
   val bot = PolicyHolder.policy.bottom
 
   // TODO
-  // If there are multiple assignments under the same whenCondition, eliminate 
-  // the one that never gets called (i.e. the earlier one
-  //
-  // Add a "next" expression and replace it with references to $n
-  //
   // Add a way to declare a port as sequential
 
   def next_ident(n: String) = "$" + n

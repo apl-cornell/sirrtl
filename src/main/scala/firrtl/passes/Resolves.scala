@@ -6,7 +6,8 @@ import firrtl._
 import firrtl.ir._
 import firrtl.Mappers._
 
-object ResolveKinds extends Pass {
+object ResolveKinds extends ResolveKindsT
+trait ResolveKindsT extends Pass {
   def name = "Resolve Kinds"
   type KindMap = collection.mutable.LinkedHashMap[String, Kind]
 
@@ -54,6 +55,7 @@ object ResolveGenders extends Pass {
 
   def resolve_e(g: Gender)(e: Expression): Expression =  e match {
     case ex: WRef => ex copy (gender = g)
+    case ex: Next => ex copy (gender = g)
     case WSubField(exp, name, tpe, lbl, _) => WSubField(
       Utils.field_flip(exp.tpe, name) match {
         case Default => resolve_e(g)(exp)

@@ -343,6 +343,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
           SIntLiteral(value, width, UnknownLabel)
         case "validif(" => ValidIf(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), UnknownType, UnknownLabel)
         case "mux(" => Mux(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), visitExp(ctx.exp(2)), UnknownType, UnknownLabel)
+        case "next(" => Next(ctx.id.getText, UnknownType, UnknownLabel, UNKNOWNGENDER)
         case _ =>
           ctx.getChild(1).getText match {
             case "." => new SubField(visitExp(ctx.exp(0)), ctx.id.getText, UnknownType, UnknownLabel)

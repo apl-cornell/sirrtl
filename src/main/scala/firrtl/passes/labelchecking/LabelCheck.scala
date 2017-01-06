@@ -142,7 +142,11 @@ abstract class ConstraintGenerator {
   // Collect Declarations for All References in Module 
   //---------------------------------------------------------------------------
   type DeclSet = Set[String]
-  def decls_e(declSet: DeclSet)(e: Expression) : Expression = e match {
+  def decls_l(declSet: DeclSet)(l: Label) : Label =
+    l map decls_e(declSet) map decls_l(declSet)
+
+  def decls_e(declSet: DeclSet)(e: Expression) : Expression = 
+    e map decls_l(declSet) match {
     case ex : WRef => declSet += exprToDeclaration(ex); ex
     case ex : WSubField => declSet +=  exprToDeclaration(ex); ex
     case ex => ex map decls_e(declSet)
@@ -150,7 +154,7 @@ abstract class ConstraintGenerator {
   def decls_s(declSet: DeclSet)(s: Statement) : Statement = s match {
     // do not count references in invalid
     case sx : IsInvalid => sx 
-    case sx => sx map decls_s(declSet) map decls_e(declSet)
+    case sx => sx map decls_s(declSet) map decls_e(declSet) map decls_l(declSet)
   }
 
   def declarations(m: DefModule) : Set[String] = {

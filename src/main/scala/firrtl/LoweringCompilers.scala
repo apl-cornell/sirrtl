@@ -53,6 +53,7 @@ class ResolveAndCheckWLabels extends ResolveAndCheck {
     passes.ImplicitFlowElevation,
     passes.ToWorkingIR, // for exprs in deptypes
     passes.ResolveKinds, // for exprs in deptypes
+    passes.PullNexts,
     passes.NextCycleTransform,
     passes.EliminateUnusedConnections,
     passes.LabelCheck

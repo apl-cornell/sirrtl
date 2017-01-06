@@ -179,6 +179,7 @@ exp
   | 'mux(' exp exp exp ')'
   | 'validif(' exp exp ')'
   | primop exp* IntLit*  ')' 
+  | 'next(' id ')' // next-cycle value of ref
   ;
 
 /*

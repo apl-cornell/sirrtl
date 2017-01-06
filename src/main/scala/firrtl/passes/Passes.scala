@@ -46,7 +46,8 @@ class Errors {
 }
 
 // These should be distributed into separate files
-object ToWorkingIR extends Pass {
+object ToWorkingIR extends ToWorkingIRT
+trait ToWorkingIRT extends Pass {
   def name = "Working IR"
 
   def toLbl(l: Label): Label = l map toExp map toLbl

@@ -98,6 +98,15 @@ case class ValidIf(cond: Expression, value: Expression, tpe: Type, lbl: Label) e
   def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this
 }
+
+case class Next(name: String, tpe: Type, lbl: Label, gender: Gender) extends Expression {
+  def serialize = s"next($name)"
+  def mapExpr(f: Expression => Expression): Expression = this
+  def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
+  def mapWidth(f: Width => Width): Expression = this
+}
+
 abstract class Literal extends Expression {
   val value: BigInt
   val width: Width
@@ -139,6 +148,7 @@ case class DoPrim(op: PrimOp, args: Seq[Expression], consts: Seq[BigInt], tpe: T
 }
 
 abstract class Statement extends FirrtlNode {
+  def info : Info
   def mapStmt(f: Statement => Statement): Statement
   def mapExpr(f: Expression => Expression): Statement
   def mapType(f: Type => Type): Statement
@@ -244,6 +254,7 @@ case class Conditionally(
 }
 case class Block(stmts: Seq[Statement]) extends Statement {
   def serialize: String = stmts map (_.serialize) mkString "\n"
+  def info = NoInfo
   def mapStmt(f: Statement => Statement): Statement = Block(stmts map f)
   def mapExpr(f: Expression => Expression): Statement = this
   def mapType(f: Type => Type): Statement = this
@@ -314,6 +325,7 @@ case class Print(
 }
 case object EmptyStmt extends Statement {
   def serialize: String = "skip"
+  def info = NoInfo
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement = this
   def mapType(f: Type => Type): Statement = this

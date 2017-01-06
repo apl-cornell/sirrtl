@@ -23,9 +23,13 @@ object InferTypes extends Pass {
     def remove_unknowns(t: Type): Type =
       t map remove_unknowns map remove_unknowns_w
 
+    def infer_types_l(types: TypeMap)(l: Label): Label =
+      l map infer_types_e(types) map infer_types_l(types)
+
     def infer_types_e(types: TypeMap)(e: Expression): Expression =
-      e map infer_types_e(types) match {
+      e map infer_types_e(types) map infer_types_l(types) match {
         case e: WRef => e copy (tpe = types(e.name))
+        case e: Next => e copy (tpe = types(e.name))
         case e: WSubField => e copy (tpe = field_type(e.exp.tpe, e.name))
         case e: WSubIndex => e copy (tpe = sub_type(e.exp.tpe))
         case e: WSubAccess => e copy (tpe = sub_type(e.exp.tpe))
@@ -48,16 +52,17 @@ object InferTypes extends Pass {
         val sxx = (sx map infer_types_e(types)).asInstanceOf[DefNode]
         val t = remove_unknowns(sxx.value.tpe)
         types(sx.name) = t
-        sxx map infer_types_e(types)
+        sxx map infer_types_e(types) map infer_types_l(types)
       case sx: DefRegister =>
         val t = remove_unknowns(sx.tpe)
         types(sx.name) = t
-        sx copy (tpe = t) map infer_types_e(types)
+        sx copy (tpe = t) map infer_types_e(types) map infer_types_l(types)
       case sx: DefMemory =>
         val t = remove_unknowns(MemPortUtils.memType(sx))
         types(sx.name) = t
         sx copy (dataType = remove_unknowns(sx.dataType))
-      case sx => sx map infer_types_s(types) map infer_types_e(types)
+      case sx =>
+        sx map infer_types_s(types) map infer_types_e(types) map infer_types_l(types)
     }
 
     def infer_types_p(types: TypeMap)(p: Port): Port = {
@@ -86,6 +91,7 @@ object CInferTypes extends Pass {
     def infer_types_e(types: TypeMap)(e: Expression) : Expression =
       e map infer_types_e(types) match {
          case (e: Reference) => e copy (tpe = types.getOrElse(e.name, UnknownType))
+         case (e: Next) => e copy (tpe = types.getOrElse(e.name, UnknownType))
          case (e: SubField) => e copy (tpe = field_type(e.expr.tpe, e.name))
          case (e: SubIndex) => e copy (tpe = sub_type(e.expr.tpe))
          case (e: SubAccess) => e copy (tpe = sub_type(e.expr.tpe))

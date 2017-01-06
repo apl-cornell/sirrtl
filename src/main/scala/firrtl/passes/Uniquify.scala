@@ -245,6 +245,7 @@ object Uniquify extends Pass {
         case e: ValidIf => e map uniquifyExp
         case (_: UIntLiteral | _: SIntLiteral) => e
         case e: DoPrim => e map uniquifyExp
+        case ex => ex map uniquifyExp
       }
 
       def uniquifyStmt(s: Statement): Statement = {
