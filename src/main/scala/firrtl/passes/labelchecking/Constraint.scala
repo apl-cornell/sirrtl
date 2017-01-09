@@ -3,8 +3,6 @@ package firrtl.passes
 //-----------------------------------------------------------------------------
 // First Order Logic Constraints
 //-----------------------------------------------------------------------------
-// These are the same regardless of whether the integer theory or bitvector 
-// theory is used.
 abstract class Constraint {
   def serialize : String
   def mapCons(f: Constraint => Constraint) : Constraint

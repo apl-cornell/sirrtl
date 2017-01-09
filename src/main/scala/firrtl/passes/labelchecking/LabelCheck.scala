@@ -67,8 +67,10 @@ object PolicyConstraints {
   }
 }
 
-class ConnectionEnv extends collection.mutable.HashMap[String,Constraint]
-  { override def default(k:String) = CIdent(k) }
+// A mapping from locations in the constraint domain to their values in the 
+// constraint domain.
+class ConnectionEnv extends collection.mutable.HashMap[Constraint,Constraint]
+  { override def default(c:Constraint) = c }
 
 
 // Note that even seemingly identical statements are non-unique because they 
@@ -92,7 +94,7 @@ abstract class ConstraintGenerator {
   //---------------------------------------------------------------------------
   // Connection Environment Population
   //---------------------------------------------------------------------------
-  def connect(conEnv: ConnectionEnv, whenEnv: WhenEnv, loc: String, cprime: Constraint) {
+  def connect(conEnv: ConnectionEnv, whenEnv: WhenEnv, loc: Constraint, cprime: Constraint) {
     if(whenEnv.cur == CTrue || !conEnv.contains(loc)) {
       conEnv(loc) = cprime
     } else {
@@ -104,15 +106,15 @@ abstract class ConstraintGenerator {
   // of this function is to mutate conEnv and whenEnv.
   def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = s match {
     case sx: DefNode =>
-        connect(conEnv, whenEnv, sx.name, exprToCons(sx.value))
+        connect(conEnv, whenEnv, CIdent(sx.name), exprToCons(sx.value))
         whenEnv(sx) = whenEnv.cur; sx
       case sx: Connect =>
         val w = bitWidth(sx.loc.tpe)
-        connect(conEnv, whenEnv, exprToCons(sx.loc).serialize, exprToCons(sx.expr, w))
+        connect(conEnv, whenEnv, exprToCons(sx.loc), exprToCons(sx.expr, w))
         whenEnv(sx) = whenEnv.cur; sx
       case sx: PartialConnect =>
         val w = bitWidth(sx.loc.tpe)
-        connect(conEnv, whenEnv, exprToCons(sx.loc).serialize, exprToCons(sx.expr, w))
+        connect(conEnv, whenEnv, exprToCons(sx.loc), exprToCons(sx.expr, w))
         whenEnv(sx) = whenEnv.cur; sx
       case sx: Conditionally =>
         val pred = exprToConsBool(sx.pred)
@@ -320,17 +322,48 @@ object LabelCheck extends Pass with PassDebug {
    
     // For debugging only
     def emitConEnv(conEnv: ConnectionEnv) = conEnv.foreach {
-      case(loc, cons) => emit(s"(assert (= $loc ${cons.serialize}))\n")
+      case(loc, cons) => emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
     }
+
+    //-------------------------------------------------------------------------
+    // Collect constraints which may affect the value of a dependent type
+    //-------------------------------------------------------------------------
+    // A set of location, value pairs in the constraint domain
+    type ConSet = collection.mutable.HashSet[(Constraint,Constraint)]
+    def collect_deps_e(conEnv: ConnectionEnv, conSet: ConSet)(e: Expression) : Expression = {
+      val ex: Expression = e map collect_deps_e(conEnv, conSet) 
+      val c = consGenerator.exprToCons(ex)
+      if(conEnv.contains(c)) conSet += ((c, conEnv(c)))
+      ex
+    }
+
+    def collect_deps_l(conEnv: ConnectionEnv, conSet: ConSet)(l: Label) : Label = 
+      l map collect_deps_l(conEnv, conSet) map collect_deps_e(conEnv, conSet)
+
+    def collect_deps(conEnv: ConnectionEnv)(l: Label) : ConSet =  {
+      val s = new ConSet
+      collect_deps_l(conEnv, s)(l)
+      s
+    }
+
+    def emit_deps(conSet: ConSet) : Unit = conSet.foreach {
+      case(loc, cons) => emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
+    }
+
+    //------------------------------------------------------------------------- 
+    // Check connections
+    //-------------------------------------------------------------------------
 
     def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement =
       s map label_check(conEnv, whenEnv) match {
         case sx: Connect =>
           val lhs = sx.loc.lbl
           val rhs = sx.expr.lbl
+          val deps = collect_deps(conEnv)(lhs) ++ collect_deps(conEnv)(rhs)
           emit("(push)\n")
           emit(s"""(echo \"Checking Connection: ${sx.info}\")\n""" )
           emit(s"(assert ${whenEnv(s).serialize})\n")
+          emit_deps(deps)
           emit(s"(assert (not (leq ${rhs.serialize} ${lhs.serialize}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
@@ -382,8 +415,8 @@ object LabelCheck extends Pass with PassDebug {
       // This is temporary. In the future, connection checks should be scoped, 
       // and only relevant parts of the connection graph will be printed within 
       // that scope. Possibly the same should be done to the declarations.
-      emitConEnv(conEnv)
-      emit("\n")
+      // emitConEnv(conEnv)
+      // emit("\n")
       
       //-----------------------------------------------------------------------
       // Check Assignments
