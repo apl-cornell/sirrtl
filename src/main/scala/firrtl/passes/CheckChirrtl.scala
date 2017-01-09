@@ -68,8 +68,11 @@ object CheckChirrtl extends Pass {
       e
     }
 
+    def checkChirrtlL(info: Info, mname: String, names: NameSet)(l: Label): Label =
+      l map checkChirrtlL(info, mname, names) map checkChirrtlE(info, mname, names)
+
     def checkChirrtlE(info: Info, mname: String, names: NameSet)(e: Expression): Expression = {
-      e match {
+      e map checkChirrtlL(info, mname, names) match {
         case _: DoPrim | _:Mux | _:ValidIf | _: UIntLiteral =>
         case ex: Reference if !names(ex.name) =>
           errors append new UndeclaredReferenceException(info, mname, ex.name)
@@ -102,7 +105,8 @@ object CheckChirrtl extends Pass {
       }
       (s map checkChirrtlT(info, mname)
          map checkChirrtlE(info, mname, names)
-         map checkChirrtlS(info, mname, names))
+         map checkChirrtlS(info, mname, names)
+         map checkChirrtlL(info, mname, names))
     }
 
     def checkChirrtlP(mname: String, names: NameSet)(p: Port): Port = {
