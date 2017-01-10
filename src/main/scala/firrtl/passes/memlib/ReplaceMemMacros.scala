@@ -13,7 +13,6 @@ import AnalysisUtils._
 import firrtl.annotations._
 import wiring._
 
-
 /** Annotates the name of the pin to add for WiringTransform
   */
 object PinAnnotation {
@@ -32,63 +31,62 @@ class ReplaceMemMacros(writer: ConfWriter) extends Transform {
   def inputForm = MidForm
   def outputForm = MidForm
 
-  /** Return true if mask granularity is per bit, false if per byte or unspecified
-    */
+  // Return true if mask granularity is per bit, false if per byte or unspecified
   private def getFillWMask(mem: DefAnnotatedMemory) = mem.maskGran match {
     case None => false
     case Some(v) => v == 1
   }
 
   private def rPortToBundle(mem: DefAnnotatedMemory) = BundleType(
-    defaultPortSeq(mem) :+ Field("data", Flip, mem.dataType, UnknownLabel))
+    defaultPortSeq(mem) :+ Field("data", Flip, mem.dataType, UnknownLabel, false))
   private def rPortToFlattenBundle(mem: DefAnnotatedMemory) = BundleType(
-    defaultPortSeq(mem) :+ Field("data", Flip, flattenType(mem.dataType), UnknownLabel))
+    defaultPortSeq(mem) :+ Field("data", Flip, flattenType(mem.dataType), UnknownLabel, false))
 
   private def wPortToBundle(mem: DefAnnotatedMemory) = BundleType(
-    (defaultPortSeq(mem) :+ Field("data", Default, mem.dataType, UnknownLabel)) ++ (mem.maskGran match {
+    (defaultPortSeq(mem) :+ Field("data", Default, mem.dataType, UnknownLabel, false)) ++ (mem.maskGran match {
       case None => Nil
-      case Some(_) => Seq(Field("mask", Default, createMask(mem.dataType), UnknownLabel))
+      case Some(_) => Seq(Field("mask", Default, createMask(mem.dataType), UnknownLabel, false))
     })
   )
   private def wPortToFlattenBundle(mem: DefAnnotatedMemory) = BundleType(
-    (defaultPortSeq(mem) :+ Field("data", Default, flattenType(mem.dataType), UnknownLabel)) ++ (mem.maskGran match {
+    (defaultPortSeq(mem) :+ Field("data", Default, flattenType(mem.dataType), UnknownLabel, false)) ++ (mem.maskGran match {
       case None => Nil
-      case Some(_) if getFillWMask(mem) => Seq(Field("mask", Default, flattenType(mem.dataType), UnknownLabel))
-      case Some(_) => Seq(Field("mask", Default, flattenType(createMask(mem.dataType)), UnknownLabel))
+      case Some(_) if getFillWMask(mem) => Seq(Field("mask", Default, flattenType(mem.dataType), UnknownLabel, false))
+      case Some(_) => Seq(Field("mask", Default, flattenType(createMask(mem.dataType)), UnknownLabel, false))
     })
   )
   // TODO(shunshou): Don't use createMask???
 
   private def rwPortToBundle(mem: DefAnnotatedMemory) = BundleType(
     defaultPortSeq(mem) ++ Seq(
-      Field("wmode", Default, BoolType, UnknownLabel),
-      Field("wdata", Default, mem.dataType, UnknownLabel),
-      Field("rdata", Flip, mem.dataType, UnknownLabel)
+      Field("wmode", Default, BoolType, UnknownLabel, false),
+      Field("wdata", Default, mem.dataType, UnknownLabel, false),
+      Field("rdata", Flip, mem.dataType, UnknownLabel, false)
     ) ++ (mem.maskGran match {
       case None => Nil
-      case Some(_) => Seq(Field("wmask", Default, createMask(mem.dataType), UnknownLabel))
+      case Some(_) => Seq(Field("wmask", Default, createMask(mem.dataType), UnknownLabel, false))
     })
   )
   private def rwPortToFlattenBundle(mem: DefAnnotatedMemory) = BundleType(
     defaultPortSeq(mem) ++ Seq(
-      Field("wmode", Default, BoolType, UnknownLabel),
-      Field("wdata", Default, flattenType(mem.dataType), UnknownLabel),
-      Field("rdata", Flip, flattenType(mem.dataType), UnknownLabel)
+      Field("wmode", Default, BoolType, UnknownLabel, false),
+      Field("wdata", Default, flattenType(mem.dataType), UnknownLabel, false),
+      Field("rdata", Flip, flattenType(mem.dataType), UnknownLabel, false)
     ) ++ (mem.maskGran match {
       case None => Nil
-      case Some(_) if (getFillWMask(mem)) => Seq(Field("wmask", Default, flattenType(mem.dataType), UnknownLabel))
-      case Some(_) => Seq(Field("wmask", Default, flattenType(createMask(mem.dataType)), UnknownLabel))
+      case Some(_) if (getFillWMask(mem)) => Seq(Field("wmask", Default, flattenType(mem.dataType), UnknownLabel, false))
+      case Some(_) => Seq(Field("wmask", Default, flattenType(createMask(mem.dataType)), UnknownLabel, false))
     })
   )
 
   def memToBundle(s: DefAnnotatedMemory) = BundleType(
-    s.readers.map(Field(_, Flip, rPortToBundle(s), UnknownLabel)) ++
-    s.writers.map(Field(_, Flip, wPortToBundle(s), UnknownLabel)) ++
-    s.readwriters.map(Field(_, Flip, rwPortToBundle(s), UnknownLabel)))
+    s.readers.map(Field(_, Flip, rPortToBundle(s), UnknownLabel, false)) ++
+    s.writers.map(Field(_, Flip, wPortToBundle(s), UnknownLabel, false)) ++
+    s.readwriters.map(Field(_, Flip, rwPortToBundle(s), UnknownLabel, false)))
   def memToFlattenBundle(s: DefAnnotatedMemory) = BundleType(
-    s.readers.map(Field(_, Flip, rPortToFlattenBundle(s), UnknownLabel)) ++
-    s.writers.map(Field(_, Flip, wPortToFlattenBundle(s), UnknownLabel)) ++
-    s.readwriters.map(Field(_, Flip, rwPortToFlattenBundle(s), UnknownLabel)))
+    s.readers.map(Field(_, Flip, rPortToFlattenBundle(s), UnknownLabel, false)) ++
+    s.writers.map(Field(_, Flip, wPortToFlattenBundle(s), UnknownLabel, false)) ++
+    s.readwriters.map(Field(_, Flip, rwPortToFlattenBundle(s), UnknownLabel, false)))
 
   /** Creates a wrapper module and external module to replace a candidate memory
    *  The wrapper module has the same type as the memory it replaces

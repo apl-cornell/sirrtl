@@ -158,27 +158,27 @@ object MemPortUtils {
   type Modules = collection.mutable.ArrayBuffer[DefModule]
 
   def defaultPortSeq(mem: DefMemory): Seq[Field] = Seq(
-    Field("addr", Default, UIntType(IntWidth(ceilLog2(mem.depth) max 1)), mem.lbl),
-    Field("en", Default, BoolType, mem.lbl),
-    Field("clk", Default, ClockType, mem.lbl)
+    Field("addr", Default, UIntType(IntWidth(ceilLog2(mem.depth) max 1)), mem.lbl, false),
+    Field("en", Default, BoolType, mem.lbl, false),
+    Field("clk", Default, ClockType, mem.lbl, false)
   )
 
   // Todo: merge it with memToBundle
   def memType(mem: DefMemory): Type = {
     val rType = BundleType(defaultPortSeq(mem) :+
-      Field("data", Flip, mem.dataType, mem.lbl))
+      Field("data", Flip, mem.dataType, mem.lbl, false))
     val wType = BundleType(defaultPortSeq(mem) ++ Seq(
-      Field("data", Default, mem.dataType, mem.lbl),
-      Field("mask", Default, createMask(mem.dataType), mem.lbl)))
+      Field("data", Default, mem.dataType, mem.lbl, false),
+      Field("mask", Default, createMask(mem.dataType), mem.lbl, false)))
     val rwType = BundleType(defaultPortSeq(mem) ++ Seq(
-      Field("rdata", Flip, mem.dataType, mem.lbl),
-      Field("wmode", Default, BoolType, mem.lbl),
-      Field("wdata", Default, mem.dataType, mem.lbl),
-      Field("wmask", Default, createMask(mem.dataType), mem.lbl)))
+      Field("rdata", Flip, mem.dataType, mem.lbl, false),
+      Field("wmode", Default, BoolType, mem.lbl, false),
+      Field("wdata", Default, mem.dataType, mem.lbl, false),
+      Field("wmask", Default, createMask(mem.dataType), mem.lbl, false)))
     BundleType(
-      (mem.readers map (Field(_, Flip, rType, mem.lbl))) ++
-      (mem.writers map (Field(_, Flip, wType, mem.lbl))) ++
-      (mem.readwriters map (Field(_, Flip, rwType, mem.lbl))))
+      (mem.readers map (Field(_, Flip, rType, mem.lbl, false))) ++
+      (mem.writers map (Field(_, Flip, wType, mem.lbl, false))) ++
+      (mem.readwriters map (Field(_, Flip, rwType, mem.lbl, false))))
   }
 
   def memPortField(s: DefMemory, p: String, f: String): Expression = {

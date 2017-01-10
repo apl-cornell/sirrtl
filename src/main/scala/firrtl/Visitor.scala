@@ -158,9 +158,10 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
 
   private def visitField[FirrtlNode](ctx: FIRRTLParser.FieldContext): Field = {
     val flip = if (ctx.getChild(0).getText == "flip") Flip else Default
+    val seq =  if (ctx.getChild(3).getText == "seq") true else false
     val tpe = visitType(ctx.`type`)
     val lbl = visitLabel(Option(ctx.label))
-    Field(ctx.id.getText, flip, tpe, lbl)
+    Field(ctx.id.getText, flip, tpe, lbl, seq)
   }
 
   private def visitBlock[FirrtlNode](ctx: FIRRTLParser.ModuleBlockContext): Statement =

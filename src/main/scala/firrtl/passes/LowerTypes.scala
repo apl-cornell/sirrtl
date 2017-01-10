@@ -140,7 +140,7 @@ object LowerTypes extends Pass {
           val fieldsx = t.fields flatMap (f =>
             create_exps(WRef(f.name, f.tpe, f.lbl, ExpKind, times(f.flip, MALE))) map (
               // Flip because inst genders are reversed from Module type
-              e => Field(loweredName(e), swap(to_flip(gender(e))), e.tpe, UnknownLabel)))
+              e => Field(loweredName(e), swap(to_flip(gender(e))), e.tpe, f.lbl, f.isSeq)))
           WDefInstance(sx.info, sx.name, sx.module, BundleType(fieldsx))
         case _ => error("WDefInstance type should be Bundle!")(info, mname)
       }

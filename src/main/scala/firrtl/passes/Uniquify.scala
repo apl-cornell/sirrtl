@@ -84,7 +84,7 @@ object Uniquify extends Pass {
         val newFields = tx.fields map { f =>
           val newName = findValidPrefix(f.name, Seq(""), namespace)
           namespace += newName
-          Field(newName, f.flip, f.tpe, f.lbl)
+          Field(newName, f.flip, f.tpe, f.lbl, f.isSeq)
         } map { f => f.tpe match {
           case _: GroundType => f
           case _ =>
@@ -99,7 +99,7 @@ object Uniquify extends Pass {
               namespace += prefix
             }
             namespace ++= (elts map (e => LowerTypes.loweredName(prefix +: e)))
-            Field(prefix, f.flip, tpe, f.lbl)
+            Field(prefix, f.flip, tpe, f.lbl, f.isSeq)
           }
         }
         BundleType(newFields)
@@ -184,7 +184,7 @@ object Uniquify extends Pass {
       val newFields = t.fields map { f =>
         if (map.contains(f.name)) {
           val node = map(f.name)
-          Field(node.name, f.flip, uniquifyNamesType(f.tpe, node.elts), f.lbl)
+          Field(node.name, f.flip, uniquifyNamesType(f.tpe, node.elts), f.lbl, f.isSeq)
         } else {
           f
         }
@@ -199,25 +199,25 @@ object Uniquify extends Pass {
   def stmtToType(s: Statement)(implicit sinfo: Info, mname: String): BundleType = {
     // Recursive helper
     def recStmtToType(s: Statement): Seq[Field] = s match {
-      case sx: DefWire => Seq(Field(sx.name, Default, sx.tpe, sx.lbl))
-      case sx: DefRegister => Seq(Field(sx.name, Default, sx.tpe, sx.lbl))
-      case sx: WDefInstance => Seq(Field(sx.name, Default, sx.tpe, UnknownLabel))
+      case sx: DefWire => Seq(Field(sx.name, Default, sx.tpe, sx.lbl, false))
+      case sx: DefRegister => Seq(Field(sx.name, Default, sx.tpe, sx.lbl, true))
+      case sx: WDefInstance => Seq(Field(sx.name, Default, sx.tpe, UnknownLabel, false))
       case sx: DefMemory => sx.dataType match {
         case (_: UIntType | _: SIntType) =>
-          Seq(Field(sx.name, Default, memType(sx), sx.lbl))
+          Seq(Field(sx.name, Default, memType(sx), sx.lbl, false))
         case tpe: BundleType =>
           val newFields = tpe.fields map ( f =>
             DefMemory(sx.info, f.name, f.tpe, f.lbl, sx.depth, sx.writeLatency,
               sx.readLatency, sx.readers, sx.writers, sx.readwriters)
           ) flatMap recStmtToType
-          Seq(Field(sx.name, Default, BundleType(newFields), sx.lbl))
+          Seq(Field(sx.name, Default, BundleType(newFields), sx.lbl, false))
         case tpe: VectorType =>
           val newFields = (0 until tpe.size) map ( i =>
             sx.copy(name = i.toString, dataType = tpe.tpe)
           ) flatMap recStmtToType
-          Seq(Field(sx.name, Default, BundleType(newFields), sx.lbl))
+          Seq(Field(sx.name, Default, BundleType(newFields), sx.lbl, false))
       }
-      case sx: DefNode => Seq(Field(sx.name, Default, sx.value.tpe, UnknownLabel))
+      case sx: DefNode => Seq(Field(sx.name, Default, sx.value.tpe, UnknownLabel, false))
       case sx: Conditionally => recStmtToType(sx.conseq) ++ recStmtToType(sx.alt)
       case sx: Block => (sx.stmts map recStmtToType).flatten
       case sx => Seq()
@@ -326,7 +326,7 @@ object Uniquify extends Pass {
     def uniquifyPorts(m: DefModule): DefModule = {
       def uniquifyPorts(ports: Seq[Port]): Seq[Port] = {
         val portsType = BundleType(ports map {
-          case Port(_, name, dir, tpe, lbl) => Field(name, to_flip(dir), tpe, lbl)
+          case Port(_, name, dir, tpe, lbl) => Field(name, to_flip(dir), tpe, lbl, false)
         })
         val uniquePortsType = uniquifyNames(portsType, collection.mutable.HashSet())
         val localMap = createNameMapping(portsType, uniquePortsType)

@@ -400,7 +400,8 @@ case object Flip extends Orientation {
 }
 
 /** Field of [[BundleType]] */
-case class Field(name: String, flip: Orientation, tpe: Type, lbl: Label)
+case class Field(name: String, flip: Orientation, tpe: Type, lbl: Label,
+  isSeq: Boolean)
   extends FirrtlNode with HasName {
   def serialize: String = flip.serialize + name + " : " + tpe.serialize
 }

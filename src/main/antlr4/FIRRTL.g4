@@ -67,7 +67,7 @@ label
   ;
 
 field
-  : 'flip'? id ':' label? type
+  : 'flip'? id ':' 'seq'? label? type
   ;
 
 defname
