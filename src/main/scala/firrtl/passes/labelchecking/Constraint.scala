@@ -38,7 +38,8 @@ case class CIfTE(pred: Constraint, conseq: Constraint, alt: Constraint) extends 
   def mapCons(f: Constraint => Constraint) = CIfTE(f(pred),f(conseq),f(alt))
 }
 
-case class CIdent(n: String) extends Constraint {
+// This is an assignable location in FIRRTL or an atom in FOL
+case class CAtom(n: String)  extends Constraint {
   def serialize = n
   def mapCons(f: Constraint => Constraint) = this
 }

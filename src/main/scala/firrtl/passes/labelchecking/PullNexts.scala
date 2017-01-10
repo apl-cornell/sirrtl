@@ -8,7 +8,7 @@ import firrtl.Driver._
 
 
 // This pass replaces all expressions of the form next(id) with a reference to 
-// the next-cycle updated version of the 
+// the next-cycle updated version of the id.
 object PullNexts extends Pass with PassDebug {
   def name = "Pull Nexts"
   override def debugThisPass = true
