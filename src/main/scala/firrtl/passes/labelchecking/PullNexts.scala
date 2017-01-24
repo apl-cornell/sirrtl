@@ -23,9 +23,10 @@ object PullNexts extends Pass with PassDebug {
 
   type NextCtx = collection.mutable.HashMap[String,DefRegister]
 
-  def pull_next_e(nctx: NextCtx, info: Info)(e: Expression): Expression =
+  def pull_next_e(nctx: NextCtx, info: Info)(e: Expression): Expression = e
+  /*
     e map pull_next_e(nctx, info) match {
-      case Next(id, tpe, lbl, MALE) => 
+      case Next(ne, tpe, lbl, MALE) => 
         if(!nctx.contains(id)) {
           errors.append(new IllegalNextException(info, id))
           Next(id, tpe, lbl, MALE)
@@ -36,6 +37,7 @@ object PullNexts extends Pass with PassDebug {
         Next(id, tpe, lbl, FEMALE)
       case ex => ex
     }
+    */
 
   def pull_next_s(nctx: NextCtx)(s: Statement): Statement =
     s map pull_next_s(nctx) map pull_next_e(nctx, s.info) match {

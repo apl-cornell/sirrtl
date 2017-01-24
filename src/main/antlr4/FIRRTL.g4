@@ -63,7 +63,7 @@ type
 
 label
   : '{' id '}'       // Constant security level
-  | '{' id id '}'    // Dependent type function applied to prog variable
+  | '{' id exp '}'    // Dependent type function applied to expression
   ;
 
 field
@@ -179,7 +179,7 @@ exp
   | 'mux(' exp exp exp ')'
   | 'validif(' exp exp ')'
   | primop exp* IntLit*  ')' 
-  | 'next(' id ')' // next-cycle value of ref
+  | 'next(' exp ')' // next-cycle value of exp
   ;
 
 /*
@@ -240,6 +240,7 @@ keyword
   | 'read'
   | 'write'
   | 'rdwr'
+  | 'seq'
   ;
 
 // Parentheses are added as part of name because semantics require no space between primop and open parentheses

@@ -11,7 +11,7 @@ object CheckDepKinds extends Pass with PassDebug {
   override def debugThisPass = true
 
   class NonSeqDepException(info: Info, name: String) extends PassException(
-    s"$info: Something other than a sequential variable ($name) was used in a dependent type. This is not supported")
+    s"$info: Something other than a sequential variable/field ($name) was used in a dependent type. This is not supported")
   val errors = new Errors()
 
   // Note that this function is only ever called on expressions appearing 

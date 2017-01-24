@@ -145,10 +145,9 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
 
   private def visitLabel[FirrtlNode](maybeCtx: Option[FIRRTLParser.LabelContext]): Label = {
     maybeCtx match {
-      case Some(ctx) => {
-        if( ctx.id.size == 1 ) Level(ctx.id(0).getText)
-        else FunLabel(ctx.id(0).getText, Reference(ctx.id(1).getText,
-          UnknownType, UnknownLabel))
+      case Some(ctx) => Option(ctx.exp) match {
+        case None => Level(ctx.id.getText)
+        case Some(ectx) => FunLabel(ctx.id.getText, visitExp(ectx))
       }
       case None => {
         return UnknownLabel
@@ -158,7 +157,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
 
   private def visitField[FirrtlNode](ctx: FIRRTLParser.FieldContext): Field = {
     val flip = if (ctx.getChild(0).getText == "flip") Flip else Default
-    val seq =  if (ctx.getChild(3).getText == "seq") true else false
+    val seq = ctx.getChild(3).getText == "seq"
     val tpe = visitType(ctx.`type`)
     val lbl = visitLabel(Option(ctx.label))
     Field(ctx.id.getText, flip, tpe, lbl, seq)
@@ -344,7 +343,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
           SIntLiteral(value, width, UnknownLabel)
         case "validif(" => ValidIf(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), UnknownType, UnknownLabel)
         case "mux(" => Mux(visitExp(ctx.exp(0)), visitExp(ctx.exp(1)), visitExp(ctx.exp(2)), UnknownType, UnknownLabel)
-        case "next(" => Next(ctx.id.getText, UnknownType, UnknownLabel, UNKNOWNGENDER)
+        case "next(" => Next(visitExp(ctx.exp(0)), UnknownType, UnknownLabel, UNKNOWNGENDER)
         case _ =>
           ctx.getChild(1).getText match {
             case "." => new SubField(visitExp(ctx.exp(0)), ctx.id.getText, UnknownType, UnknownLabel)
