@@ -7,37 +7,69 @@ import firrtl.Mappers._
 import firrtl.Driver._
 
 
-// This pass replaces all expressions of the form next(id) with a reference to 
-// the next-cycle updated version of the id.
+// This pass checks that all expressions of form next(e) are valid, and 
+// replaces them with a unique compiler-mangled WIR expression. Valid next 
+// expressions are always female since they represent the compiler-defined 
+// next-cycle value of an expression and should not be defined by user code. 
+// Valid next expressions should either be references to registers or subfields 
+// pointing to sequential ports.
 object PullNexts extends Pass with PassDebug {
   def name = "Pull Nexts"
-  override def debugThisPass = true
+  override def debugThisPass = false
 
-  def next_ident(n: String) = NextCycleTransform.next_ident(n)
-
-  class FemaleNextException(info: Info, name: String) extends PassException(
-    s"$info: an attempt was made to assign to next-value next($name)")
-  class IllegalNextException(info: Info, name: String) extends PassException(
-    s"$info: Illegal next expression: next($name). Are you sure that $name is sequential?")
+  class FemaleNextException(info: Info, exp: Expression) extends PassException(
+    s"$info: an attempt was made to assign to next-value next(${exp.serialize})")
+  class IllegalNextException(info: Info, exp: Expression) extends PassException(
+    s"$info: Illegal next expression: next(${exp.serialize}). Are you sure that ${exp.serialize} is sequential?")
+  class NoNextPException(info: Info, exp: Expression) extends PassException(
+    s"$info: Next port unavailable: next(${exp.serialize}). Is the next_[.] port needed for ${exp.serialize} declared?")
   val errors = new Errors()
+  
+  def next_ident(n: String) = "$" + n
+
+  def next_exp(e: Expression) = e match {
+    case ex : WRef => ex copy (name = next_ident(ex.name))
+    case ex : WSubField => ex copy (name = "next_" + ex.name)
+  }
+
+  def is_simple_p_subf(e: WSubField) = e.exp match {
+    case ex: WRef => ex.kind == PortKind
+    case _ => false
+  }
+
+  def next_p_declared(e: WSubField) = e.exp.tpe match {
+    case t: BundleType => t.fields find (_.name == "next_" + e.name) match {
+      case Some(f) => true; case None => false
+    }
+    case _ => false
+  }
 
   type NextCtx = collection.mutable.HashMap[String,DefRegister]
 
-  def pull_next_e(nctx: NextCtx, info: Info)(e: Expression): Expression = e
-  /*
+  def pull_next_e(nctx: NextCtx, info: Info)(e: Expression): Expression = 
     e map pull_next_e(nctx, info) match {
-      case Next(ne, tpe, lbl, MALE) => 
-        if(!nctx.contains(id)) {
-          errors.append(new IllegalNextException(info, id))
-          Next(id, tpe, lbl, MALE)
-        } else
-          WRef(next_ident(id), tpe, lbl, RegKind, MALE)
-      case Next(id, tpe, lbl, FEMALE) =>
-        errors.append(new FemaleNextException(info, id))
-        Next(id, tpe, lbl, FEMALE)
+      case Next(en, tpe, lbl, MALE) => en match {
+        case enx: WRef =>
+          if(!nctx.contains(enx.name))
+            errors.append(new IllegalNextException(info, enx))
+          next_exp(enx)
+        case enx: WSubField =>
+          if(!is_simple_p_subf(enx)) 
+            errors.append(new IllegalNextException(info, enx))
+          if(!field_seq(enx.exp.tpe, enx.name))
+            errors.append(new IllegalNextException(info, enx))
+          if(!next_p_declared(enx)) 
+            errors.append(new NoNextPException(info, enx))
+          next_exp(enx)
+        case enx => 
+            errors.append(new IllegalNextException(info, enx))
+            enx
+      }
+      case Next(en, tpe, lbl, FEMALE) =>
+        errors.append(new FemaleNextException(info, en))
+        Next(en, tpe, lbl, FEMALE)
       case ex => ex
     }
-    */
 
   def pull_next_s(nctx: NextCtx)(s: Statement): Statement =
     s map pull_next_s(nctx) map pull_next_e(nctx, s.info) match {

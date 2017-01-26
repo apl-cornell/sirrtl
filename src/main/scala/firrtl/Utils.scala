@@ -266,6 +266,13 @@ object Utils extends LazyLogging {
     }
     case vx => UnknownLabel
   }
+  def field_seq(v: Type, s: String) : Boolean = v match {
+    case vx: BundleType=> vx.fields find (_.name == s) match {
+      case Some(f) => f.isSeq
+      case None => false
+    }
+    case vx => false
+  }
 //>>>>>>> e54fb610c6bf0a7fe5c9c0f0e0b3acbb3728cfd0
    
 // =================================

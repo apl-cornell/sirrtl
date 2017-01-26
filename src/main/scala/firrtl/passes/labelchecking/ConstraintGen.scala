@@ -32,6 +32,8 @@ abstract class ConstraintGenerator {
   def exprToCons(e: Expression, w: BigInt): Constraint
   // Representation of expression in Z3 as a boolean
   def exprToConsBool(e: Expression): Constraint
+  // Serialization of labels. May depend on particular constraint generator
+  def serialize(l: Label) = l.serialize
 
   //---------------------------------------------------------------------------
   // Connection Environment Population
@@ -157,6 +159,18 @@ object BVConstraintGen extends ConstraintGenerator {
 
   def exprToConsBool(e: Expression) =
     CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
+
+  override def serialize(l: Label) = try { l match {
+    case FunLabel(fname,arg) => s"($fname ${refToIdent(arg)})"
+    case JoinLabel(l,r) => s"(join ${serialize(l)} ${serialize(r)})"
+    case MeetLabel(l,r) => s"(meet ${serialize(l)} ${serialize(r)})"
+    case Level(_) => l.serialize
+    case UnknownLabel => l.serialize
+  }} catch {
+    case e : Throwable =>
+      println("BVConstraintGen can't serialize something")
+      throw e
+  }
 
   def mkBin(op: String, e: DoPrim) = {
     def autoExpand(e1: Expression, e2: Expression) = {

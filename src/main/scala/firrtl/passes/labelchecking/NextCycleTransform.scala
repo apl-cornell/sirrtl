@@ -12,21 +12,19 @@ object NextCycleTransform extends Pass with PassDebug {
   override def debugThisPass = true
   val bot = PolicyHolder.policy.bottom
 
-  // TODO
-  // Add a way to declare a port as sequential
-
-  def next_ident(n: String) = "$" + n
+  def next_exp(e: Expression) = PullNexts.next_exp(e)
+  def next_ident(n: String) = PullNexts.next_ident(n)
 
   def declare_next_s(s: Statement) : Statement =
     s map declare_next_s match {
       case sx : DefRegister =>
-        val next_n = next_ident(sx.name)
         val next_l = swap_with_next_l(sx.lbl)
+        val next_w = next_exp(
+          WRef(sx.name, sx.tpe, next_l, WireKind, FEMALE))
         val dec_next_i = sx.info // TODO?
         val def_next_i = sx.info // TODO?
-        val dec_next = DefWire(dec_next_i, next_n, sx.tpe, next_l)
-        val def_next = Connect(def_next_i,
-          WRef(next_n, sx.tpe, next_l, WireKind, FEMALE),
+        val dec_next = DefWire(dec_next_i, next_ident(sx.name), sx.tpe, next_l)
+        val def_next = Connect(def_next_i, next_w,
           WRef(sx.name, sx.tpe, sx.lbl, RegKind, MALE))
         Block(Seq(sx, dec_next, def_next))
       case sx => sx
@@ -40,21 +38,22 @@ object NextCycleTransform extends Pass with PassDebug {
 
   // This function is only called on expressions appearing in dependant types.
   // Replace sequential dependands with the next-cycle version of the 
-  // dependand.
+  // dependand. It swaps regardless of gender
   def swap_with_next_de(e: Expression) : Expression = 
     e map swap_with_next_de match {
-      case WRef(name, tpe, lbl, RegKind, g) =>
-        WRef(next_ident(name), tpe, lbl, RegKind, g)
+      case ex: WRef if ex.kind == RegKind => next_exp(ex)
+      case ex: WSubField if PullNexts.is_simple_p_subf(ex) &&
+        field_seq(ex.exp.tpe, ex.name) => next_exp(ex)
       case ex => ex
     }
 
   // This function is called on expressions *not* inside of labels.
-  // It should replace female sequential expressions with nextified versions
+  // It should replace female sequential references with nextified versions.
   def swap_with_next_e(e: Expression) : Expression =
     e map swap_with_next_e match {
-      case WRef(name, tpe, lbl, RegKind, FEMALE) =>
-        val next_l = swap_with_next_l(lbl)
-        WRef(next_ident(name), tpe, next_l, WireKind, FEMALE)
+      case ex: WRef if ex.kind == RegKind && ex.gender == FEMALE => 
+        val next_l = swap_with_next_l(ex.lbl)
+        next_exp(ex.copy(lbl = next_l))
       case ex => ex
     }
 

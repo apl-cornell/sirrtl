@@ -116,7 +116,8 @@ object LabelCheck extends Pass with PassDebug {
     // Check connections
     //-------------------------------------------------------------------------
 
-    def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement =
+    def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = {
+      def ser(l:Label) = consGenerator.serialize(l)
       s map label_check(conEnv, whenEnv) match {
         case sx: Connect =>
           val lhs = sx.loc.lbl
@@ -126,7 +127,7 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"""(echo \"Checking Connection: ${sx.info}\")\n""" )
           emit(s"(assert ${whenEnv(s).serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${rhs.serialize} ${lhs.serialize}) ) )\n")
+          emit(s"(assert (not (leq ${ser(rhs)} ${ser(lhs)}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
           emit("\n")
@@ -134,15 +135,18 @@ object LabelCheck extends Pass with PassDebug {
         case sx: PartialConnect =>
           val lhs = sx.loc.lbl
           val rhs = sx.expr.lbl
+          val deps = collect_deps(conEnv)(lhs) ++ collect_deps(conEnv)(rhs)
           emit("(push)\n")
           emit(s"""(echo \"Checking Connection: ${sx.info}\")\n""" )
           emit(s"(assert ${whenEnv(s).serialize})\n")
-          emit(s"(assert (not (leq ${rhs.serialize} ${lhs.serialize}) ) )\n")
+          emit_deps(deps)
+          emit(s"(assert (not (leq ${ser(rhs)} ${ser(lhs)}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
           emit("\n")
           sx
         case _ => s
+      }
     }
 
     //------------------------------------------------------------------------

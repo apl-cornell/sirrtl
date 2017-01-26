@@ -101,7 +101,7 @@ case class ValidIf(cond: Expression, value: Expression, tpe: Type, lbl: Label) e
 
 case class Next(exp: Expression, tpe: Type, lbl: Label, gender: Gender) extends Expression {
   def serialize = s"next(${exp.serialize})"
-  def mapExpr(f: Expression => Expression): Expression = this
+  def mapExpr(f: Expression => Expression): Expression = this.copy(exp = f(exp))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
   def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapWidth(f: Width => Width): Expression = this

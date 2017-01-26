@@ -57,7 +57,8 @@ class ResolveAndCheckWLabels extends ResolveAndCheck {
     passes.PullNexts,
     passes.NextCycleTransform,
     passes.EliminateUnusedConnections,
-    passes.LabelCheck
+    passes.LabelCheck,
+    passes.DeLabel
   )
 }
 
