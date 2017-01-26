@@ -34,21 +34,23 @@ abstract class ConstraintGenerator {
   def exprToConsBool(e: Expression): Constraint
   // Serialization of labels. May depend on particular constraint generator
   def serialize(l: Label) = l.serialize
-
+  
   //---------------------------------------------------------------------------
   // Connection Environment Population
   //---------------------------------------------------------------------------
+  // Generate a connection mapping. This is a set in which each assignable 
+  // location is uniquely mapped to a single value in the constraint domain
   def connect(conEnv: ConnectionEnv, whenEnv: WhenEnv, loc: Constraint, cprime: Constraint) {
     if(whenEnv.cur == CTrue || !conEnv.contains(loc)) {
-      // This is just an optimization
+      // This is just to simplify generated constraints
       conEnv(loc) = cprime
     } else {
       conEnv(loc) = CIfTE(whenEnv.cur, cprime, conEnv(loc))
     }
   }
 
-  // Note: this is the identity function on the statement argument. The purpose 
-  // of this function is to mutate conEnv and whenEnv.
+  // The purpose of this function is to mutate conEnv and whenEnv (by populating 
+  // them) Note: this is the identity function on the statement argument. 
   def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = s match {
     case sx: DefNode =>
         connect(conEnv, whenEnv, CAtom(sx.name), exprToCons(sx.value))
@@ -86,8 +88,10 @@ abstract class ConstraintGenerator {
     m map gen_cons_s(conEnv, whenEnv)
 
   //--------------------------------------------------------------------------- 
-  // Collect Declarations for All References in Module 
+  // Collect set of all Refs / Subfields that must be declared
   //---------------------------------------------------------------------------
+  // This is done by locating all refs/subfields that are referenced in the 
+  // module.
   type DeclSet = Set[String]
   def decls_l(declSet: DeclSet)(l: Label) : Label =
     l map decls_e(declSet) map decls_l(declSet)
@@ -172,6 +176,8 @@ object BVConstraintGen extends ConstraintGenerator {
       throw e
   }
 
+  // Shortcut for creating a binary operator in the constraint domain
+  // when the arguments are not constants
   def mkBin(op: String, e: DoPrim) = {
     def autoExpand(e1: Expression, e2: Expression) = {
       val (w1, w2) = (bitWidth(e1.tpe).toInt, bitWidth(e2.tpe).toInt)
@@ -182,6 +188,8 @@ object BVConstraintGen extends ConstraintGenerator {
     CBinOp(op, c1, c2)
   }
 
+  // Shortcut for creating a binary operator in the constraint domain
+  // when the arguments are constants
   def mkBinC(op: String, e: DoPrim) =
     CBinOp(op, exprToCons(e.args(0)), CBVLit(e.consts(0), bitWidth(e.args(0).tpe)))
 

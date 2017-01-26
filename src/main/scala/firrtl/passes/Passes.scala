@@ -21,9 +21,10 @@ trait Pass extends LazyLogging {
 }
 
 trait PassDebug {
+  def color = Console.BLUE
   def debugThisPass = false
   def dprint(s:String) = if(debugThisPass) println(s)
-  def dprintb(s:String) = dprint(Console.BLUE+ s + Console.RESET)
+  def dprintb(s:String) = dprint(color + s + Console.RESET)
   def bannerprintb(s:String) = {
     val ndash = (78 - 2 - s.length) / 2
     dprintb("-" * ndash + ' ' + s + ' ' + "-" * ndash)

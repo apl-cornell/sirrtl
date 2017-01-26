@@ -90,7 +90,7 @@ object LabelCheck extends Pass with PassDebug {
     //-------------------------------------------------------------------------
     // Collect constraints which may affect the value of a dependent type
     //-------------------------------------------------------------------------
-    // A set of location, value pairs in the constraint domain
+    // A set of (location, value) pairs in the constraint domain
     type ConSet = collection.mutable.HashSet[(Constraint,Constraint)]
     def collect_deps_e(conEnv: ConnectionEnv, conSet: ConSet)(e: Expression) : Expression = {
       val ex: Expression = e map collect_deps_e(conEnv, conSet) 
@@ -170,6 +170,15 @@ object LabelCheck extends Pass with PassDebug {
       consGenerator.gen_cons(conEnv, whenEnv)(m)
 
       //-----------------------------------------------------------------------
+      // Run Label Passes
+      //-----------------------------------------------------------------------
+      val (mprime, conEnvPrime) = (new LabelPassBased{
+        def passSeq = Seq(
+          SeqPortCheck  // others?
+          )
+      }).runPasses(m, conEnv)
+
+      //-----------------------------------------------------------------------
       // Emit Declarations
       //-----------------------------------------------------------------------
       consGenerator.declarations(m).foreach { emit(_) }
@@ -187,7 +196,7 @@ object LabelCheck extends Pass with PassDebug {
       //-----------------------------------------------------------------------
       // Check Assignments
       //-----------------------------------------------------------------------
-      m map label_check(conEnv, whenEnv)
+      m map label_check(conEnvPrime, whenEnv)
       emit("\n")
 
       emit("(pop)")
