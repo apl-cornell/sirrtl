@@ -5,10 +5,9 @@ import firrtl.ir._
 import firrtl.Utils._
 import firrtl.Mappers._
 
-// This pass infers the labels of all expressions in the circuit. It does so 
-// by mutating the circuit rather than maintaining a global mapping of labels.
-object InferLabels extends Pass with PassDebug {
-  def name = "Infer Labels"
+// This pass propagates labels from declarations to expressions (e.g. nodes).
+object LabelExprs extends Pass with PassDebug {
+  def name = "Label Expressions"
   override def debugThisPass = false
   type LabelMap = collection.mutable.LinkedHashMap[String, Label]
 
@@ -49,8 +48,8 @@ object InferLabels extends Pass with PassDebug {
     case _ => l
   }
 
-  def infer_labels_e(labels: LabelMap)(e: Expression) : Expression =
-    e map infer_labels_e(labels) match {
+  def label_exprs_e(labels: LabelMap)(e: Expression) : Expression =
+    e map label_exprs_e(labels) match {
       case e: WRef => e copy (lbl = labels(e.name))
       case e: Next => e copy (lbl = e.exp.lbl)
       case e: WSubField =>
@@ -65,7 +64,7 @@ object InferLabels extends Pass with PassDebug {
       case e: SIntLiteral => e.copy(lbl = assumeL(e.lbl))
   }
 
-  def infer_labels_s(labels: LabelMap)(s: Statement): Statement = s match {
+  def label_exprs_s(labels: LabelMap)(s: Statement): Statement = s match {
       case sx: DefWire =>
         val lb = to_bundle(sx.tpe, sx.lbl)
         checkDeclared(lb, sx.info, sx.name)
@@ -75,19 +74,19 @@ object InferLabels extends Pass with PassDebug {
         val lb = to_bundle(sx.tpe, sx.lbl)
         checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
-        val sxx = ((sx copy (lbl = lb)) map infer_labels_e(labels)
+        val sxx = ((sx copy (lbl = lb)) map label_exprs_e(labels)
           ).asInstanceOf[DefRegister]
         val lbx = JoinLabel(sxx.lbl, assumeL(sxx.clock.lbl),
           assumeL(sxx.reset.lbl), sxx.init.lbl)
         labels(sx.name) = lbx
         sxx copy (lbl = lbx)
       case sx: DefNode =>
-        val sxx = (sx map infer_labels_e(labels)).asInstanceOf[DefNode]
+        val sxx = (sx map label_exprs_e(labels)).asInstanceOf[DefNode]
         labels(sxx.name) = sxx.value.lbl
         checkKnown(sxx.value.lbl, sxx.info, sxx.name)
         sxx
       case sx: Connect =>
-        val sxx = (sx map infer_labels_s(labels) map infer_labels_e(labels)
+        val sxx = (sx map label_exprs_s(labels) map label_exprs_e(labels)
           ).asInstanceOf[Connect]
         checkKnown(sxx.loc.lbl,  sxx.info, "")
         checkKnown(sxx.expr.lbl, sxx.info, "")
@@ -96,28 +95,28 @@ object InferLabels extends Pass with PassDebug {
       // WDefInstance 
       // DefMemory
       case sx => 
-        sx map infer_labels_s(labels) map infer_labels_e(labels)
+        sx map label_exprs_s(labels) map label_exprs_e(labels)
   }
 
   // Add each port declaration to the label context
-  def infer_labels_p(labels: LabelMap)(p: Port) : Port = {
+  def label_exprs_p(labels: LabelMap)(p: Port) : Port = {
     val lb = to_bundle(p.tpe, p.lbl)
     checkDeclared(lb, p.info, p.name)
     labels(p.name) = lb
     p copy (lbl = lb)
   }
 
-  def infer_labels(m: DefModule) : DefModule = {
+  def label_exprs(m: DefModule) : DefModule = {
     val labels = new LabelMap
-    // dprint(s"infer_labels ${m.serialize} ")
-    m map infer_labels_p(labels) map infer_labels_s(labels)
+    // dprint(s"label_exprs ${m.serialize} ")
+    m map label_exprs_p(labels) map label_exprs_s(labels)
   }
 
   def run(c: Circuit) = {
     bannerprintb(name)
     dprint(c.serialize)
 
-    val cprime = c copy (modules = c.modules map infer_labels)
+    val cprime = c copy (modules = c.modules map label_exprs)
 
     bannerprintb("after label inference")
     dprint(cprime.serialize)
