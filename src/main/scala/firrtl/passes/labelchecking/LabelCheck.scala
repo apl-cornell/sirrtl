@@ -172,11 +172,11 @@ object LabelCheck extends Pass with PassDebug {
       //-----------------------------------------------------------------------
       // Run Label Passes
       //-----------------------------------------------------------------------
-      val (mprime, conEnvPrime) = (new LabelPassBased{
+      val (mprime, conEnvPrime) : (DefModule, ConnectionEnv) = (new LabelPassBased{
         def passSeq = Seq(
           SeqPortCheck  // others?
           )
-      }).runPasses(m, conEnv)
+      }).runPasses(m, conEnv, consGenerator)
 
       //-----------------------------------------------------------------------
       // Emit Declarations

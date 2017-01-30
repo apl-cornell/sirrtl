@@ -6,14 +6,14 @@ import firrtl.Mappers._
 
 trait LabelPass {
   def name: String
-  def run(m: DefModule, conEnv: ConnectionEnv): (DefModule, ConnectionEnv)
+  def run(m: DefModule, conEnv: ConnectionEnv, conGen: ConstraintGenerator): (DefModule, ConnectionEnv)
 }
 
 abstract class LabelPassBased {
   def passSeq: Seq[LabelPass]
-  def runPasses(mod: DefModule, conEnv: ConnectionEnv) : (DefModule, ConnectionEnv) =
+  def runPasses(mod: DefModule, conEnv: ConnectionEnv, conGen: ConstraintGenerator) : (DefModule, ConnectionEnv) =
     passSeq.foldLeft( (mod, conEnv) ) { case ( (m:DefModule, e:ConnectionEnv) , p: LabelPass) =>
-      p.run(m,e)
+      p.run(m,e,conGen)
     }
 }
 
