@@ -158,6 +158,8 @@ object LabelCheck extends Pass with PassDebug {
     emit(ConstraintConst.depTypeFuns)
 
     c.modules foreach { m =>
+      dprintb(s"Checking Module: ${m.name}: ${m.info}")
+
       emit("(push)\n")
       emit(s"""(echo \"Checking Module: ${m.info}\")\n""")
       emit("\n")
