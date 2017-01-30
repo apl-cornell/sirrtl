@@ -55,6 +55,7 @@ class ResolveAndCheckWLabels extends ResolveAndCheck {
     passes.ResolveKinds, // for exprs in deptypes
     passes.PullNexts,
     passes.NextCycleTransform,
+    passes.SeqPortGenNext,
     passes.EliminateUnusedConnections,
     passes.LabelCheck,
     passes.DeLabel

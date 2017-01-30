@@ -15,7 +15,7 @@ import firrtl.Driver._
 
 object SeqPortCheck extends LabelPass with LabelPassDebug {
   def name = "SeqPortCheck"
-  override def debugThisPass = true
+  override def debugThisPass = false
   var conGen : ConstraintGenerator = BVConstraintGen
 
   // TODO for better error keep info with seq outs

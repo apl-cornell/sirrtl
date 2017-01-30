@@ -17,19 +17,8 @@ import collection.mutable.Set
 
 object EliminateUnusedConnections extends Pass with PassDebug {
   def name = "Eliminate Unused Connections"
-  override def debugThisPass = true
+  override def debugThisPass = false 
 
-  //--------------------------------------------------------------------------
-  // Flatten blocks
-  //--------------------------------------------------------------------------
-  def flatten_s(s: Statement) : Statement = s map flatten_s match {
-    case sx : Block => sx copy (stmts = 
-      (sx.stmts map { (sxx: Statement) => sxx match {
-        case Block(stmts) => stmts
-        case _ => Seq(sxx)
-      }}).flatten)
-    case _ => s
-  }
 
   //--------------------------------------------------------------------------
   // Eliminate unused connections

@@ -8,7 +8,7 @@ import collection.mutable.Set
 
 object ImplicitFlowElevation extends Pass with PassDebug {
   def name    = "ImplicitFlowElevation"
-  override def debugThisPass = true
+  override def debugThisPass = false
   
   def bot = PolicyHolder.policy.bottom
 

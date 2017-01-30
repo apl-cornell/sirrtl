@@ -15,6 +15,19 @@ import logger.LazyLogging
 class FIRRTLException(str: String) extends Exception(str)
 
 object Utils extends LazyLogging {
+
+  //--------------------------------------------------------------------------
+  // Flatten blocks
+  //--------------------------------------------------------------------------
+  def flatten_s(s: Statement) : Statement = s map flatten_s match {
+    case sx : Block => sx copy (stmts = 
+      (sx.stmts map { (sxx: Statement) => sxx match {
+        case Block(stmts) => stmts
+        case _ => Seq(sxx)
+      }}).flatten)
+    case _ => s
+  }
+    
   def throwInternalError =
     error("Internal Error! Please file an issue at https://github.com/ucb-bar/firrtl/issues")
   private[firrtl] def time[R](name: String)(block: => R): R = {
