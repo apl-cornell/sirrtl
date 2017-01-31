@@ -32,8 +32,9 @@ object PullNexts extends Pass with PassDebug {
     case ex : WSubField => ex copy (name = "next_" + ex.name)
   }
 
-  def is_simple_p_subf(e: WSubField) = e.exp match {
+  def is_simple_p_subf(e: WSubField) : Boolean = e.exp match {
     case ex: WRef => ex.kind == PortKind
+    case ex: WSubField => is_simple_p_subf(ex)
     case _ => false
   }
 

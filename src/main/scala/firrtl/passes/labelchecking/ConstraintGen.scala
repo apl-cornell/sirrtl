@@ -142,6 +142,7 @@ object BVConstraintGen extends ConstraintGenerator {
     case WRef(name,_,_,_,_) => name
     case WSubField(exp,name,_,_,_) => exp match {
       case expx : WRef => expx.name + "_" + name
+      case expx : WSubField => refToIdent(expx)
       // else match error
     }
   }

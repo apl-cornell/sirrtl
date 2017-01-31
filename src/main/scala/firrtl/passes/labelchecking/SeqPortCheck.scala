@@ -28,77 +28,65 @@ object SeqPortCheck extends LabelPass with LabelPassDebug {
   //-----------------------------------------------------------------------------
   // Collect Sequential Outputs
   //-----------------------------------------------------------------------------
-  // Collect Atoms representing sequential output ports
-  // Declared as Set[Constraint] so we can check if an object in range of ConEnv 
-  // is a member of the set.
-  type SeqAtoms = scala.collection.mutable.HashSet[Constraint]
-  def collect_seq_out(m: DefModule) : SeqAtoms = { 
-    val sa = new SeqAtoms
-    m map collect_seq_out_p(sa)
+  type Exprs = scala.collection.mutable.HashSet[Expression]
+  def collect_seq_out(m: DefModule) : Exprs = { 
+    val sa = new Exprs
+    m map collect_seq_out_s(sa)
     sa
   }
 
-  def collect_seq_out_p(sa: SeqAtoms)(p: Port) : Port = p.tpe match {
-    case BundleType(fields) => fields map { f: Field =>
-        // Get the representation of a field from conGen
-        val pr = WRef(p.name,UnknownType,p.lbl,PortKind,UNKNOWNGENDER)
-        val sf = WSubField(pr,f.name,f.tpe,f.lbl,UNKNOWNGENDER)
-        val atom = CAtom(conGen.refToIdent(sf))
+  def collect_seq_out_s(sa: Exprs)(s: Statement) : Statement =
+    s map collect_seq_out_e(sa) map collect_seq_out_s(sa)
 
-        // if f is a seq output, add it to the set
-        if(f.isSeq && f.flip == to_flip(p.direction)) sa += atom
-      }; p
-    case _ => p
-      // The only way to mark a port sequential is by a field.
-  }
-  
+  def collect_seq_out_e(sa: Exprs)(e: Expression) : Expression =
+    e map collect_seq_out_e(sa) match {
+      case ex : WSubField if kind(ex) == PortKind && gender(ex) == FEMALE
+        && field_seq(ex.exp.tpe, ex.name) => sa += ex; ex
+      case ex => ex
+    }
+
   //-----------------------------------------------------------------------------
   // Collect Sequential Locations
   //-----------------------------------------------------------------------------
   // Collect defined registers
   // Collect module inputs which are sequential
-  def collect_seq_loc(m: DefModule) : SeqAtoms = {
-      val sa = new SeqAtoms
-      m map collect_seq_in_p(sa) map
-        collect_seq_loc_s(sa)
+  def collect_seq_loc(m: DefModule) : Exprs = {
+      val sa = new Exprs
+      m map collect_seq_loc_s(sa)
       sa
   }
 
-  def collect_seq_in_p(sa: SeqAtoms)(p: Port) : Port = p.tpe match {
-    case BundleType(fields) => fields map { f: Field =>
-        // Get the representation of a field from conGen
-        val pr = WRef(p.name,UnknownType,p.lbl,PortKind,UNKNOWNGENDER)
-        val sf = WSubField(pr,f.name,f.tpe,f.lbl,UNKNOWNGENDER)
-        val atom = CAtom(conGen.refToIdent(sf))
+  def collect_seq_loc_s(sa: Exprs)(s: Statement) : Statement = 
+    s map collect_seq_loc_e(sa) map collect_seq_loc_s(sa) 
 
-        // if f is a seq input, add it to the set
-        if(f.isSeq && f.flip != to_flip(p.direction)) sa += atom
-      }; p
-    case _ => p
-      // The only way to mark a port sequential is by a field.
-  }
-
-  def collect_seq_loc_s(sa: SeqAtoms)(s: Statement) : Statement = 
-    s map collect_seq_loc_s(sa) match {
-        case s : DefRegister => 
-            val ref = WRef(s.name,s.tpe,s.lbl,RegKind,UNKNOWNGENDER)
-            sa += CAtom(conGen.refToIdent(ref))
-            s
-        case _ => s
-  }
+  def collect_seq_loc_e(sa: Exprs)(e: Expression) : Expression =
+    e map collect_seq_loc_e(sa) match {
+      case ex : WRef if kind(ex) == RegKind && gender(ex) == MALE =>
+        sa += ex
+        ex
+      case ex : WSubField if kind(ex) == PortKind && gender(ex) == MALE 
+        && field_seq(ex.exp.tpe, ex.name) =>
+          sa += ex
+          ex
+      case ex => ex
+    }
 
   //-----------------------------------------------------------------------------
   // Check connections to sequential outputs
   //-----------------------------------------------------------------------------
   // Particularly, that they are connected exactly to atoms that are sequential 
   // locations
-  def check_seq_out(m: DefModule, conEnv: ConnectionEnv) : Unit = { 
-      val seq_loc = collect_seq_loc(m)
-      collect_seq_out(m) foreach { a =>
-          if(!conEnv.contains(a)) errors.append(new NoSeqOutConException(a))
-          else if(!seq_loc.contains(conEnv(a)))
-              errors.append(new BadSeqOutConException(a, conEnv(a)))
-      }
+        // CAtom(conGen.refToIdent(ex))
+  def check_seq_out(m: DefModule, conEnv: ConnectionEnv) : Unit = {
+    val seq_loc = (collect_seq_loc(m) map {
+      e => CAtom(conGen.refToIdent(e))
+    }).toSet[Constraint]
+    collect_seq_out(m) foreach { e =>
+        val a = CAtom(conGen.refToIdent(e))
+        if(!conEnv.contains(a)) errors.append(new NoSeqOutConException(a))
+        else if(!seq_loc.contains(conEnv(a)))
+            errors.append(new BadSeqOutConException(a, conEnv(a)))
+    }
   }
   
   def run(m: DefModule, conEnv: ConnectionEnv,

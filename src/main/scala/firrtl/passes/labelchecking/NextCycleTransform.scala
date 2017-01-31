@@ -21,10 +21,8 @@ object NextCycleTransform extends Pass with PassDebug {
         val next_l = swap_with_next_l(sx.lbl)
         val next_w = next_exp(
           WRef(sx.name, sx.tpe, next_l, WireKind, FEMALE))
-        val dec_next_i = sx.info // TODO?
-        val def_next_i = sx.info // TODO?
-        val dec_next = DefWire(dec_next_i, next_ident(sx.name), sx.tpe, next_l)
-        val def_next = Connect(def_next_i, next_w,
+        val dec_next = DefWire(sx.info, next_ident(sx.name), sx.tpe, next_l)
+        val def_next = Connect(sx.info, next_w,
           WRef(sx.name, sx.tpe, sx.lbl, RegKind, MALE))
         Block(Seq(sx, dec_next, def_next))
       case sx => sx
@@ -54,6 +52,10 @@ object NextCycleTransform extends Pass with PassDebug {
       case ex: WRef if ex.kind == RegKind && ex.gender == FEMALE => 
         val next_l = swap_with_next_l(ex.lbl)
         next_exp(ex.copy(lbl = next_l))
+      case ex: WSubField if kind(ex) == PortKind && ex.gender == FEMALE
+        && field_seq(ex.exp.tpe, ex.name) =>
+        val next_l = swap_with_next_l(ex.lbl)
+        next_exp(ex.copy(lbl = next_l))
       case ex => ex
     }
 
@@ -62,8 +64,6 @@ object NextCycleTransform extends Pass with PassDebug {
 
   def swap_with_next(m: DefModule) : DefModule =
     m map swap_with_next_s
-
-  // TODO For sequential ports connect next-cycle outputs to next-cycle value
 
   def run(c: Circuit) = {
     bannerprintb(name)

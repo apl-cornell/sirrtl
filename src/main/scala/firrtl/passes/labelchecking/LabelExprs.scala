@@ -14,16 +14,17 @@ object LabelExprs extends Pass with PassDebug {
   val bot = PolicyHolder.policy.bottom
   val top = PolicyHolder.policy.top
     
-  val errors = new Errors()
 
   class UndeclaredException(info: Info, name: String) extends PassException(
     s"$info: [declaration $name] does not have a declared label")
-
   class UnknownLabelException(info: Info, name: String) extends PassException(
     s"$info: a label could not be inferred for [$name]")
+  val errors = new Errors()
 
   // Assume that if the label was omitted, that the least-restrictive label was 
-  // the desired one.
+  // the desired one. This function should only be used for things like 
+  // constants and clocks. This is mostly used to make the places where \bot is
+  // assumed very obvious
   def assumeL(l:Label) = l match {
     case UnknownLabel => bot
     case _ => l
@@ -56,12 +57,12 @@ object LabelExprs extends Pass with PassDebug {
         e copy (lbl = field_label(e.exp.lbl, e.name))
       case e: WSubIndex => e copy (lbl = e.exp.lbl)
       case e: WSubAccess => e copy (lbl = JoinLabel(e.exp.lbl, e.index.lbl))
-      case e: DoPrim => e copy(lbl = JoinLabel((e.args map{ _.lbl }):_* ))
+      case e: DoPrim => e copy (lbl = JoinLabel((e.args map{ _.lbl }):_* ))
       case e: Mux => e copy (lbl = JoinLabel(e.cond.lbl,
-        e.tval.lbl,e.fval.lbl))
+        e.tval.lbl, e.fval.lbl))
       case e: ValidIf => e copy (lbl = JoinLabel(e.cond.lbl, e.value.lbl))
-      case e: UIntLiteral => e.copy(lbl = assumeL(e.lbl))
-      case e: SIntLiteral => e.copy(lbl = assumeL(e.lbl))
+      case e: UIntLiteral => e.copy (lbl = assumeL(e.lbl))
+      case e: SIntLiteral => e.copy (lbl = assumeL(e.lbl))
   }
 
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = s match {
@@ -118,7 +119,7 @@ object LabelExprs extends Pass with PassDebug {
 
     val cprime = c copy (modules = c.modules map label_exprs)
 
-    bannerprintb("after label inference")
+    bannerprintb(s"after $name")
     dprint(cprime.serialize)
  
     errors.trigger()
