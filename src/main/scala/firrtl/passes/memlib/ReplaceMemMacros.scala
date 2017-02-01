@@ -103,7 +103,7 @@ class ReplaceMemMacros(writer: ConfWriter) extends Transform {
     val hasMask = m.maskGran.isDefined
     val fillMask = getFillWMask(m)
     def portRef(p: String) = createRef(p, field_type(wrapperIoType, p))
-    val stmts = Seq(WDefInstance(NoInfo, m.name, m.name, UnknownType)) ++
+    val stmts = Seq(WDefInstance(NoInfo, m.name, m.name, UnknownType, UnknownLabel)) ++
       (m.readers flatMap (r => adaptReader(portRef(r), createSubField(bbRef, r)))) ++
       (m.writers flatMap (w => adaptWriter(portRef(w), createSubField(bbRef, w), hasMask, fillMask))) ++
       (m.readwriters flatMap (rw => adaptReadWriter(portRef(rw), createSubField(bbRef, rw), hasMask, fillMask)))
@@ -192,9 +192,9 @@ class ReplaceMemMacros(writer: ConfWriter) extends Transform {
           val newMemBBName = namespace newName s"${newWrapperName}_ext"
           val newMem = m copy (name = newMemBBName)
           memMods ++= createMemModule(newMem, newWrapperName)
-          WDefInstance(m.info, m.name, newWrapperName, UnknownType)
+          WDefInstance(m.info, m.name, newWrapperName, UnknownType, UnknownLabel)
         case Some((module, mem)) =>
-          WDefInstance(m.info, m.name, nameMap(module -> mem), UnknownType)
+          WDefInstance(m.info, m.name, nameMap(module -> mem), UnknownType, UnknownLabel)
       }
     case sx => sx map updateMemStmts(namespace, nameMap, mname, memPortMap, memMods)
   }

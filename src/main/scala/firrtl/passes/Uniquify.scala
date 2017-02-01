@@ -201,7 +201,7 @@ object Uniquify extends Pass {
     def recStmtToType(s: Statement): Seq[Field] = s match {
       case sx: DefWire => Seq(Field(sx.name, Default, sx.tpe, sx.lbl, false))
       case sx: DefRegister => Seq(Field(sx.name, Default, sx.tpe, sx.lbl, true))
-      case sx: WDefInstance => Seq(Field(sx.name, Default, sx.tpe, UnknownLabel, false))
+      case sx: WDefInstance => Seq(Field(sx.name, Default, sx.tpe, sx.lbl, false))
       case sx: DefMemory => sx.dataType match {
         case (_: UIntType | _: SIntType) =>
           Seq(Field(sx.name, Default, memType(sx), sx.lbl, false))
@@ -271,7 +271,7 @@ object Uniquify extends Pass {
             sinfo = sx.info
             if (nameMap.contains(sx.name)) {
               val node = nameMap(sx.name)
-              WDefInstance(sx.info, node.name, sx.module, sx.tpe)
+              WDefInstance(sx.info, node.name, sx.module, sx.tpe, sx.lbl)
             } else {
               sx
             }

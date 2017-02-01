@@ -83,10 +83,10 @@ object ConvertFixedToSInt extends Pass {
           val newType = MemPortUtils.memType(newStmt)
           types(name) = newType
           newStmt
-        case WDefInstance(info, name, module, tpe) =>
+        case WDefInstance(info, name, module, tpe, lbl) =>
           val newType = moduleTypes(module) 
           types(name) = newType
-          WDefInstance(info, name, module, newType)
+          WDefInstance(info, name, module, newType, lbl)
         case Connect(info, loc, exp) => 
           val point = calcPoint(Seq(loc))
           val newExp = alignArg(exp, point)

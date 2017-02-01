@@ -137,7 +137,7 @@ class Wiring(wiSeq: Seq[WiringInfo]) extends Pass {
       case DefWire(_, n, t, _) if n == root =>
         tpe = Some(t)
         s
-      case WDefInstance(_, n, m, t) if n == root => 
+      case WDefInstance(_, n, m, t, l) if n == root => 
         tpe = Some(t)
         s
       case DefNode(_, n, e) if n == root =>

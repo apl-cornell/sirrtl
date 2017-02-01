@@ -62,7 +62,7 @@ trait ToWorkingIRT extends Pass {
   }
 
   def toStmt(s: Statement): Statement = s map toExp map toLbl match {
-    case sx: DefInstance => WDefInstance(sx.info, sx.name, sx.module, UnknownType)
+    case sx: DefInstance => WDefInstance(sx.info, sx.name, sx.module, UnknownType, UnknownLabel)
     case sx => sx map toStmt
   }
 
@@ -319,8 +319,8 @@ object VerilogPrep extends Pass {
       case _ => e map lowerE
     }
     def lowerS(attaches: InstAttaches)(s: Statement): Statement = s match {
-      case WDefInstance(info, name, module, tpe) =>
-        val exps = create_exps(WRef(name, tpe, UnknownLabel, ExpKind, MALE))
+      case WDefInstance(info, name, module, tpe, lbl) =>
+        val exps = create_exps(WRef(name, tpe, lbl, ExpKind, MALE))
         val wcon = WDefInstanceConnector(info, name, module, tpe, exps.map( e => e.tpe match {
           case AnalogType(w) => attaches(e.serialize)
           case _ => WRef(LowerTypes.loweredName(e), e.tpe, e.lbl, WireKind, MALE)

@@ -47,7 +47,7 @@ class DedupModules extends Transform {
         case DefInstance(i, n, m) =>
           if(!(moduleOrder contains m)) has = true
           s
-        case WDefInstance(i, n, m, t) =>
+        case WDefInstance(i, n, m, t, l) =>
           if(!(moduleOrder contains m)) has = true
           s
         case _ => s
@@ -79,7 +79,7 @@ class DedupModules extends Transform {
     def onModule(m: DefModule): Unit = {
       def fixInstance(s: Statement): Statement = s map fixInstance match {
         case DefInstance(i, n, m) => DefInstance(i, n, dedupMap.getOrElse(m, m))
-        case WDefInstance(i, n, m, t) => WDefInstance(i, n, dedupMap.getOrElse(m, m), t)
+        case WDefInstance(i, n, m, t, l) => WDefInstance(i, n, dedupMap.getOrElse(m, m), t, l)
         case x => x
       }
       def removeInfo(stmt: Statement): Statement = stmt map removeInfo match {

@@ -71,7 +71,7 @@ class InlineInstances extends Transform {
          var containsCN = false
          def onStmt(name: String)(s: Statement): Statement = {
             s match {
-               case WDefInstance(_, inst_name, module_name, tpe) =>
+               case WDefInstance(_, inst_name, module_name, tpe, lbl) =>
                   if (name == inst_name) {
                      containsCN = true
                      checkExternal(module_name)
@@ -101,7 +101,7 @@ class InlineInstances extends Transform {
           case m: Module =>
             val instances = mutable.HashSet[String]()
             def findInstances(s: Statement): Statement = s match {
-              case WDefInstance(info, instName, moduleName, instTpe) if modules.contains(moduleName) =>
+              case WDefInstance(info, instName, moduleName, instTpe, instLbl) if modules.contains(moduleName) =>
                 instances += m.name + "." + instName
                 s
               case sx => sx map findInstances
@@ -126,7 +126,7 @@ class InlineInstances extends Transform {
     }
 
     def onStmt(prefix: String, currentModule: String)(s: Statement): Statement = s match {
-      case WDefInstance(info, instName, moduleName, instTpe) =>
+      case WDefInstance(info, instName, moduleName, instTpe, instLbl) =>
         // Rewrites references in inlined statements from ref to inst$ref
         val shouldInline = flatInstances.contains(currentModule + "." + instName)
         // Used memoized instance if available

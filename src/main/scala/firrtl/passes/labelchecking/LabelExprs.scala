@@ -81,6 +81,11 @@ object LabelExprs extends Pass with PassDebug {
 
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 
     s map label_exprs_s(labels) map label_exprs_e(labels) match {
+      case sx: WDefInstance =>
+        val lb = to_bundle(sx.tpe, UnknownLabel)
+        checkDeclared(lb, sx.info, sx.name)
+        labels(sx.name) = lb
+        sx copy (lbl = lb)
       case sx: DefWire =>
         val lb = to_bundle(sx.tpe, sx.lbl)
         checkDeclared(lb, sx.info, sx.name)
@@ -99,12 +104,6 @@ object LabelExprs extends Pass with PassDebug {
         checkKnown(sx.value.lbl, sx.info, sx.name)
         labels(sx.name) = sx.value.lbl
         sx
-      case sx: Connect =>
-        val sxx = (sx map label_exprs_s(labels) map label_exprs_e(labels)
-          ).asInstanceOf[Connect]
-        checkKnown(sxx.loc.lbl,  sxx.info, "")
-        checkKnown(sxx.expr.lbl, sxx.info, "")
-        sxx
       // Not sure what should be done for:
       // WDefInstance 
       // DefMemory
