@@ -82,6 +82,10 @@ object LabelExprs extends Pass with PassDebug {
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 
     s map label_exprs_s(labels) map label_exprs_e(labels) match {
       case sx: WDefInstance =>
+        // This relies on the fact that a bundle type has been created for sx 
+        // in InferTypes and that both type and label propagation have already 
+        // been performed for definition of the instantiated module since 
+        // forward instantiation is not permitted. 
         val lb = to_bundle(sx.tpe, UnknownLabel)
         checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
