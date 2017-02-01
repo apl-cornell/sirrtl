@@ -340,6 +340,19 @@ object Utils extends LazyLogging {
     }
   }
 
+  def relabel(e: Expression, l: Label): Expression = e match {
+    case ex: WRef => ex copy(lbl =  l)
+    case ex: Next => ex copy(lbl =  l)
+    case ex: WSubField => ex copy(lbl =  l)
+    case ex: WSubIndex => ex copy(lbl =  l)
+    case ex: WSubAccess => ex copy(lbl =  l)
+    case ex: DoPrim => ex copy(lbl =  l)
+    case ex: Mux => ex copy(lbl =  l)
+    case ex: ValidIf => ex copy(lbl =  l)
+    case ex: UIntLiteral => ex copy(lbl =  l)
+    case ex: SIntLiteral => ex copy(lbl =  l)
+  }
+
 // =========== GENDER/FLIP UTILS ============
   def swap(g: Gender) : Gender = g match {
     case UNKNOWNGENDER => UNKNOWNGENDER

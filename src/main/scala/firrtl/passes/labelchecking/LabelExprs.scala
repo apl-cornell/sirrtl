@@ -65,18 +65,18 @@ object LabelExprs extends Pass with PassDebug {
 
   def label_exprs_e(labels: LabelMap)(e: Expression) : Expression =
     e map label_exprs_e(labels) match {
-      case e: WRef => e copy (lbl = labels(e.name))
-      case e: Next => e copy (lbl = e.exp.lbl)
-      case e: WSubField =>
-        e copy (lbl = field_label(e.exp.lbl, e.name))
-      case e: WSubIndex => e copy (lbl = e.exp.lbl)
-      case e: WSubAccess => e copy (lbl = JoinLabel(e.exp.lbl, e.index.lbl))
-      case e: DoPrim => e copy (lbl = JoinLabel((e.args map{ _.lbl }):_* ))
-      case e: Mux => e copy (lbl = JoinLabel(e.cond.lbl,
-        e.tval.lbl, e.fval.lbl))
-      case e: ValidIf => e copy (lbl = JoinLabel(e.cond.lbl, e.value.lbl))
-      case e: UIntLiteral => e.copy (lbl = assumeL(e.lbl))
-      case e: SIntLiteral => e.copy (lbl = assumeL(e.lbl))
+      case ex: WRef => ex copy (lbl = labels(ex.name))
+      case ex: Next => ex copy (lbl = ex.exp.lbl)
+      case ex: WSubField =>
+        ex copy (lbl = field_label(ex.exp.lbl, ex.name))
+      case ex: WSubIndex => ex copy (lbl = ex.exp.lbl)
+      case ex: WSubAccess => ex copy (lbl = JoinLabel(ex.exp.lbl, ex.index.lbl))
+      case ex: DoPrim => ex copy (lbl = JoinLabel((ex.args map{ _.lbl }):_* ))
+      case ex: Mux => ex copy (lbl = JoinLabel(ex.cond.lbl,
+        ex.tval.lbl, ex.fval.lbl))
+      case ex: ValidIf => ex copy (lbl = JoinLabel(ex.cond.lbl, ex.value.lbl))
+      case ex: UIntLiteral => ex copy (lbl = assumeL(ex.lbl))
+      case ex: SIntLiteral => ex copy (lbl = assumeL(ex.lbl))
   }
 
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 
