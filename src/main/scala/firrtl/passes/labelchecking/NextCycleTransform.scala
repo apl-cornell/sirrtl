@@ -9,7 +9,7 @@ import collection.mutable.Set
 
 object NextCycleTransform extends Pass with PassDebug {
   def name = "Next Cycle Transform"
-  override def debugThisPass = true
+  override def debugThisPass = false
   val bot = PolicyHolder.policy.bottom
 
   def next_exp(e: Expression) = PullNexts.next_exp(e)

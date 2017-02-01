@@ -13,7 +13,7 @@ import firrtl.Driver._
 // programmer, just assumes the programmer is well-behaved enough not to.
 object SeqPortGenNext extends Pass with PassDebug {
   def name = "SeqPortGenNext"
-  override def debugThisPass = true
+  override def debugThisPass = false
 
   type Exprs = scala.collection.mutable.HashSet[Expression]
 

@@ -70,7 +70,7 @@ object PolicyConstraints {
 
 object LabelCheck extends Pass with PassDebug {
   def name = "Label Check"
-  override def debugThisPass = false
+  override def debugThisPass = true
 
   val cgen = BVConstraintGen
 

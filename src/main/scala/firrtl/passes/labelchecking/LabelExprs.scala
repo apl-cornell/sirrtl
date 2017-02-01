@@ -13,7 +13,6 @@ object LabelExprs extends Pass with PassDebug {
 
   val bot = PolicyHolder.policy.bottom
   val top = PolicyHolder.policy.top
-    
 
   class UndeclaredException(info: Info, name: String) extends PassException(
     s"$info: [declaration $name] does not have a declared label")
@@ -21,32 +20,47 @@ object LabelExprs extends Pass with PassDebug {
     s"$info: a label could not be inferred for [$name]")
   val errors = new Errors()
 
+  def throwErrors = true
+
   // Assume that if the label was omitted, that the least-restrictive label was 
   // the desired one. This function should only be used for things like 
   // constants and clocks. This is mostly used to make the places where \bot is
   // assumed very obvious
-  def assumeL(l:Label) = l match {
-    case UnknownLabel => bot
-    case _ => l
+  def assumeL(l:Label) = if(label_is_known(l)) l else bot
+
+  def label_is_known(l: Label): Boolean = {
+    var b = true
+    def label_is_known_(l: Label): Label =
+      l map label_is_known_ match {
+        case UnknownLabel => b = false; UnknownLabel
+        case lx => lx
+      }
+    label_is_known_(l); b
   }
 
-  def checkDeclared(l: Label, i: Info, n: String) = l match {
-    case UnknownLabel => errors.append(new UndeclaredException(i, n))
-    case _ => 
-  }
-
-  def checkKnown(l: Label, i: Info, n: String) = l match {
-    case UnknownLabel => errors.append(new UnknownLabelException(i, n))
-    case _ => 
-  }
-
-  // This function is used for register and wire declarations to convert
-  // their labels to BundleLabel declarations
-  def to_bundle(t: Type, l: Label) : Label = t match {
-    case BundleType(fields) =>
-      val labelSet = fields.map(_.lbl)
-      if(labelSet.contains(UnknownLabel)) l else BundleLabel(fields)
-    case _ => l
+  def checkDeclared(l: Label, i: Info, n: String) = 
+    if(!label_is_known(l) && throwErrors)
+      errors.append(new UndeclaredException(i, n))
+    
+  def checkKnown(l: Label, i: Info, n: String) = 
+    if(!label_is_known(l) && throwErrors)
+      errors.append(new UnknownLabelException(i, n))
+    
+  // This function is used for declarations with BundleTypes to convert their 
+  // labels into BundleLabels
+  def to_bundle(t: Type, l: Label) : Label = {
+    def to_bundle__(t: Type, l: Label) = t match {
+      case BundleType(fields) => BundleLabel(fields)
+      case _ => l
+    }
+    // Recursively convert BundleTypes within a BundleType to BundleLabels
+    def to_bundle_(t: Type) : Type = t map to_bundle_ match {
+      case tx : BundleType => tx copy (fields = tx.fields map { f =>
+        f copy (lbl = to_bundle__(f.tpe, f.lbl))
+      })
+      case tx => tx
+    }
+    if(label_is_known(l)) l else to_bundle__(t map to_bundle_, l)
   }
 
   def label_exprs_e(labels: LabelMap)(e: Expression) : Expression =
@@ -65,7 +79,8 @@ object LabelExprs extends Pass with PassDebug {
       case e: SIntLiteral => e.copy (lbl = assumeL(e.lbl))
   }
 
-  def label_exprs_s(labels: LabelMap)(s: Statement): Statement = s match {
+  def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 
+    s map label_exprs_s(labels) map label_exprs_e(labels) match {
       case sx: DefWire =>
         val lb = to_bundle(sx.tpe, sx.lbl)
         checkDeclared(lb, sx.info, sx.name)
@@ -74,18 +89,16 @@ object LabelExprs extends Pass with PassDebug {
       case sx: DefRegister =>
         val lb = to_bundle(sx.tpe, sx.lbl)
         checkDeclared(lb, sx.info, sx.name)
-        labels(sx.name) = lb
-        val sxx = ((sx copy (lbl = lb)) map label_exprs_e(labels)
-          ).asInstanceOf[DefRegister]
-        val lbx = JoinLabel(sxx.lbl, assumeL(sxx.clock.lbl),
-          assumeL(sxx.reset.lbl), sxx.init.lbl)
+        val lbx = JoinLabel(lb, assumeL(sx.clock.lbl),
+          assumeL(sx.reset.lbl), sx.init.lbl)
+        checkDeclared(lbx, sx.info, sx.name)
         labels(sx.name) = lbx
-        sxx copy (lbl = lbx)
-      case sx: DefNode =>
-        val sxx = (sx map label_exprs_e(labels)).asInstanceOf[DefNode]
-        labels(sxx.name) = sxx.value.lbl
-        checkKnown(sxx.value.lbl, sxx.info, sxx.name)
+        val sxx = sx copy (lbl = lbx)
         sxx
+      case sx: DefNode =>
+        checkKnown(sx.value.lbl, sx.info, sx.name)
+        labels(sx.name) = sx.value.lbl
+        sx
       case sx: Connect =>
         val sxx = (sx map label_exprs_s(labels) map label_exprs_e(labels)
           ).asInstanceOf[Connect]
@@ -95,8 +108,7 @@ object LabelExprs extends Pass with PassDebug {
       // Not sure what should be done for:
       // WDefInstance 
       // DefMemory
-      case sx => 
-        sx map label_exprs_s(labels) map label_exprs_e(labels)
+      case sx =>  sx
   }
 
   // Add each port declaration to the label context
@@ -109,7 +121,6 @@ object LabelExprs extends Pass with PassDebug {
 
   def label_exprs(m: DefModule) : DefModule = {
     val labels = new LabelMap
-    // dprint(s"label_exprs ${m.serialize} ")
     m map label_exprs_p(labels) map label_exprs_s(labels)
   }
 
