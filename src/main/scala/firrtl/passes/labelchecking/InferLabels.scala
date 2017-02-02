@@ -13,7 +13,7 @@ object InferLabels extends Pass with PassDebug {
 
   val top = PolicyHolder.policy.top
 
-  // 1. (Recursively) check that all output ports are labeled
+  // 1. (Recursively) check that all ports are labeled
   // 2. Collect mapping: male exprs -> Set[female exprs]
   // 3. For males with unknown labels, propagate meet over female set to male
   // 4. Collect set of "locations" with known labels
@@ -218,7 +218,7 @@ object InferLabels extends Pass with PassDebug {
   }
 
   //-----------------------------------------------------------------------------
-  // Forward-propagate
+  // Forward-propagate (Step 7)
   //-----------------------------------------------------------------------------
   // For locations w/o explicit outward flows, try to infer labels from inputs
   def forward_propagate(fenv: FemaleEnv)(m: DefModule): DefModule = 
