@@ -229,7 +229,7 @@ object Legalize extends Pass {
       val expr = t match {
         case UIntType(_) => bits
         case SIntType(_) => DoPrim(AsSInt, Seq(bits), Seq(), SIntType(IntWidth(w)), UnknownLabel)
-        //case FixedType(width, point) => FixedType(width, point)
+        case FixedType(_, IntWidth(p)) => DoPrim(AsFixedPoint, Seq(bits), Seq(p), t, UnknownLabel)
       }
       Connect(c.info, c.loc, expr)
     }

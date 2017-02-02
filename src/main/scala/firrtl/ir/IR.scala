@@ -21,10 +21,17 @@ case object NoInfo extends Info {
 }
 case class FileInfo(info: StringLit) extends Info {
   override def toString: String = " @[" + info.serialize + "]"
-  def ++(that: Info): Info = that match {
-    case NoInfo => this
-    case FileInfo(otherInfo) => FileInfo(FIRRTLStringLitHandler.unescape(info.serialize + " " + otherInfo.serialize))
+  def ++(that: Info): Info = MultiInfo(Seq(this, that))
+}
+case class MultiInfo(infos: Seq[Info]) extends Info {
+  private def collectStringLits(info: Info): Seq[StringLit] = info match {
+    case FileInfo(lit) => Seq(lit)
+    case MultiInfo(seq) => seq flatMap collectStringLits
+    case NoInfo => Seq.empty
   }
+  override def toString: String =
+    collectStringLits(this).map(_.serialize).mkString(" @[", " ", "]")
+  def ++(that: Info): Info = MultiInfo(Seq(this, that))
 }
 
 trait HasName {
@@ -33,7 +40,7 @@ trait HasName {
 trait HasInfo {
   val info: Info
 }
-trait IsDeclaration extends HasName with HasInfo 
+trait IsDeclaration extends HasName with HasInfo
 
 case class StringLit(array: Array[Byte]) extends FirrtlNode {
   def serialize: String = FIRRTLStringLitHandler.escape(this)
@@ -209,8 +216,7 @@ case class DefMemory(
     writers: Seq[String],
     readwriters: Seq[String],
     // TODO: handle read-under-write
-    readUnderWrite: Option[String] = None) extends Statement
-  with IsDeclaration {
+    readUnderWrite: Option[String] = None) extends Statement with IsDeclaration {
   def serialize: String =
     s"mem $name :" + info.serialize +
     indent(
@@ -526,7 +532,6 @@ case class Module(info: Info, name: String, ports: Seq[Port], body: Statement) e
   def mapStmt(f: Statement => Statement): DefModule = this.copy(body = f(body))
   def mapPort(f: Port => Port): DefModule = this.copy(ports = ports map f)
   def mapString(f: String => String): DefModule = this.copy(name = f(name))
-  // TODO apply function to labels of ports?
 }
 /** External Module
   *

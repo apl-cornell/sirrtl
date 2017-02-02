@@ -117,7 +117,6 @@ stmt
   | 'attach' exp 'to' '(' exp* ')' info?
   ;
 
-// TODO add field for label
 memField
 	: 'data-type' '=>' type NEWLINE
     | 'sec-label' '=>' label NEWLINE
@@ -181,11 +180,6 @@ exp
   | primop exp* IntLit*  ')' 
   | 'next(' exp ')' // next-cycle value of exp
   ;
-
-/*
-seclabel
-  : '{' id '}'
-*/
 
 id
   : Id

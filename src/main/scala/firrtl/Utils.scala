@@ -41,7 +41,7 @@ object Utils extends LazyLogging {
     result
   }
 
-  /** Removes all [[firrtl.ir.Empty]] statements and condenses
+  /** Removes all [[firrtl.ir.EmptyStmt]] statements and condenses
    * [[firrtl.ir.Block]] statements.
     */
   def squashEmpty(s: Statement): Statement = s map squashEmpty match {
@@ -141,86 +141,6 @@ object Utils extends LazyLogging {
     case _ => false
   }
 
-//============== TYPES ================
-//<<<<<<< HEAD
-//   def mux_type (e1:Expression,e2:Expression) : Type = mux_type(tpe(e1),tpe(e2))
-//   def mux_type (t1:Type,t2:Type) : Type = {
-//      if (wt(t1) == wt(t2)) {
-//         (t1,t2) match { 
-//            case (t1:UIntType,t2:UIntType) => UIntType(UnknownWidth)
-//            case (t1:SIntType,t2:SIntType) => SIntType(UnknownWidth)
-//            case (t1:FixedType,t2:FixedType) => FixedType(UnknownWidth, UnknownWidth)
-//            case (t1:VectorType,t2:VectorType) => VectorType(mux_type(t1.tpe,t2.tpe),t1.size)
-//            case (t1:BundleType,t2:BundleType) => 
-//               BundleType((t1.fields,t2.fields).zipped.map((f1,f2) => {
-//                  Field(f1.name,f1.flip,mux_type(f1.tpe,f2.tpe))
-//               }))
-//         }
-//      } else UnknownType
-//   }
-//   def mux_type_and_widths (e1:Expression,e2:Expression) : Type = mux_type_and_widths(tpe(e1),tpe(e2))
-//   def PLUS (w1:Width,w2:Width) : Width = (w1, w2) match {
-//     case (IntWidth(i), IntWidth(j)) => IntWidth(i + j)
-//     case _ => PlusWidth(w1,w2)
-//   }
-//   def MAX (w1:Width,w2:Width) : Width = (w1, w2) match {
-//     case (IntWidth(i), IntWidth(j)) => IntWidth(max(i,j))
-//     case _ => MaxWidth(Seq(w1,w2))
-//   }
-//   def MINUS (w1:Width,w2:Width) : Width = (w1, w2) match {
-//     case (IntWidth(i), IntWidth(j)) => IntWidth(i - j)
-//     case _ => MinusWidth(w1,w2)
-//   }
-//   def POW (w1:Width) : Width = w1 match {
-//     case IntWidth(i) => IntWidth(pow_minus_one(BigInt(2), i))
-//     case _ => ExpWidth(w1)
-//   }
-//   def MIN (w1:Width,w2:Width) : Width = (w1, w2) match {
-//     case (IntWidth(i), IntWidth(j)) => IntWidth(min(i,j))
-//     case _ => MinWidth(Seq(w1,w2))
-//   }
-//   def mux_type_and_widths (t1:Type,t2:Type) : Type = {
-//      def wmax (w1:Width,w2:Width) : Width = {
-//         (w1,w2) match {
-//            case (w1:IntWidth,w2:IntWidth) => IntWidth(w1.width.max(w2.width))
-//            case (w1,w2) => MaxWidth(Seq(w1,w2))
-//         }
-//      }
-//      val wt1 = new WrappedType(t1)
-//      val wt2 = new WrappedType(t2)
-//      if (wt1 == wt2) {
-//         (t1,t2) match {
-//            case (t1:UIntType,t2:UIntType) => UIntType(wmax(t1.width,t2.width))
-//            case (t1:SIntType,t2:SIntType) => SIntType(wmax(t1.width,t2.width))
-//            case (FixedType(w1, p1), FixedType(w2, p2)) =>
-//              FixedType(PLUS(MAX(p1, p2),MAX(MINUS(w1, p1), MINUS(w2, p2))), MAX(p1, p2))
-//            case (t1:VectorType,t2:VectorType) => VectorType(mux_type_and_widths(t1.tpe,t2.tpe),t1.size)
-//            case (t1:BundleType,t2:BundleType) => BundleType((t1.fields zip t2.fields).map{case (f1, f2) => Field(f1.name,f1.flip,mux_type_and_widths(f1.tpe,f2.tpe))})
-//         }
-//      } else UnknownType
-//   }
-//   def module_type (m:DefModule) : Type = {
-//      BundleType(m.ports.map(p => p.toField))
-//   }
-//   def sub_type (v:Type) : Type = {
-//      v match {
-//         case v:VectorType => v.tpe
-//         case v => UnknownType
-//      }
-//   }
-//   def field_type (v:Type,s:String) : Type = {
-//      v match {
-//         case v:BundleType => {
-//            val ft = v.fields.find(p => p.name == s)
-//            ft match {
-//               case ft:Some[Field] => ft.get.tpe
-//               case ft => UnknownType
-//            }
-//         }
-//         case v => UnknownType
-//      }
-//   }
-//======= 
   def mux_type(e1: Expression, e2: Expression): Type = mux_type(e1.tpe, e2.tpe)
   def mux_type(t1: Type, t2: Type): Type = (t1, t2) match {
     case (t1: UIntType, t2: UIntType) => UIntType(UnknownWidth)
@@ -293,7 +213,6 @@ object Utils extends LazyLogging {
     }
     case vx => false
   }
-//>>>>>>> e54fb610c6bf0a7fe5c9c0f0e0b3acbb3728cfd0
    
 // =================================
   def error(str: String) = throw new FIRRTLException(str)
@@ -434,6 +353,7 @@ object Utils extends LazyLogging {
     case ex: WSubField => ex.gender
     case ex: WSubIndex => ex.gender
     case ex: WSubAccess => ex.gender
+    case ex: Next => ex.gender
     case ex: DoPrim => MALE
     case ex: UIntLiteral => MALE
     case ex: SIntLiteral => MALE
