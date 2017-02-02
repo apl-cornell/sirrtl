@@ -49,7 +49,8 @@ class ResolveAndCheck extends CoreTransform {
 
 class ResolveAndCheckWLabels extends ResolveAndCheck {
   override def passSeq = super.passSeq ++ Seq(
-    passes.LabelExprs,
+    //passes.LabelExprs,
+    passes.InferLabels,
     passes.ImplicitFlowElevation,
     passes.ToWorkingIR, // for exprs in deptypes
     passes.ResolveKinds, // for exprs in deptypes
