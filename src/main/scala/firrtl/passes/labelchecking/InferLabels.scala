@@ -4,7 +4,6 @@ import firrtl._
 import firrtl.ir._
 import firrtl.Utils._
 import firrtl.Mappers._
-import firrtl.UnionTypes._
 import scala.collection.mutable.Set
 
 object InferLabels extends Pass with PassDebug {
