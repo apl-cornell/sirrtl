@@ -165,7 +165,8 @@ abstract class Statement extends FirrtlNode {
 case class DefWire(info: Info, name: String, tpe: Type, lbl: Label)
   extends Statement with IsDeclaration {
   def serialize: String = {
-    val lbl_s = (lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "})
+    //val lbl_s = (lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "})
+    val lbl_s = ""
     s"wire $name :${lbl_s}${tpe.serialize}" + info.serialize 
   }
   def mapStmt(f: Statement => Statement): Statement = this
@@ -183,7 +184,8 @@ case class DefRegister(
     reset: Expression,
     init: Expression) extends Statement with IsDeclaration {
   def serialize: String = {
-    val lbl_s = lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "}
+    //val lbl_s = lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "}
+    val lbl_s = "" 
     s"reg $name : ${lbl_s}${tpe.serialize}, ${clock.serialize} with :" +
     indent("\n" + s"reset => (${reset.serialize}, ${init.serialize})"
       + info.serialize) 
@@ -278,8 +280,10 @@ case class PartialConnect(info: Info, loc: Expression, expr: Expression) extends
 case class Connect(info: Info, loc: Expression, expr: Expression) extends Statement with HasInfo {
   // def serialize: String =  s"${loc.serialize} <= ${expr.serialize}" + info.serialize
   def serialize: String = {
-    val lbl_l = loc.lbl match { case UnknownLabel => ""; case _ => s" {${loc.lbl.serialize}}" }
-    val lbl_r = expr.lbl match { case UnknownLabel => ""; case _ => s" {${expr.lbl.serialize}}" }
+    //val lbl_l = loc.lbl match { case UnknownLabel => ""; case _ => s" {${loc.lbl.serialize}}" }
+    //val lbl_r = expr.lbl match { case UnknownLabel => ""; case _ => s" {${expr.lbl.serialize}}" }
+    val lbl_l = ""
+    val lbl_r = ""
     s"${loc.serialize}${lbl_l} <= ${expr.serialize}${lbl_r}" + info.serialize
   }
   def mapStmt(f: Statement => Statement): Statement = this
@@ -482,7 +486,8 @@ case class Port(
     tpe: Type,
     lbl: Label) extends FirrtlNode with IsDeclaration {
   def serialize: String = {
-    val lbl_s = lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "}
+    //val lbl_s = lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "}
+    val lbl_s = ""
     s"${direction.serialize} $name : ${lbl_s}${tpe.serialize}" + info.serialize
   }
 }
