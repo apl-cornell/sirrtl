@@ -55,7 +55,7 @@ object NextCycleTransform extends Pass with PassDebug {
       case ex: WSubField if kind(ex) == PortKind && ex.gender == FEMALE
         && field_seq(ex.exp.tpe, ex.name) =>
         val next_l = swap_with_next_l(ex.lbl)
-        next_exp(ex.copy(lbl = next_l))
+        ex.copy(lbl = next_l)
       case ex => ex
     }
 
