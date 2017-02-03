@@ -167,7 +167,7 @@ case class DefWire(info: Info, name: String, tpe: Type, lbl: Label)
   def serialize: String = {
     //val lbl_s = (lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "})
     val lbl_s = ""
-    s"wire $name :${lbl_s}${tpe.serialize}" + info.serialize 
+    s"wire $name : ${lbl_s}${tpe.serialize}" + info.serialize 
   }
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement = this
