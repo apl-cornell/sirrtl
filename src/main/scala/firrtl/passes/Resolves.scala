@@ -27,8 +27,8 @@ trait ResolveKindsT extends Pass {
     s map find_stmt(kinds)
   }
 
-  def resolve_lbl(kinds: KindMap)(l: Label): Label = 
-    l map resolve_expr(kinds) map resolve_lbl(kinds)
+  def resolve_lbl(kinds: KindMap)(l: Label): Label = l
+    //l map resolve_expr(kinds) map resolve_lbl(kinds)
 
   def resolve_expr(kinds: KindMap)(e: Expression): Expression = 
     e map resolve_lbl(kinds) match {

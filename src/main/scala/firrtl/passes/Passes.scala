@@ -51,7 +51,8 @@ object ToWorkingIR extends ToWorkingIRT
 trait ToWorkingIRT extends Pass {
   def name = "Working IR"
 
-  def toLbl(l: Label): Label = l map toExp map toLbl
+  //def toLbl(l: Label): Label = l map toExp map toLbl
+  def toLbl(l: Label): Label = l
 
   def toExp(e: Expression): Expression = e map toExp map toLbl match {
     case ex: Reference => WRef(ex.name, ex.tpe, ex.lbl, NodeKind, UNKNOWNGENDER)

@@ -7,9 +7,28 @@ import firrtl.ir._
 import firrtl.Utils._
 import firrtl.Mappers._
 
-object InferTypes extends Pass {
+object InferTypes extends InferTypesT
+trait InferTypesT extends Pass {
   def name = "Infer Types"
   type TypeMap = collection.mutable.LinkedHashMap[String, Type]
+
+  // These are no longer nested in run so that DepsInferTypes can override the 
+  // label one and it can refer to the expression one
+  def infer_types_l(types: TypeMap)(l: Label): Label = l
+    // l map infer_types_e(types) map infer_types_l(types)
+  
+  def infer_types_e(types: TypeMap)(e: Expression): Expression =
+    e map infer_types_e(types) map infer_types_l(types) match {
+      case e: WRef => e copy (tpe = types(e.name))
+      case e: Next => e copy (tpe = e.exp.tpe)
+      case e: WSubField => e copy (tpe = field_type(e.exp.tpe, e.name))
+      case e: WSubIndex => e copy (tpe = sub_type(e.exp.tpe))
+      case e: WSubAccess => e copy (tpe = sub_type(e.exp.tpe))
+      case e: DoPrim => PrimOps.set_primop_type(e)
+      case e: Mux => e copy (tpe = mux_type_and_widths(e.tval, e.fval))
+      case e: ValidIf => e copy (tpe = e.value.tpe)
+      case e @ (_: UIntLiteral | _: SIntLiteral) => e
+    }
 
   def run(c: Circuit): Circuit = {
     val namespace = Namespace()
@@ -22,22 +41,6 @@ object InferTypes extends Pass {
 
     def remove_unknowns(t: Type): Type =
       t map remove_unknowns map remove_unknowns_w
-
-    def infer_types_l(types: TypeMap)(l: Label): Label =
-      l map infer_types_e(types) map infer_types_l(types)
-
-    def infer_types_e(types: TypeMap)(e: Expression): Expression =
-      e map infer_types_e(types) map infer_types_l(types) match {
-        case e: WRef => e copy (tpe = types(e.name))
-        case e: Next => e copy (tpe = e.exp.tpe)
-        case e: WSubField => e copy (tpe = field_type(e.exp.tpe, e.name))
-        case e: WSubIndex => e copy (tpe = sub_type(e.exp.tpe))
-        case e: WSubAccess => e copy (tpe = sub_type(e.exp.tpe))
-        case e: DoPrim => PrimOps.set_primop_type(e)
-        case e: Mux => e copy (tpe = mux_type_and_widths(e.tval, e.fval))
-        case e: ValidIf => e copy (tpe = e.value.tpe)
-        case e @ (_: UIntLiteral | _: SIntLiteral) => e
-      }
 
     def infer_types_s(types: TypeMap)(s: Statement): Statement = s match {
       case sx: WDefInstance =>
