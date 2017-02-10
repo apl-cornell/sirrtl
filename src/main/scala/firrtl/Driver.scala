@@ -201,6 +201,7 @@ object Driver {
   }
 
   def main(args: Array[String]): Unit = {
+    println("You are using secure-firrtl")
     execute(args)
   }
 }
