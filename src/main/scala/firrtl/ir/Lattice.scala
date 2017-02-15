@@ -8,16 +8,16 @@ import scala.collection.immutable.Map
 // levels. The policy is an extensional definition of the covered-by relation. 
 // Each level is mapped to the set of levels it is covered by (i.e., 
 // immediately lower than on the Hasse diagram of the lattice).
-object PolicyHolder {
-  def policy = new Lattice[Level]{
-    def covers : Map[Level,Set[Level]] = Map(
-      Level("L") -> Set(Level("D1"),Level("D2")),
-      Level("D1") -> Set(Level("H")),
-      Level("D2") -> Set(Level("H")),
-      Level("H") -> Set()
-    )
-  }
-}
+// object PolicyHolder {
+//   def policy = new Lattice[Level]{
+//     def covers : Map[Level,Set[Level]] = Map(
+//       Level("L") -> Set(Level("D1"),Level("D2")),
+//       Level("D1") -> Set(Level("H")),
+//       Level("D2") -> Set(Level("H")),
+//       Level("H") -> Set()
+//     )
+//   }
+// }
 
 abstract class Lattice[T] {
   // adjacency list representation of the covers relation

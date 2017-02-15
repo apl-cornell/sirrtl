@@ -11,6 +11,9 @@ import Parser.{IgnoreInfo, InfoMode}
 import annotations._
 import firrtl.annotations.AnnotationYamlProtocol._
 import firrtl.transforms.{BlackBoxSourceHelper, BlackBoxTargetDir}
+import firrtl.ir.PolicyHolder
+import firrtl.ir.Policy
+import firrtl.ir.LevelPolicy
 
 
 /**
@@ -126,6 +129,10 @@ object Driver {
  
     doLabelChecking = firrtlConfig.doLabelChecking
     constraintFileName = firrtlConfig.getConstraintFileName(optionsManager)
+
+
+    //TODO set policy type based on options
+    PolicyHolder.setPolicy(new LevelPolicy)
 
     val firrtlSource = firrtlConfig.firrtlSource match {
       case Some(text) => text.split("\n").toIterator

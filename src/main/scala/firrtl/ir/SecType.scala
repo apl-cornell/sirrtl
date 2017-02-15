@@ -21,7 +21,6 @@ case class Level(label: String)  extends Label{
     case o : Level => o.label equals label
     case _ => false
   }
-  def <=(that: Level) = PolicyHolder.policy.leq(this,that)
   def serialize = label
   def mapExpr(f: Expression => Expression) = this
   def mapLabel(f: Label => Label) = this

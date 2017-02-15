@@ -6,8 +6,11 @@ import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.Driver._
 import collection.mutable.Set
+import firrtl.ir.LevelPolicy
 
 object ConstraintConst {
+  // TODO This should only be used when using a LevelPolicy
+
   def latticeAxioms: String = {
 """; this part encodes a partial order on labels
    |(declare-sort Label)
@@ -46,9 +49,13 @@ object ConstraintConst {
 }
 
 object PolicyConstraints {
-  val policy = PolicyHolder.policy
-  val top    = PolicyHolder.policy.top
-  val bot    = PolicyHolder.policy.bottom
+  // TODO This assumes the policy is a LevelPolicy
+  // Make this assumption safe
+  // This is wrapped in a def so that policy is evaluated lazily and we don't 
+  // get dynamic cast exceptions we don't need to have
+  def policy: Lattice[Level] = PolicyHolder.policy.asInstanceOf[LevelPolicy].levelLat
+  def top  = policy.top
+  def bot  = policy.bottom
 
   def declareLevels: String = {
     "; lattice elements\n" +
@@ -60,7 +67,7 @@ object PolicyConstraints {
   def declareOrder: String = {
     "; lattice order\n" +
     policy.levels.map{ level =>
-      (for( coveringLevel <- PolicyHolder.policy.covers(level) )
+      (for( coveringLevel <- policy.covers(level) )
         yield s"(assert (leq $level $coveringLevel))\n").fold(""){_+_}
     }.fold(""){_+_} +
     s"(assert (not (= $top $bot)))\n\n"
