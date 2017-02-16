@@ -10,10 +10,10 @@
     (ite (bvule x y) x y ))
 
 (define-fun leq44 ((x (_ BitVec 16))(y (_ BitVec 16))) Bool
-    (and (<= ((_ extract 3 0) x)((_ extract 3 0 ) y))
-    (and (<= ((_ extract 7 4) x)((_ extract 7 4) y))
-    (and (<= ((_ extract 11 8) x)((_ extract 11 8) y))
-    (<= ((_ extract 15 12) x)((_ extract 15 12) y))))))
+    (and (bvule ((_ extract 3 0) x)((_ extract 3 0 ) y))
+    (and (bvule ((_ extract 7 4) x)((_ extract 7 4) y))
+    (and (bvule ((_ extract 11 8) x)((_ extract 11 8) y))
+    (bvule ((_ extract 15 12) x)((_ extract 15 12) y))))))
 
 (define-fun join44 ((x (_ BitVec 16)) (y (_ BitVec 16))) (_ BitVec 16)
     (concat (max4 ((_ extract 3 0) x) ((_ extract 3 0) y))
@@ -27,11 +27,46 @@
     (concat (min4 ((_ extract 11 8) x) ((_ extract 11 8) y))
     (concat (min4 ((_ extract 15 12) x) ((_ extract 15 12) y)))))))
 
+(echo "sanity")
+(push)
+(assert false)
+(check-sat)
+(pop)
+(echo "")
+
+(echo "debug 4,4")
+(push)
+(simplify ((_ extract 3 0) #x0000))
+(simplify ((_ extract 3 0) #x1111))
+(simplify (<= ((_ extract 3 0) #x1111)((_ extract 3 0 ) #x0000)))
+(simplify (<= ((_ extract 3 0) #x0000)((_ extract 3 0 ) #x1111)))
+(pop)
+(echo "")
+
+(push)
+(echo "debug 1")
+(assert (bvule ((_ extract 3 0) #x1111)((_ extract 3 0 ) #x0000)))
+(check-sat)
+(pop)
+
+(push)
+(echo "debug 2")
+(assert (bvule ((_ extract 3 0) #x0000)((_ extract 3 0 ) #x1111)))
+(check-sat)
+(pop)
+
 (echo "testing 4,4")
 (push)
 (echo "leq 1")
 (assert (leq44 #x0000 #x1111))
 (assert (not(leq44 #x1111 #x0000)))
+(check-sat)
+(pop)
+
+(echo "testing 4,4")
+(push)
+(echo "leq 1.5")
+(assert (not(leq44 #x0000 #x1111)))
 (check-sat)
 (pop)
 

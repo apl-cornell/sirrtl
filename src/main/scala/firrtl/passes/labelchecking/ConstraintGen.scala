@@ -169,8 +169,9 @@ object BVConstraintGen extends ConstraintGenerator {
     case FunLabel(fname,arg) => s"($fname ${refToIdent(arg)})"
     case JoinLabel(l,r) => s"(join ${serialize(l)} ${serialize(r)})"
     case MeetLabel(l,r) => s"(meet ${serialize(l)} ${serialize(r)})"
-    case Level(_) => l.serialize
+    case lx: Level => lx.serialize
     case UnknownLabel => l.serialize
+    case lx: HLevel => lx.serialize
   }} catch {
     case e : Throwable =>
       println("BVConstraintGen can't serialize something")

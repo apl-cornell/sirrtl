@@ -11,8 +11,8 @@ object LabelExprs extends Pass with PassDebug {
   override def debugThisPass = false
   type LabelMap = collection.mutable.LinkedHashMap[String, Label]
 
-  val bot = PolicyHolder.policy.bottom
-  val top = PolicyHolder.policy.top
+  val bot = PolicyHolder.bottom
+  val top = PolicyHolder.top
 
   class UndeclaredException(info: Info, name: String) extends PassException(
     s"$info: [declaration $name] does not have a declared label")

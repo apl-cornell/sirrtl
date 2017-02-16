@@ -27,40 +27,46 @@ case class Level(label: String)  extends Label{
 }
 
 object JoinLabel {
-  val bot : Label = PolicyHolder.policy.bottom
-  val top : Label = PolicyHolder.policy.top
+  val bottom : Label = PolicyHolder.bottom
+  val top : Label = PolicyHolder.top
   def apply(l: Label, r: Label): Label = (l, r) match {
     case(UnknownLabel, _) => UnknownLabel
     case(_, UnknownLabel) => UnknownLabel
-    case(_, b: Level) if b == bot => l
-    case(b: Level, _) if b == bot => r
+    case(_, b: Level) if b == bottom => l
+    case(b: Level, _) if b == bottom => r
     case(_, t: Level) if t == top => top
     case(t: Level, _) if t == top => top
-    case (tl: Level, tr: Level)  => PolicyHolder.policy.join(tl, tr)
+    case (tl: Level, tr: Level)  => PolicyHolder.policy match {
+      case p: LevelPolicy => p.levelLat.join(tl, tr)
+      case _ => new JoinLabel(l, r)
+    }
     case _ => new JoinLabel(l,r)
   }
-  def apply(l: Label*) : Label = l.foldRight(bot) { apply(_,_) }
+  def apply(l: Label*) : Label = l.foldRight(bottom) { apply(_,_) }
   def unapply(j: JoinLabel) = Some((j.l, j.r))
 }
 
 // Behaves like a case class
-class JoinLabel private (val l: Label, val r: Label) extends Label{
-  override def equals(that: Any) = that match{
-    case JoinLabel(lx,rx) => lx == l && rx == r
+class JoinLabel private(val l: Label, val r: Label) extends Label{
+  override def equals(that: Any) = that match {
+    case JoinLabel(lx, rx) => lx == l && rx == r
     case _ => false
   }
-  def serialize=  s"(join ${l.serialize} ${r.serialize})"
+  def serialize = s"(join ${l.serialize} ${r.serialize})"
   def mapExpr(f: Expression => Expression) = this
   def mapLabel(f: Label => Label) = JoinLabel(f(l), f(r))
 }
 
 object MeetLabel {
-  val bot : Label = PolicyHolder.policy.bottom
-  val top : Label = PolicyHolder.policy.top
-  def apply(l: Label, r: Label): Label = (l, r) match {
+  val bottom : Label = PolicyHolder.bottom
+  val top : Label = PolicyHolder.top
+  def meet(l: Label, r: Label): Label = (l, r) match {
     case(UnknownLabel, _) => UnknownLabel
     case(_, UnknownLabel) => UnknownLabel
-    case (tl: Level, tr: Level)  => PolicyHolder.policy.meet(tl, tr)
+    case (tl: Level, tr: Level)  => PolicyHolder.policy match {
+      case p: LevelPolicy => p.levelLat.join(tl, tr)
+      case _ => new MeetLabel(l, r)
+    }
     case _ => new MeetLabel(l,r)
   }
   def apply(l: Label*) : Label = l.foldRight(top) { apply(_,_) }
@@ -68,9 +74,9 @@ object MeetLabel {
 }
 
 // Behaves like a case class
-class MeetLabel private (val l: Label, val r: Label) extends Label{
+class MeetLabel private(val l: Label, val r: Label) extends Label{
   override def equals(that: Any) = that match{
-    case MeetLabel(lx,rx) => lx == l && rx == r
+    case MeetLabel(lx, rx) => lx == l && rx == r
     case _ => false
   }
   def serialize=  s"(meet ${l.serialize} ${r.serialize})"
@@ -89,6 +95,12 @@ case class BundleLabel(fields: Seq[Field]) extends Label {
 
 case class FunLabel(fname: String, arg: Expression) extends Label {
   def serialize = s"($fname ${arg.serialize})"
+  def mapLabel(f: Label => Label): Label = this
+  def mapExpr(f: Expression => Expression): Label = this.copy(arg = f(arg))
+}
+
+case class HLevel(arg: Expression) extends Label {
+  def serialize = s"${arg.serialize}"
   def mapLabel(f: Label => Label): Label = this
   def mapExpr(f: Expression => Expression): Label = this.copy(arg = f(arg))
 }

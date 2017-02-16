@@ -8,73 +8,6 @@ import firrtl.Driver._
 import collection.mutable.Set
 import firrtl.ir.LevelPolicy
 
-object ConstraintConst {
-  // TODO This should only be used when using a LevelPolicy
-
-  def latticeAxioms: String = {
-"""; this part encodes a partial order on labels
-   |(declare-sort Label)
-   |(declare-fun leq (Label Label) Bool)
-   |(declare-fun join (Label Label) Label)
-   |(declare-fun meet (Label Label) Label)
-   |(assert (forall ((x Label)) (leq x x)))
-   |(assert (forall ((x Label) (y Label) (z Label)) (implies (and (leq x y) (leq y z)) (leq x z))))
-   |(assert (forall ((x Label) (y Label)) (implies (and (leq x y) (leq y x)) (= x y))))
-
-   |; axioms for join
-   |(assert (forall ((x Label) (y Label) (z Label)) (implies (leq (join x y) z) (and (leq x z) (leq y z)))))
-   |(assert (forall ((x Label) (y Label) (z Label)) (implies (and (leq x z) (leq y z)) (leq (join x y) z))))
-   |(assert (forall ((x Label) (y Label)) (and (leq x (join x y)) (leq y (join x y)))))
-   |(assert (forall ((x Label) (y Label)) (= (join x y) (join y x))))
-   
-   |; axioms for meet
-   |(assert (forall ((x Label) (y Label) (z Label)) (implies (leq x (meet y z)) (and (leq x y) (leq x z)))))
-   |(assert (forall ((x Label) (y Label) (z Label)) (implies (and (leq x y) (leq x z)) (leq x (meet y z)))))
-   |(assert (forall ((x Label) (y Label)) (and (leq (meet x y) x) (leq (meet x y) y))))
-   |(assert (forall ((x Label) (y Label)) (= (meet x y) (meet y x))))
-   |
-   |""".stripMargin
- }
-
- def depTypeFuns: String = {
-   """; a simple function for testing
-      |(define-fun Dom ((x (_ BitVec 2))) Label
-      |  (ite (= x (_ bv0 2)) L 
-      |  (ite (= x (_ bv1 2)) D1
-      |  (ite (= x (_ bv2 2)) D2 H))))
-      |
-      |""".stripMargin
- }
-
-}
-
-object PolicyConstraints {
-  // TODO This assumes the policy is a LevelPolicy
-  // Make this assumption safe
-  // This is wrapped in a def so that policy is evaluated lazily and we don't 
-  // get dynamic cast exceptions we don't need to have
-  def policy: Lattice[Level] = PolicyHolder.policy.asInstanceOf[LevelPolicy].levelLat
-  def top  = policy.top
-  def bot  = policy.bottom
-
-  def declareLevels: String = {
-    "; lattice elements\n" +
-    policy.levels.map{ level =>
-      s"(declare-const $level Label)\n"
-    }.fold(""){_+_} + "\n"
-  }
-
-  def declareOrder: String = {
-    "; lattice order\n" +
-    policy.levels.map{ level =>
-      (for( coveringLevel <- policy.covers(level) )
-        yield s"(assert (leq $level $coveringLevel))\n").fold(""){_+_}
-    }.fold(""){_+_} +
-    s"(assert (not (= $top $bot)))\n\n"
-  }
-}
-
-
 object LabelCheck extends Pass with PassDebug {
   def name = "Label Check"
   override def debugThisPass = true
@@ -157,12 +90,9 @@ object LabelCheck extends Pass with PassDebug {
     }
 
     //------------------------------------------------------------------------
-    // Emit constraints which are common to all modules
+    // Emit preamble which contains constraints common to all modules
     //------------------------------------------------------------------------
-    emit(ConstraintConst.latticeAxioms)
-    emit(PolicyConstraints.declareLevels)
-    emit(PolicyConstraints.declareOrder)
-    emit(ConstraintConst.depTypeFuns)
+    emit(PolicyHolder.preamble)
 
     c.modules foreach { m =>
       dprintb(s"Checking Module: ${m.name}: ${m.info}")
