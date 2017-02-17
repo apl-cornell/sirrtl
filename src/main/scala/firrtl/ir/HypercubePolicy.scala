@@ -3,13 +3,21 @@ package ir
 
 class HypercubePolicy extends Policy {
   
+
+  def log2(x: Int): Int = scala.math.ceil(scala.math.log(x) / scala.math.log(2)).toInt
+
   //---------------------------------------------------------------------------
-  // TODO Store configurations: (W, K, D)s, mappings from strings to 
-  // bitvector constants
+  // Hypercube configurations 
   //---------------------------------------------------------------------------
+  // A hypercube config is a pair (D,K) where D is the number of dimensions and 
+  // K is the number of bits per dimension. lvlwidth = k*d for all configs
   def lvlwidth = 16
-  def ndims = 4
-  def dimwidth = 4
+  def cubeConfigs =
+    Set[(Int,Int)](
+      (4,4),
+      (8,2),
+      (2,8)
+    )
     
   implicit class IntWConcat(x: Int) {
       def ::[T<:Int](y: T) = (x.toString + y.toString).toInt
@@ -28,8 +36,8 @@ class HypercubePolicy extends Policy {
   //---------------------------------------------------------------------------
   // Lattice Operations
   //---------------------------------------------------------------------------
-  // Note, it is assumed that L and H are always constants mapped to the top 
-  // and bottom of every configuration (0 and a seq of all ones).
+  // Note, it is assumed that L and H are always constants mapped to the bottom
+  // and top of every configuration (0 and a seq of all ones).
   def bottom = Level("L")
   def top = Level("H")
 
@@ -37,100 +45,134 @@ class HypercubePolicy extends Policy {
   // Z3 file preamble
   //---------------------------------------------------------------------------
   // TODO generate these from a description of the possible configurations  
+
   def leqFuncs: String = {
-"""; leq relations for each configuration
-   |(define-fun leq44 ((x (_ BitVec 16))(y (_ BitVec 16))) Bool
-   |    (and (bvule ((_ extract 3 0) x)((_ extract 3 0 ) y))
-   |    (and (bvule ((_ extract 7 4) x)((_ extract 7 4) y))
-   |    (and (bvule ((_ extract 11 8) x)((_ extract 11 8) y))
-   |    (bvule ((_ extract 15 12) x)((_ extract 15 12) y))))))
-   |
-   |(define-fun leq82 ((x (_ BitVec 16))(y (_ BitVec 16))) Bool
-   |    (and (bvule ((_ extract 1 0) x)  ((_ extract 1 0 ) y))
-   |    (and (bvule ((_ extract 3 2) x)  ((_ extract 3 2 ) y))
-   |    (and (bvule ((_ extract 5 4) x)  ((_ extract 5 4 ) y))
-   |    (and (bvule ((_ extract 7 6) x)  ((_ extract 7 6 ) y))
-   |    (and (bvule ((_ extract 9 8) x)  ((_ extract 9 8 ) y))
-   |    (and (bvule ((_ extract 11 10) x)((_ extract 11 10 ) y))
-   |    (and (bvule ((_ extract 13 12) x)((_ extract 13 12 ) y))
-   |         (bvule ((_ extract 15 14) x)((_ extract 15 14 ) y))))))))))
-   |
-   |(define-fun leq ((x (_ BitVec 16))(y (_ BitVec 16))) Bool
-   |    (ite (= config #b0) (leq44 x y) (leq82 x y)))
-   |""".stripMargin
+    val w = lvlwidth
+    val nconf = cubeConfigs.size
+
+    // leq for a particular config
+    def leq(d: Int, k: Int): String = {
+      var ret = s"(define-fun leq$d$k ((x (_ BitVec $w))(y (_ BitVec $w))) Bool\n"
+      for( i <- 0 until (w-k) by k) {
+        ret += s"   (and (bvule ((_ extract ${i+k-1} $i) x)((_ extract ${i+k-1} $i) y))\n"
+      }
+      ret += s"        (bvule ((_ extract ${w-1} ${w-k}) x)((_ extract ${w-1} ${w-k}) y))"
+      ret += ")" * d + "\n\n"
+      ret
+    }
+    var ret = ";leq functions for each configuration\n"
+
+    // leq for each config
+    ret += cubeConfigs map {
+      case(d: Int, k: Int) => leq(d,k)
+    } reduceLeft {(_:String)+(_:String)}
+   
+    // outer leq function that picks from among leqs for each config
+    ret += s"(define-fun leq ((x (_ BitVec $w))(y (_ BitVec $w))) Bool\n"
+    val confsArr = cubeConfigs.toArray 
+    for( i <- 0 until confsArr.length-1 ) {
+      val d = confsArr(i)._1
+      val k = confsArr(i)._2
+      ret += s"    (ite (= config #b$i) (leq$d$k x y)\n"
+    }
+    val d = confsArr(confsArr.length-1)._1
+    val k = confsArr(confsArr.length-1)._2
+    ret += s"    (leq$d$k x y)" + ")" * nconf  + "\n\n\n"
+    ret
   }
 
   def meetFuncs: String = {
- """; meet functions for each configuration
-    |(define-fun meet44 ((x (_ BitVec 16)) (y (_ BitVec 16))) (_ BitVec 16)
-    |    (concat (min4 ((_ extract 3 0) x) ((_ extract 3 0) y))
-    |    (concat (min4 ((_ extract 7 4) x) ((_ extract 7 4) y))
-    |    (concat (min4 ((_ extract 11 8) x) ((_ extract 11 8) y))
-    |    (concat (min4 ((_ extract 15 12) x) ((_ extract 15 12) y)))))))
-    |
-    |(define-fun meet82 ((x (_ BitVec 16)) (y (_ BitVec 16))) (_ BitVec 16)
-    |    (concat (min2 ((_ extract 1 0) x)  ((_ extract 1 0 ) y))
-    |    (concat (min2 ((_ extract 3 2) x)  ((_ extract 3 2 ) y))
-    |    (concat (min2 ((_ extract 5 4) x)  ((_ extract 5 4 ) y))
-    |    (concat (min2 ((_ extract 7 6) x)  ((_ extract 7 6 ) y))
-    |    (concat (min2 ((_ extract 9 8) x)  ((_ extract 9 8 ) y))
-    |    (concat (min2 ((_ extract 11 10) x)((_ extract 11 10 ) y))
-    |    (concat (min2 ((_ extract 13 12) x)((_ extract 13 12 ) y))
-    |    (concat (min2 ((_ extract 15 14) x)((_ extract 15 14 ) y)))))))))))
-    |
-    |(define-fun meet ((x (_ BitVec 16))(y (_ BitVec 16))) (_ BitVec 16)
-    |    (ite (= config #b0) (meet44 x y) (meet82 x y)))
-    |""".stripMargin
+    val w = lvlwidth
+    val nconf = cubeConfigs.size
+
+    // meet for a particular config
+    def meet(d: Int, k: Int): String = {
+      var ret = s"(define-fun meet$d$k ((x (_ BitVec $w))(y (_ BitVec $w))) (_ BitVec $w)"
+      for( i <- 0 until w by k) {
+        ret += s"\n   (concat (min$k ((_ extract ${i+k-1} $i) x)((_ extract ${i+k-1} $i) y))"
+      }
+      ret += ")" * (d+1) + "\n\n"
+      ret
+    }
+    var ret = ";meet functions for each configuration\n"
+
+    // meet for each config
+    ret += cubeConfigs map {
+      case(d: Int, k: Int) => meet(d,k)
+    } reduceLeft {(_:String)+(_:String)}
+   
+    // outer meet function that picks from among meets for each config
+    ret += s"(define-fun meet ((x (_ BitVec $w))(y (_ BitVec $w))) (_ BitVec $w)\n"
+    val confsArr = cubeConfigs.toArray 
+    for( i <- 0 until confsArr.length-1 ) {
+      val d = confsArr(i)._1
+      val k = confsArr(i)._2
+      ret += s"    (ite (= config #b$i) (meet$d$k x y)\n"
+    }
+    val d = confsArr(confsArr.length-1)._1
+    val k = confsArr(confsArr.length-1)._2
+    ret += s"    (meet$d$k x y)" + ")" * nconf  + "\n\n\n"
+    ret
   }
 
   def joinFuncs: String = {
-"""; join functions for each configuration
-   |(define-fun join44 ((x (_ BitVec 16)) (y (_ BitVec 16))) (_ BitVec 16)
-   |     (concat (max4 ((_ extract 3 0) x) ((_ extract 3 0) y))
-   |     (concat (max4 ((_ extract 7 4) x) ((_ extract 7 4) y))
-   |     (concat (max4 ((_ extract 11 8) x) ((_ extract 11 8) y))
-   |     (concat (max4 ((_ extract 15 12) x) ((_ extract 15 12) y)))))))
-   |
-   |(define-fun join82 ((x (_ BitVec 16)) (y (_ BitVec 16))) (_ BitVec 16)
-   |    (concat (max2 ((_ extract 1 0) x)  ((_ extract 1 0 ) y))
-   |    (concat (max2 ((_ extract 3 2) x)  ((_ extract 3 2 ) y))
-   |    (concat (max2 ((_ extract 5 4) x)  ((_ extract 5 4 ) y))
-   |    (concat (max2 ((_ extract 7 6) x)  ((_ extract 7 6 ) y))
-   |    (concat (max2 ((_ extract 9 8) x)  ((_ extract 9 8 ) y))
-   |    (concat (max2 ((_ extract 11 10) x)((_ extract 11 10 ) y))
-   |    (concat (max2 ((_ extract 13 12) x)((_ extract 13 12 ) y))
-   |    (concat (max2 ((_ extract 15 14) x)((_ extract 15 14 ) y)))))))))))
-   |
-   |(define-fun join ((x (_ BitVec 16))(y (_ BitVec 16))) (_ BitVec 16)
-   |    (ite (= config #b0) (join44 x y) (join82 x y)))
-   |""".stripMargin
+    val w = lvlwidth
+    val nconf = cubeConfigs.size
+
+    // meet for a particular config
+    def join(d: Int, k: Int): String = {
+      var ret = s"(define-fun join$d$k ((x (_ BitVec $w))(y (_ BitVec $w))) (_ BitVec $w)"
+      for( i <- 0 until w by k) {
+        ret += s"\n   (concat (max$k ((_ extract ${i+k-1} $i) x)((_ extract ${i+k-1} $i) y))"
+      }
+      ret += ")" * (d+1) + "\n\n"
+      ret
+    }
+    var ret = ";join functions for each configuration\n"
+
+    // join for each config
+    ret += cubeConfigs map {
+      case(d: Int, k: Int) => join(d,k)
+    } reduceLeft {(_:String)+(_:String)}
+   
+    // outer join function that picks from among joins for each config
+    ret += s"(define-fun join ((x (_ BitVec $w))(y (_ BitVec $w))) (_ BitVec $w)\n"
+    val confsArr = cubeConfigs.toArray 
+    for( i <- 0 until confsArr.length-1 ) {
+      val d = confsArr(i)._1
+      val k = confsArr(i)._2
+      ret += s"    (ite (= config #b$i) (join$d$k x y)\n"
+    }
+    val d = confsArr(confsArr.length-1)._1
+    val k = confsArr(confsArr.length-1)._2
+    ret += s"    (join$d$k x y)" + ")" * nconf  + "\n\n\n"
+    ret
   }
 
   def maxFuncs: String = {
-"""; utility max functions for each config.
-   |(define-fun max4 ((x (_  BitVec 4))(y (_ BitVec 4))) (_ BitVec 4)
-   |   (ite (bvuge x y) x y ))
-   |(define-fun max2 ((x (_  BitVec 2))(y (_ BitVec 2))) (_ BitVec 2)
-   |   (ite (bvuge x y) x y ))
-   |""".stripMargin
+    var ret = "; utility max functions for each config.\n"
+    cubeConfigs foreach { case (d: Int, k: Int) =>
+      ret += s"(define-fun max$k ((x (_  BitVec $k))(y (_ BitVec $k))) (_ BitVec $k)\n"
+      ret += "    (ite (bvuge x y) x y))\n"
+    }
+    ret
   }
   
   def minFuncs: String = {
-"""; utility min functions for each config.
-   |(define-fun min4 ((x (_  BitVec 4))(y (_ BitVec 4))) (_ BitVec 4)
-   |   (ite (bvule x y) x y ))
-   |(define-fun min2 ((x (_  BitVec 2))(y (_ BitVec 2))) (_ BitVec 2)
-   |   (ite (bvule x y) x y ))
-   |""".stripMargin
+    var ret = "; utility min functions for each config.\n"
+    cubeConfigs foreach { case (d: Int, k: Int) =>
+      ret += s"(define-fun min$k ((x (_  BitVec $k))(y (_ BitVec $k))) (_ BitVec $k)\n"
+      ret += "    (ite (bvule x y) x y))\n"
+    }
+    ret
   }
 
 // TODO have a way of dynamically determining the current configuration.
+// For now, always use the first config.
   def configDecl: String = {
-"""; var for determining which config you are in
-   |(declare-const config (_ BitVec 1))
-   |; For now, hardcode that we are using 4,4
-   |(assert (= config #b0))
-   |""".stripMargin
+    "; var for determining which config you are in\n" +
+    s"(declare-const config (_ BitVec ${log2(cubeConfigs.size)}))\n" +
+    "(assert (= config #b0))\n"
   }
 
   def declLvlConsts : String =
@@ -141,13 +183,14 @@ class HypercubePolicy extends Policy {
     } reduceLeft {(_:String)+(_:String)}) + "\n"
   
   // Functions used for SecVerilog-style dependent types. These should be 
-  // parsed from a file.
+  // parsed from a file. 
   def depTypeFuns: String = {
 """; a simple function for testing
    |(define-fun Dom ((x (_ BitVec 2))) (_ BitVec 16)
    |  (ite (= x (_ bv0 2)) L 
    |  (ite (= x (_ bv1 2)) D1
-   |  (ite (= x (_ bv2 2)) D2 H))))
+   |  (ite (= x (_ bv2 2)) D2
+   |                       H ))))
    |
    |""".stripMargin
   }
