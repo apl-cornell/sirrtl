@@ -2,6 +2,12 @@
 
 package firrtl
 
+// If labelchecking is not enabled, remove labels at the end of every transform
+object deLabel {
+  def apply(): Seq[passes.Pass] =
+    if(!Driver.doLabelChecking) Seq(passes.DeLabel) else Seq()
+}
+
 sealed abstract class CoreTransform extends PassBasedTransform
 
 /** This transforms "CHIRRTL", the chisel3 IR, to "Firrtl". Note the resulting
@@ -15,7 +21,8 @@ class ChirrtlToHighFirrtl extends CoreTransform {
     passes.CheckChirrtl,
     passes.CInferTypes,
     passes.CInferMDir,
-    passes.RemoveCHIRRTL)
+    passes.RemoveCHIRRTL) ++
+    deLabel()
 }
 
 /** Converts from the bare intermediate representation (ir.scala)
@@ -24,7 +31,7 @@ class ChirrtlToHighFirrtl extends CoreTransform {
 class IRToWorkingIR extends CoreTransform {
   def inputForm = HighForm
   def outputForm = HighForm
-  def passSeq = Seq(passes.ToWorkingIR)
+  def passSeq = Seq(passes.ToWorkingIR) ++ deLabel()
 }
 
 /** Resolves types, kinds, and genders, and checks the circuit legality.
@@ -44,7 +51,8 @@ class ResolveAndCheck extends CoreTransform {
     passes.ResolveGenders,
     passes.CheckGenders,
     passes.InferWidths,
-    passes.CheckWidths)
+    passes.CheckWidths) ++ 
+    deLabel()
 }
 
 class ResolveAndCheckWLabels extends ResolveAndCheck {
@@ -84,7 +92,8 @@ class HighFirrtlToMiddleFirrtl extends CoreTransform {
     passes.CheckTypes,
     passes.ResolveGenders,
     passes.InferWidths,
-    passes.CheckWidths)
+    passes.CheckWidths) ++
+    deLabel()
 }
 
 /** Expands all aggregate types into many ground-typed components. Must
@@ -102,7 +111,8 @@ class MiddleFirrtlToLowFirrtl extends CoreTransform {
     passes.ResolveGenders,
     passes.InferWidths,
     passes.ConvertFixedToSInt,
-    passes.Legalize)
+    passes.Legalize) ++
+    deLabel()
 }
 
 /** Runs a series of optimization passes on LowFirrtl
@@ -122,7 +132,8 @@ class LowFirrtlOptimization extends CoreTransform {
     passes.ConstProp,
     passes.SplitExpressions,
     passes.CommonSubexpressionElimination,
-    passes.DeadCodeElimination)
+    passes.DeadCodeElimination) ++
+    deLabel()
 }
 
 

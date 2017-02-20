@@ -7,9 +7,10 @@ import firrtl.Mappers._
 // DeLabel
 //-----------------------------------------------------------------------------
 // This pass recursively replaces all labels with the UnknownLabel. This pass 
-// is performed after labelchecking and labels are therefore no longer useful.
+// is performed after labelchecking when labels are therefore no longer useful.
 // Labels are removed to reduce the chance of breaking compatibility with later 
-// passes.
+// passes. This is also done at the end of each LoweringCompiler in case 
+// labelchecking is not done to improve compatibility with insecure firrtl.
 
 object DeLabel extends Pass {
   def name = "DeLabel"
