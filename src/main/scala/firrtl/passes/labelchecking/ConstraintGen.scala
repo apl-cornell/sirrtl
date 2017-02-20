@@ -165,17 +165,16 @@ object BVConstraintGen extends ConstraintGenerator {
   def exprToConsBool(e: Expression) =
     CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
 
-  override def serialize(l: Label) = try { l match {
+  override def serialize(l: Label) = l match {
     case FunLabel(fname,arg) => s"($fname ${refToIdent(arg)})"
     case JoinLabel(l,r) => s"(join ${serialize(l)} ${serialize(r)})"
     case MeetLabel(l,r) => s"(meet ${serialize(l)} ${serialize(r)})"
     case lx: Level => lx.serialize
     case UnknownLabel => l.serialize
-    case lx: HLevel => lx.serialize
-  }} catch {
-    case e : Throwable =>
-      println("BVConstraintGen can't serialize something")
-      throw e
+    case lx: HLevel => PolicyHolder.policy match {
+      case p: HypercubePolicy => exprToCons(lx.arg, p.lvlwidth).serialize
+      case _ => throw new Exception("Tried to serialize Hypercube label without Hypercube Policy")
+    }
   }
 
   // Shortcut for creating a binary operator in the constraint domain

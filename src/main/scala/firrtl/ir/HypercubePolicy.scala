@@ -10,7 +10,8 @@ class HypercubePolicy extends Policy {
   // Hypercube configurations 
   //---------------------------------------------------------------------------
   // A hypercube config is a pair (D,K) where D is the number of dimensions and 
-  // K is the number of bits per dimension. lvlwidth = k*d for all configs
+  // K is the number of bits per dimension. lvlwidth = k*d for all configs.
+  // TODO parse these from a file rather than hardcoding it.
   def lvlwidth = 16
   def cubeConfigs =
     Set[(Int,Int)](
@@ -18,6 +19,7 @@ class HypercubePolicy extends Policy {
       (8,2),
       (2,8)
     )
+  val cwidth = log2(cubeConfigs.size)
     
   implicit class IntWConcat(x: Int) {
       def ::[T<:Int](y: T) = (x.toString + y.toString).toInt
@@ -26,10 +28,10 @@ class HypercubePolicy extends Policy {
   // TODO parse this thing from a file, exception on wrong width.
   def lvlConsts: Map[String, Int] = Map(
     "L"  -> 0x0000,
-    "D1" -> 0x1000,
-    "D2" -> 0x0100,
-    "D3" -> 0x0010,
-    "D4" -> 0x0001,
+    "D1" -> 0x0001,
+    "D2" -> 0x0010,
+    "D3" -> 0x0100,
+    "D4" -> 0x1000,
     "H"  -> 0xFFFF
   )
 
@@ -73,7 +75,7 @@ class HypercubePolicy extends Policy {
     for( i <- 0 until confsArr.length-1 ) {
       val d = confsArr(i)._1
       val k = confsArr(i)._2
-      ret += s"    (ite (= config #b$i) (leq$d$k x y)\n"
+      ret += s"    (ite (= config (_ bv$i $cwidth)) (leq$d$k x y)\n"
     }
     val d = confsArr(confsArr.length-1)._1
     val k = confsArr(confsArr.length-1)._2
@@ -107,7 +109,7 @@ class HypercubePolicy extends Policy {
     for( i <- 0 until confsArr.length-1 ) {
       val d = confsArr(i)._1
       val k = confsArr(i)._2
-      ret += s"    (ite (= config #b$i) (meet$d$k x y)\n"
+      ret += s"    (ite (= config (_ bv$i $cwidth)) (meet$d$k x y)\n"
     }
     val d = confsArr(confsArr.length-1)._1
     val k = confsArr(confsArr.length-1)._2
@@ -141,7 +143,7 @@ class HypercubePolicy extends Policy {
     for( i <- 0 until confsArr.length-1 ) {
       val d = confsArr(i)._1
       val k = confsArr(i)._2
-      ret += s"    (ite (= config #b$i) (join$d$k x y)\n"
+      ret += s"    (ite (= config (_ bv$i $cwidth)) (join$d$k x y)\n"
     }
     val d = confsArr(confsArr.length-1)._1
     val k = confsArr(confsArr.length-1)._2
@@ -171,8 +173,8 @@ class HypercubePolicy extends Policy {
 // For now, always use the first config.
   def configDecl: String = {
     "; var for determining which config you are in\n" +
-    s"(declare-const config (_ BitVec ${log2(cubeConfigs.size)}))\n" +
-    "(assert (= config #b0))\n"
+    s"(declare-const config (_ BitVec $cwidth))\n" +
+    "(assert (= config #b00))\n"
   }
 
   def declLvlConsts : String =
@@ -195,8 +197,12 @@ class HypercubePolicy extends Policy {
    |""".stripMargin
   }
 
+  def optionDecl: String = 
+   "(set-option :timeout 4000)\n\n"
+
 
   def preamble: String = 
+    optionDecl +
     configDecl +
     maxFuncs +
     minFuncs +

@@ -100,7 +100,7 @@ case class FunLabel(fname: String, arg: Expression) extends Label {
 }
 
 case class HLevel(arg: Expression) extends Label {
-  def serialize = s"${arg.serialize}"
+  def serialize = s"[[${arg.serialize}]]"
   def mapLabel(f: Label => Label): Label = this
   def mapExpr(f: Expression => Expression): Label = this.copy(arg = f(arg))
 }

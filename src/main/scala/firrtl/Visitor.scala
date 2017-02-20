@@ -145,7 +145,9 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
 
   private def visitLabel[FirrtlNode](maybeCtx: Option[FIRRTLParser.LabelContext]): Label = {
     maybeCtx match {
-      case Some(ctx) => Option(ctx.exp) match {
+      case Some(ctx) => if(ctx.getChild(1).getText == "[[") {
+        HLevel(visitExp(ctx.exp))
+      } else Option(ctx.exp) match {
         case None => Level(ctx.id.getText)
         case Some(ectx) => FunLabel(ctx.id.getText, visitExp(ectx))
       }
