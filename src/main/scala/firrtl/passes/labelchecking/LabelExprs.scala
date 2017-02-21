@@ -60,7 +60,7 @@ object LabelExprs extends Pass with PassDebug {
       })
       case tx => tx
     }
-    if(label_is_known(l)) l else to_bundle__(t map to_bundle_, l)
+    if(label_is_known(l)) l else to_bundle__(to_bundle_(t), l)
   }
 
   def label_exprs_e(labels: LabelMap)(e: Expression) : Expression =

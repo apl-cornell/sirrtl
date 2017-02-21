@@ -409,7 +409,8 @@ case object Flip extends Orientation {
 case class Field(name: String, flip: Orientation, tpe: Type, lbl: Label,
   isSeq: Boolean)
   extends FirrtlNode with HasName {
-  def serialize: String = flip.serialize + name + " : " + tpe.serialize
+  val lbl_s = lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "}
+  def serialize: String = flip.serialize + name + " : " + lbl_s + tpe.serialize
 }
 
 abstract class Type extends FirrtlNode {
