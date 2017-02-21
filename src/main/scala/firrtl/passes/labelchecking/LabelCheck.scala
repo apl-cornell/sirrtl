@@ -6,7 +6,6 @@ import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.Driver._
 import collection.mutable.Set
-import firrtl.ir.LevelPolicy
 
 object LabelCheck extends Pass with PassDebug {
   def name = "Label Check"

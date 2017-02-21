@@ -23,7 +23,8 @@ class ConstantPropagationSpec extends FirrtlFlatSpec {
       InferTypes,
       ResolveGenders,
       InferWidths,
-      ConstProp)
+      ConstProp,
+      DeLabel)
   private def exec (input: String) = {
     passes.foldLeft(parse(input)) {
       (c: Circuit, p: Pass) => p.run(c)

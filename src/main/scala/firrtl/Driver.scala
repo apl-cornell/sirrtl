@@ -11,10 +11,6 @@ import Parser.{IgnoreInfo, InfoMode}
 import annotations._
 import firrtl.annotations.AnnotationYamlProtocol._
 import firrtl.transforms.{BlackBoxSourceHelper, BlackBoxTargetDir}
-import firrtl.ir.PolicyHolder
-import firrtl.ir.Policy
-import firrtl.ir.LevelPolicy
-import firrtl.ir.HypercubePolicy
 
 
 /**

@@ -1,5 +1,5 @@
 package firrtl
-package ir
+import firrtl.ir._
 
 object PolicyHolder {
   var policy: Policy = null
@@ -7,6 +7,8 @@ object PolicyHolder {
   def top = policy.top
   def bottom = policy.bottom
   def preamble: String = policy.preamble
+  // TODO set this based on a driver option.
+  setPolicy(new HypercubePolicy)
 }
 
 trait Policy {

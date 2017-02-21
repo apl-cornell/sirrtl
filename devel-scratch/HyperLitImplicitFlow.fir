@@ -1,16 +1,16 @@
 circuit HyperLitImplicitFlow :
     module HyperLitImplicitFlow :
-        input clock : {[[UInt(0)]]} Clock
-        input rst: {[[UInt(0)]]} UInt<1>
-        output io : {flip in0 : {[[UInt(0)]]} UInt<8>, flip in1 : {[[UInt("h0001")]]} UInt<8>, out : {[[UInt("hFFFF")]]} UInt<8>}
+        input clock : {[[UInt(0)]]H} Clock
+        input rst: {[[UInt(0)]]H} UInt<1>
+        output io : {flip in0 : {[[UInt(0)]]H} UInt<8>, flip in1 : {[[UInt("h0001")]]H} UInt<8>, out : {[[UInt("hFFFF")]]H} UInt<8>}
 
         io is invalid
         io is invalid
-        reg foo  : {[[UInt(0)]]} UInt<8> clock with : (reset => (rst UInt(0)))
+        reg foo  : {[[UInt(0)]]H} UInt<8> clock with : (reset => (rst UInt(0)))
         
-        wire x : {[[UInt("h0001")]]} UInt<8>
-        wire y : {[[UInt("h0010")]]} UInt<8>
-        wire z:  {[[UInt("h0000")]]} UInt<8>
+        wire x : {[[UInt("h0001")]]H} UInt<8>
+        wire y : {[[UInt("h0010")]]H} UInt<8>
+        wire z:  {[[UInt("h0000")]]H} UInt<8>
 
         x <= io.in0 @[rhs -> L]
         y <= io.in0 @[rhs -> L]

@@ -1,5 +1,5 @@
 package firrtl
-package ir
+import firrtl.ir._
 
 class HypercubePolicy extends Policy {
   

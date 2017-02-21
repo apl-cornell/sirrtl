@@ -92,8 +92,8 @@ class HighFirrtlToMiddleFirrtl extends CoreTransform {
     passes.CheckTypes,
     passes.ResolveGenders,
     passes.InferWidths,
-    passes.CheckWidths) ++
-    deLabel()
+    passes.CheckWidths,
+    passes.DeLabel) 
 }
 
 /** Expands all aggregate types into many ground-typed components. Must
@@ -111,8 +111,8 @@ class MiddleFirrtlToLowFirrtl extends CoreTransform {
     passes.ResolveGenders,
     passes.InferWidths,
     passes.ConvertFixedToSInt,
-    passes.Legalize) ++
-    deLabel()
+    passes.Legalize,
+    passes.DeLabel)
 }
 
 /** Runs a series of optimization passes on LowFirrtl
@@ -132,8 +132,8 @@ class LowFirrtlOptimization extends CoreTransform {
     passes.ConstProp,
     passes.SplitExpressions,
     passes.CommonSubexpressionElimination,
-    passes.DeadCodeElimination) ++
-    deLabel()
+    passes.DeadCodeElimination,
+    passes.DeLabel)
 }
 
 
@@ -164,5 +164,12 @@ class LowFirrtlCompiler extends Compiler {
 class VerilogCompiler extends Compiler {
   def emitter = new VerilogEmitter
   def transforms: Seq[Transform] =
-    getLoweringTransforms(ChirrtlForm, LowForm) ++ Seq(new LowFirrtlOptimization, new BlackBoxSourceHelper)
+    getLoweringTransforms(ChirrtlForm, LowForm) ++
+    Seq(new LowFirrtlOptimization, new BlackBoxSourceHelper) ++
+    Seq(new CoreTransform{ 
+      def inputForm = LowForm
+      def outputForm = LowForm
+      def passSeq = Seq(passes.DeLabel)
+    })
+
 }

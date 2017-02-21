@@ -5,8 +5,8 @@ circuit HyperLabelChangePorts:
         output io : { flip lbl : seq {L} UInt<16>, flip next_lbl : {L} UInt<16>, out : {H} UInt<8> }
         io is invalid
 
-        reg  foo : {[[io.lbl]]} UInt<8> clock with : (reset => (rst UInt(0)))
-        reg  bar : {[[io.lbl]]} UInt<8> clock with : (reset => (rst UInt(0)))
+        reg  foo : {[[io.lbl]]H} UInt<8> clock with : (reset => (rst UInt(0)))
+        reg  bar : {[[io.lbl]]H} UInt<8> clock with : (reset => (rst UInt(0)))
         wire x   : {D1}      UInt<8>
         wire y   : {D2}      UInt<8>
 

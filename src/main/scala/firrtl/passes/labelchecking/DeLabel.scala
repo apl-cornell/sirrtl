@@ -12,8 +12,9 @@ import firrtl.Mappers._
 // passes. This is also done at the end of each LoweringCompiler in case 
 // labelchecking is not done to improve compatibility with insecure firrtl.
 
-object DeLabel extends Pass {
+object DeLabel extends Pass with PassDebug {
   def name = "DeLabel"
+  override def debugThisPass = false
 
   def deLabelL(l: Label) : Label = UnknownLabel
 
@@ -29,5 +30,16 @@ object DeLabel extends Pass {
   def deLabel(m: DefModule) : DefModule =
     m map deLabelP map deLabelS
 
-  def run(c: Circuit) = c copy( modules = c.modules map deLabel)
+  def run(c: Circuit) = {
+
+    bannerprintb(name)
+    dprint(c.serialize)
+    
+    val cprime = c copy (modules = c.modules map deLabel)
+
+    bannerprintb(s"after $name")
+    dprint(cprime.serialize)
+
+    cprime
+  }
 }

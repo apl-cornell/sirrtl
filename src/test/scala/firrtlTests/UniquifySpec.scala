@@ -16,7 +16,8 @@ class UniquifySpec extends FirrtlFlatSpec {
     CheckHighForm,
     ResolveKinds,
     InferTypes,
-    Uniquify
+    Uniquify,
+    DeLabel
   )
 
   private def executeTest(input: String, expected: Seq[String]) = {
