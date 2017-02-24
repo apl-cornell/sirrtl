@@ -62,7 +62,7 @@ type
   ;
 
 label
-  : '{' labelComp ',' labelComp '}'
+  : '{' labelComp labelComp '}'
   ;
 
 labelComp
