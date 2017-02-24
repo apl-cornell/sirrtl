@@ -6,6 +6,10 @@ import firrtl.Utils._
 import firrtl.Mappers._
 import scala.collection.mutable.Set
 
+// Just comment this file out. It isn't used and hasn't been updated to support
+// conf+integ labels.
+
+/*
 object InferLabels extends Pass with PassDebug {
   def name = "Label Inference"
   override def debugThisPass = true
@@ -320,3 +324,4 @@ object InferLabels extends Pass with PassDebug {
     cprime
   }
 }
+*/

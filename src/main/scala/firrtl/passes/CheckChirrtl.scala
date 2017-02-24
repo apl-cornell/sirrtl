@@ -69,7 +69,10 @@ object CheckChirrtl extends Pass {
     }
 
     def checkChirrtlL(info: Info, mname: String, names: NameSet)(l: Label): Label =
-      l map checkChirrtlL(info, mname, names) map checkChirrtlE(info, mname, names)
+      l map checkChirrtlL(info, mname, names) map checkChirrtlLC(info, mname, names)
+
+    def checkChirrtlLC(info: Info, mname: String, names: NameSet)(lc: LabelComp): LabelComp =
+      lc map checkChirrtlLC(info, mname, names) map checkChirrtlE(info, mname, names)
 
     def checkChirrtlE(info: Info, mname: String, names: NameSet)(e: Expression): Expression = {
       e map checkChirrtlL(info, mname, names) match {

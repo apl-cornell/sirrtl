@@ -12,7 +12,7 @@ object PolicyHolder {
 }
 
 trait Policy {
-  def top : Label
-  def bottom : Label
+  def top : LabelComp
+  def bottom : LabelComp
   def preamble: String
 }

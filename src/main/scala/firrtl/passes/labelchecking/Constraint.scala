@@ -39,7 +39,7 @@ case class CIfTE(pred: Constraint, conseq: Constraint, alt: Constraint) extends 
 }
 
 // This is an assignable location in FIRRTL or an atom in FOL
-case class CAtom(n: String)  extends Constraint {
+case class CAtom(n: String) extends Constraint {
   def serialize = n
   def mapCons(f: Constraint => Constraint) = this
 }
@@ -83,7 +83,7 @@ object CBVWrappedBool {
     case cx : CBVWrappedBool => cx      // don't doube-wrap
     case _ => new CBVWrappedBool(c, w)  // wrap
   }
-  def unapply(wb: CBVWrappedBool) = Some((wb.c,wb.w))
+  def unapply(wb: CBVWrappedBool) = Some((wb.c, wb.w))
 }
 class CBVWrappedBool(val c: Constraint, val w: BigInt) extends Constraint {
   override def equals(that: Any) = that match {

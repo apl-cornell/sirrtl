@@ -1,16 +1,16 @@
 circuit ImplicitFlow :
     module ImplicitFlow :
-        input clock : {L} Clock
-        input rst: {L} UInt<1>
-        output io : {flip in0 : {L} UInt<8>, flip in1 : {D1} UInt<8>, out : {H} UInt<8>}
+        input clock : {L,L} Clock
+        input rst: {L,L} UInt<1>
+        output io : {flip in0 : {L,L} UInt<8>, flip in1 : {D1,L} UInt<8>, out : {H,L} UInt<8>}
 
         io is invalid
         io is invalid
-        reg foo  : {L} UInt<8> clock with : (reset => (rst UInt(0)))
+        reg foo  : {L,L} UInt<8> clock with : (reset => (rst UInt(0)))
         
-        wire x : {D1} UInt<8>
-        wire y : {D2} UInt<8>
-        wire z: {L} UInt<8>
+        wire x : {D1,L} UInt<8>
+        wire y : {D2,L} UInt<8>
+        wire z: {L,L} UInt<8>
 
         x <= io.in0 @[rhs -> L]
         y <= io.in0 @[rhs -> L]

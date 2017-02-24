@@ -33,7 +33,7 @@ abstract class ConstraintGenerator {
   // Representation of expression in Z3 as a boolean
   def exprToConsBool(e: Expression): Constraint
   // Serialization of labels. May depend on particular constraint generator
-  def serialize(l: Label) = l.serialize
+  def serialize(l: LabelComp) = l.serialize
   
   //---------------------------------------------------------------------------
   // Connection Environment Population
@@ -94,7 +94,10 @@ abstract class ConstraintGenerator {
   // module.
   type DeclSet = Set[String]
   def decls_l(declSet: DeclSet)(l: Label) : Label =
-    l map decls_e(declSet) map decls_l(declSet)
+    l map decls_lc(declSet) map decls_l(declSet)
+
+  def decls_lc(declSet: DeclSet)(l: LabelComp) : LabelComp =
+    l map decls_e(declSet) map decls_lc(declSet)
 
   def decls_e(declSet: DeclSet)(e: Expression) : Expression = 
     e map decls_l(declSet) match {
@@ -165,12 +168,12 @@ object BVConstraintGen extends ConstraintGenerator {
   def exprToConsBool(e: Expression) =
     CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
 
-  override def serialize(l: Label) = l match {
+  override def serialize(l: LabelComp) = l match {
     case FunLabel(fname,arg) => s"($fname ${refToIdent(arg)})"
-    case JoinLabel(l,r) => s"(join ${serialize(l)} ${serialize(r)})"
-    case MeetLabel(l,r) => s"(meet ${serialize(l)} ${serialize(r)})"
+    case JoinLabelComp(l,r) => s"(join ${serialize(l)} ${serialize(r)})"
+    case MeetLabelComp(l,r) => s"(meet ${serialize(l)} ${serialize(r)})"
     case lx: Level => lx.serialize
-    case UnknownLabel => l.serialize
+    case UnknownLabelComp => l.serialize
     case lx: HLevel => PolicyHolder.policy match {
       case p: HypercubePolicy => exprToCons(lx.arg, p.lvlwidth).serialize
       case _ => throw new Exception("Tried to serialize Hypercube label without Hypercube Policy")
@@ -225,8 +228,8 @@ object BVConstraintGen extends ConstraintGenerator {
       case UIntType(_) => mkBin("bvuge", e)
       case SIntType(_) => mkBin("bvsge", e)
     }, bitWidth(e.tpe))
-    case "eq"  => CBVWrappedBool(mkBin("=", e), bitWidth(e.args(0).tpe))
-    case "neq" => CBVWrappedBool(CNot(mkBin("=", e)), bitWidth(e.args(0).tpe))
+    case "eq"  => CBVWrappedBool(mkBin("=", e), 1)
+    case "neq" => CBVWrappedBool(CNot(mkBin("=", e)), 1)
     case "pad" => 
       val w = bitWidth(e.args(0).tpe)
       val diff = e.consts(0).toInt - w

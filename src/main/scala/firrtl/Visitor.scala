@@ -145,15 +145,19 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
 
   private def visitLabel[FirrtlNode](maybeCtx: Option[FIRRTLParser.LabelContext]): Label = {
     maybeCtx match {
-      case Some(ctx) => if(ctx.getChild(1).getText == "[[") {
+      case Some(ctx) =>
+        ProdLabel(visitLabelComp(ctx.labelComp(0)),
+          visitLabelComp(ctx.labelComp(1)))
+      case None => UnknownLabel
+    }
+  }
+
+  private def visitLabelComp[FirrtlNode](ctx: FIRRTLParser.LabelCompContext): LabelComp = {
+    if(ctx.getChild(0).getText == "[[") {
         HLevel(visitExp(ctx.exp))
-      } else Option(ctx.exp) match {
+    } else Option(ctx.exp) match {
         case None => Level(ctx.id.getText)
         case Some(ectx) => FunLabel(ctx.id.getText, visitExp(ectx))
-      }
-      case None => {
-        return UnknownLabel
-      }
     }
   }
 
@@ -222,8 +226,8 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
 
     def lit(param: String) = fieldMap(param).lit.get
     val ruw = fieldMap.get("read-under-write").map(_.ruw).getOrElse(None)
-    val label = if(fieldMap.contains("sec-label")) {
-      fieldMap("sec-label").lbl.get
+    val label: Label = if(fieldMap.contains("sec-level")) {
+      fieldMap("sec-level").lbl.get
     } else UnknownLabel
 
     DefMemory(info,

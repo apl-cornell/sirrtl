@@ -39,7 +39,10 @@ object LabelCheck extends Pass with PassDebug {
     }
 
     def collect_deps_l(conEnv: ConnectionEnv, conSet: ConSet)(l: Label) : Label = 
-      l map collect_deps_l(conEnv, conSet) map collect_deps_e(conEnv, conSet)
+      l map collect_deps_lc(conEnv, conSet) map collect_deps_l(conEnv, conSet)
+
+    def collect_deps_lc(conEnv: ConnectionEnv, conSet: ConSet)(l: LabelComp) : LabelComp = 
+      l map collect_deps_lc(conEnv, conSet) map collect_deps_e(conEnv, conSet)
 
     def collect_deps(conEnv: ConnectionEnv)(l: Label) : ConSet =  {
       val s = new ConSet
@@ -50,36 +53,83 @@ object LabelCheck extends Pass with PassDebug {
     def emit_deps(conSet: ConSet) : Unit = conSet.foreach {
       case(loc, cons) => emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
     }
+   
+    //-----------------------------------------------------------------------------
+    // Collect constraints that define values in the whenEnv constraint
+    //-----------------------------------------------------------------------------
+    def atoms_in_con(c: Constraint): Set[CAtom] = {
+      def atoms_in_con_(s: Set[CAtom])(c: Constraint): Constraint = 
+        c mapCons atoms_in_con_(s) match {
+          case cx: CAtom => s += cx; cx
+          case cx => cx
+      }
+      val s = Set[CAtom]()
+      atoms_in_con_(Set[CAtom]())(c)
+      s
+    }
+
+    def collect_deps_c(conEnv: ConnectionEnv)(c: Constraint): ConSet = {
+      def collect_deps_c_(conEnv: ConnectionEnv, conSet: ConSet)(c: Constraint) : Constraint = {
+        val cx: Constraint = c mapCons collect_deps_c_(conEnv, conSet)
+        if(conEnv.contains(cx)) conSet += ((c, conEnv(c)))
+        cx
+      }
+      val s = new ConSet
+      collect_deps_c_(conEnv, s)(c)
+      s
+    }
 
     //------------------------------------------------------------------------- 
     // Check connections
     //-------------------------------------------------------------------------
 
     def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = {
-      def ser(l:Label) = consGenerator.serialize(l)
+      def ser(l:LabelComp) = consGenerator.serialize(l)
       s map label_check(conEnv, whenEnv) match {
         case sx: Connect =>
-          val lhs = sx.loc.lbl
-          val rhs = sx.expr.lbl
-          val deps = collect_deps(conEnv)(lhs) ++ collect_deps(conEnv)(rhs)
+          val lhs: Label = sx.loc.lbl
+          val rhs: Label = sx.expr.lbl
+          val whenC: Constraint = whenEnv(sx)
+          val deps = collect_deps(conEnv)(lhs) ++
+            collect_deps(conEnv)(rhs) ++
+            collect_deps_c(conEnv)(whenC)
           emit("(push)\n")
-          emit(s"""(echo \"Checking Connection: ${sx.info}\")\n""" )
-          emit(s"(assert ${whenEnv(s).serialize})\n")
+          emit(s"""(echo \"Checking Connection (Conf): ${sx.info}\")\n""" )
+          emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(rhs)} ${ser(lhs)}) ) )\n")
+          emit(s"(assert (not (leq ${ser(C(rhs))} ${ser(C(lhs))}) ) )\n")
+          emit("(check-sat)\n")
+          emit("(pop)\n")
+
+          emit("(push)\n")
+          emit(s"""(echo \"Checking Connection (Integ): ${sx.info}\")\n""" )
+          emit(s"(assert ${whenC.serialize})\n")
+          emit_deps(deps)
+          emit(s"(assert (not (leq ${ser(I(lhs))} ${ser(I(rhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
           emit("\n")
           sx
         case sx: PartialConnect =>
-          val lhs = sx.loc.lbl
-          val rhs = sx.expr.lbl
-          val deps = collect_deps(conEnv)(lhs) ++ collect_deps(conEnv)(rhs)
+          val lhs: Label = sx.loc.lbl
+          val rhs: Label = sx.expr.lbl
+          val whenC: Constraint = whenEnv(sx)
+          val deps = collect_deps(conEnv)(lhs) ++
+            collect_deps(conEnv)(rhs) ++
+            collect_deps_c(conEnv)(whenC)
           emit("(push)\n")
-          emit(s"""(echo \"Checking Connection: ${sx.info}\")\n""" )
-          emit(s"(assert ${whenEnv(s).serialize})\n")
+          emit(s"""(echo \"Checking Connection (Conf): ${sx.info}\")\n""" )
+          emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(rhs)} ${ser(lhs)}) ) )\n")
+          emit(s"(assert (not (leq ${ser(C(rhs))} ${ser(C(lhs))}) ) )\n")
+          emit("(check-sat)\n")
+          emit("(pop)\n")
+
+          emit("(push)\n")
+          emit(s"""(echo \"Checking Connection (Integ): ${sx.info}\")\n""" )
+          emit(s"(assert ${whenC.serialize})\n")
+          emit_deps(deps)
+          emit(s"(assert (not (leq ${ser(I(lhs))} ${ser(I(rhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
           emit("\n")

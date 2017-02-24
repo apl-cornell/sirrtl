@@ -32,7 +32,10 @@ object NextCycleTransform extends Pass with PassDebug {
     m map declare_next_s
 
   def swap_with_next_l(l: Label) : Label =
-    l map swap_with_next_l map swap_with_next_de
+    l map swap_with_next_l map swap_with_next_lc
+
+  def swap_with_next_lc(l: LabelComp): LabelComp = 
+    l map swap_with_next_lc map swap_with_next_de
 
   // This function is only called on expressions appearing in dependant types.
   // Replace sequential dependands with the next-cycle version of the 

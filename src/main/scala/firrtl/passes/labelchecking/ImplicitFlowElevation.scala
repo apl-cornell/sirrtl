@@ -10,7 +10,7 @@ object ImplicitFlowElevation extends Pass with PassDebug {
   def name    = "ImplicitFlowElevation"
   override def debugThisPass = true
   
-  def bot = PolicyHolder.policy.bottom
+  def bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.bottom)
 
   type PredStack = collection.mutable.Stack[Seq[Expression]]
 
