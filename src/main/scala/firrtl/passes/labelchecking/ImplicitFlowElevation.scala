@@ -62,8 +62,13 @@ object ImplicitFlowElevation extends Pass with PassDebug {
     vars
   }
 
+  // Declassification and endorsement expressions are not elevated.
   def elevate_e(predStack: PredStack)(e: Expression): Expression = 
-    e mapLabel { _ join pcLabel(predStack) }
+    e match {
+      case ex: Declassify => ex
+      case ex: Endorse => ex
+      case ex => ex mapLabel { _ join pcLabel(predStack) }
+    }
 
   def elevate_s(predEnv: PredEnv)(s: Statement): Statement = {
 

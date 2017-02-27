@@ -80,6 +80,8 @@ object LabelExprs extends Pass with PassDebug {
       case ex: ValidIf => ex copy (lbl = JoinLabel(ex.cond.lbl, ex.value.lbl))
       case ex: UIntLiteral => ex copy (lbl = assumeL(ex.lbl))
       case ex: SIntLiteral => ex copy (lbl = assumeL(ex.lbl))
+      case ex: Declassify => ex
+      case ex: Endorse => ex
   }
 
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 

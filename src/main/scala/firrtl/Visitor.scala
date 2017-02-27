@@ -330,6 +330,10 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
       Reference(ctx.getText, UnknownType, UnknownLabel)
     else
       ctx.getChild(0).getText match {
+        case "declassify(" =>
+          Declassify(visitExp(ctx.exp(0)), visitLabel(Some(ctx.label)))
+        case "endorse(" =>
+          Endorse(visitExp(ctx.exp(0)), visitLabel(Some(ctx.label)))
         case "UInt" =>
           // This could be better
           val (width, value) =

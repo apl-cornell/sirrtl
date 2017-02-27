@@ -124,7 +124,8 @@ object CheckHighForm extends Pass {
 
     def validSubexp(info: Info, mname: String)(e: Expression): Expression = {
       e match {
-        case _: WRef | _: WSubField | _: WSubIndex | _: WSubAccess | _: Mux | _: ValidIf => // No error
+        case _: WRef | _: WSubField | _: WSubIndex | _: WSubAccess | _: Mux | _: ValidIf |
+          _: Declassify | _: Endorse => // No error
         case _ => errors append new InvalidAccessException(info, mname)
       }
       e
@@ -137,7 +138,7 @@ object CheckHighForm extends Pass {
         case ex: UIntLiteral if ex.value < 0 =>
           errors append new NegUIntException(info, mname)
         case ex: DoPrim => checkHighFormPrimop(info, mname, ex)
-        case _: WRef | _: UIntLiteral | _: Mux | _: ValidIf =>
+        case _: WRef | _: UIntLiteral | _: Mux | _: ValidIf | _: Declassify | _: Endorse =>
         case ex: WSubAccess => validSubexp(info, mname)(ex.exp)
         case ex => ex map validSubexp(info, mname)
       }

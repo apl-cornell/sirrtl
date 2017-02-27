@@ -16,16 +16,16 @@ circuit Downgrades :
         y <= io.in0 @[rhs -> L]
         z <= io.in0 @[rhs -> L]
             
-        foo <= x @[rhs -> H]
+        foo <= declassify(x {L H}) @[rhs -> H]
         when y:
-            foo <= UInt(7) @[rhs -> D2]
+            foo <= endorse(UInt(7) {[[UInt(0)]]H H}) @[rhs -> D2]
             skip
         when eq(z, UInt(2)):
             when eq(x, UInt(2)):
-                foo <= UInt(7) @[rhs -> H]
+                foo <= declassify(UInt(7) {L H}) @[rhs -> H]
                 skip
             when eq(y, UInt(2)):
-                foo <= UInt(7) @[rhs -> D2]
+                foo <= declassify(UInt(7) {L H}) @[rhs -> D2]
                 skip
             skip
         

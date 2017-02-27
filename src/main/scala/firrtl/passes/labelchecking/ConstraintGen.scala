@@ -139,6 +139,11 @@ object BVConstraintGen extends ConstraintGenerator {
         case ClockType => 1
       }
       s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
+    case Declassify(exx, _) =>
+      exprToDeclaration(exx)
+    case Endorse(exx,_) =>
+      exprToDeclaration(exx)
+
   }
 
   def refToIdent(e: Expression) = e match {
@@ -155,6 +160,8 @@ object BVConstraintGen extends ConstraintGenerator {
     case ex : DoPrim => primOpToBVOp(ex)
     case ex : WRef => CAtom(refToIdent(ex))
     case ex : WSubField => CAtom(refToIdent(ex))
+    case Declassify(exx,_) => exprToCons(exx)
+    case Endorse(exx,_) => exprToCons(exx)
   }
 
   def exprToCons(e: Expression, w: BigInt) = e match {

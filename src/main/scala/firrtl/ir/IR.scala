@@ -62,6 +62,25 @@ abstract class Expression extends FirrtlNode {
   def mapType(f: Type => Type): Expression
   def mapWidth(f: Width => Width): Expression
 }
+
+case class Declassify(expr: Expression, lbl: Label) extends Expression {
+  def tpe = expr.tpe
+  def serialize: String = expr.serialize
+  def mapExpr(f: Expression => Expression): Expression = this.copy(expr = f(expr))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
+  def mapType(f: Type => Type): Expression = this
+  def mapWidth(f: Width => Width): Expression = this
+}
+
+case class Endorse(expr: Expression, lbl: Label) extends Expression {
+  def tpe = expr.tpe
+  def serialize: String = expr.serialize
+  def mapExpr(f: Expression => Expression): Expression = this.copy(expr = f(expr))
+  def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
+  def mapType(f: Type => Type): Expression = this
+  def mapWidth(f: Width => Width): Expression = this
+}
+
 case class Reference(name: String, tpe: Type, lbl: Label) extends Expression with HasName {
   def serialize: String = name
   def mapExpr(f: Expression => Expression): Expression = this

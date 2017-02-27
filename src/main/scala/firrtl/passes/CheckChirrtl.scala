@@ -62,7 +62,7 @@ object CheckChirrtl extends Pass {
     def validSubexp(info: Info, mname: String)(e: Expression): Expression = {
       e match {
         case _: Reference | _: SubField | _: SubIndex | _: SubAccess |
-             _: Mux | _: ValidIf => // No error
+             _: Mux | _: ValidIf | _:Declassify | _:Endorse => // No error
         case _ => errors append new InvalidAccessException(info, mname)
       }
       e
@@ -76,7 +76,7 @@ object CheckChirrtl extends Pass {
 
     def checkChirrtlE(info: Info, mname: String, names: NameSet)(e: Expression): Expression = {
       e map checkChirrtlL(info, mname, names) match {
-        case _: DoPrim | _:Mux | _:ValidIf | _: UIntLiteral =>
+        case _:DoPrim | _:Mux | _:ValidIf | _:UIntLiteral | _:Declassify | _:Endorse =>
         case ex: Reference if !names(ex.name) =>
           errors append new UndeclaredReferenceException(info, mname, ex.name)
         case ex: SubAccess => validSubexp(info, mname)(ex.expr)

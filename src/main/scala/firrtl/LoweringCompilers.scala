@@ -68,6 +68,7 @@ class ResolveAndCheckWLabels extends ResolveAndCheck {
     passes.SeqPortGenNext,
     passes.EliminateUnusedConnections,
     passes.LabelCheck,
+    passes.RipDowngrades,
     passes.DeLabel
   )
 }

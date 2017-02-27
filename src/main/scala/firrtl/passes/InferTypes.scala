@@ -28,6 +28,8 @@ trait InferTypesT extends Pass {
       case e: Mux => e copy (tpe = mux_type_and_widths(e.tval, e.fval))
       case e: ValidIf => e copy (tpe = e.value.tpe)
       case e @ (_: UIntLiteral | _: SIntLiteral) => e
+      case ex: Declassify => ex
+      case ex: Endorse => ex
     }
 
   def run(c: Circuit): Circuit = {
@@ -102,6 +104,8 @@ object CInferTypes extends Pass {
          case (e: Mux) => e copy (tpe = mux_type(e.tval, e.fval))
          case (e: ValidIf) => e copy (tpe = e.value.tpe)
          case e @ (_: UIntLiteral | _: SIntLiteral) => e
+         case ex: Declassify => ex
+         case ex: Endorse => ex
       }
 
     def infer_types_s(types: TypeMap)(s: Statement): Statement = s match {

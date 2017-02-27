@@ -184,6 +184,8 @@ exp
   | 'validif(' exp exp ')'
   | primop exp* IntLit*  ')' 
   | 'next(' exp ')' // next-cycle value of exp
+  | 'declassify(' exp  label ')'
+  | 'endorse(' exp  label ')'
   ;
 
 id
