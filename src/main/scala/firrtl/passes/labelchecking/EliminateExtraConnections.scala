@@ -29,9 +29,9 @@ object EliminateUnusedConnections extends Pass with PassDebug {
     else { asgnEnv.top += loc; s }
 
   def elim_s(asgnEnv: AsgnEnv)(s: Statement) : Statement = s match {
-    case sx : Connect=> elim_loc(asgnEnv, sx.loc.serialize, sx)
-    case sx : PartialConnect=> elim_loc(asgnEnv, sx.loc.serialize, sx)
-    case sx : DefNode => elim_loc(asgnEnv, sx.name, sx)
+    case sx : ConnectPC => elim_loc(asgnEnv, sx.loc.serialize, sx)
+    case sx : PartialConnectPC => elim_loc(asgnEnv, sx.loc.serialize, sx)
+    case sx : DefNodePC => elim_loc(asgnEnv, sx.name, sx)
     case sx : Block =>
       asgnEnv.push(Set[String]())
       val sxx = sx copy (stmts = sx.stmts.reverse map elim_s(asgnEnv))

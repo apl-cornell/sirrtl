@@ -86,9 +86,10 @@ object LabelCheck extends Pass with PassDebug {
     def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = {
       def ser(l:LabelComp) = consGenerator.serialize(l)
       s map label_check(conEnv, whenEnv) match {
-        case sx: Connect =>
+        case sx: ConnectPC =>
           val lhs: Label = sx.loc.lbl
           val rhs: Label = sx.expr.lbl
+          val pc: Label = sx.pc
           val whenC: Constraint = whenEnv(sx)
           val deps = collect_deps(conEnv)(lhs) ++
             collect_deps(conEnv)(rhs) ++
@@ -97,7 +98,7 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"""(echo \"Checking Connection (Conf): ${sx.info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(C(rhs))} ${ser(C(lhs))}) ) )\n")
+          emit(s"(assert (not (leq ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
 
@@ -105,14 +106,15 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"""(echo \"Checking Connection (Integ): ${sx.info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(I(lhs))} ${ser(I(rhs))}) ) )\n")
+          emit(s"(assert (not (leq ${ser(I(lhs) join I(pc))} ${ser(I(rhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
           emit("\n")
           sx
-        case sx: PartialConnect =>
+        case sx: PartialConnectPC =>
           val lhs: Label = sx.loc.lbl
           val rhs: Label = sx.expr.lbl
+          val pc: Label = sx.pc
           val whenC: Constraint = whenEnv(sx)
           val deps = collect_deps(conEnv)(lhs) ++
             collect_deps(conEnv)(rhs) ++
@@ -121,7 +123,7 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"""(echo \"Checking Connection (Conf): ${sx.info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(C(rhs))} ${ser(C(lhs))}) ) )\n")
+          emit(s"(assert (not (leq ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
 
@@ -129,7 +131,7 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"""(echo \"Checking Connection (Integ): ${sx.info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(I(lhs))} ${ser(I(rhs))}) ) )\n")
+          emit(s"(assert (not (leq ${ser(I(lhs) join I(rhs))} ${ser(I(rhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
           emit("\n")

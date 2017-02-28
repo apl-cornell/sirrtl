@@ -31,8 +31,8 @@ object SeqPortGenNext extends Pass with PassDebug {
 
   def sp_gen_next_s(so: Exprs)(s: Statement) : Statement = 
     s map sp_gen_next_s(so) match {
-      case sx : Connect if so.contains(sx.loc) =>
-        Block(Seq(Connect(sx.info, next_exp(sx.loc), next_exp(sx.expr)), sx))
+      case sx : ConnectPC if so.contains(sx.loc) =>
+        Block(Seq(ConnectPC(sx.info, next_exp(sx.loc), next_exp(sx.expr), sx.pc), sx))
       case sx => sx
     }
 

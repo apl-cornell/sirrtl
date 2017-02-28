@@ -6,8 +6,8 @@ import firrtl.Utils._
 import firrtl.Mappers._
 import collection.mutable.Set
 
-object ImplicitFlowElevation extends Pass with PassDebug {
-  def name    = "ImplicitFlowElevation"
+object DeterminePC extends Pass with PassDebug {
+  def name    = "DeterminePC"
   override def debugThisPass = true
   
   def bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.bottom)
@@ -62,7 +62,7 @@ object ImplicitFlowElevation extends Pass with PassDebug {
     vars
   }
 
-  // Declassification and endorsement expressions are not elevated.
+  // Only DefNode values are elevated eagerly since nodes are immutable.
   def elevate_e(predStack: PredStack)(e: Expression): Expression = 
     e match {
       case ex: Declassify => ex
@@ -70,39 +70,37 @@ object ImplicitFlowElevation extends Pass with PassDebug {
       case ex => ex mapLabel { _ join pcLabel(predStack) }
     }
 
-  def elevate_s(predEnv: PredEnv)(s: Statement): Statement = {
-
-    s match {
-      case sx: Block =>
-        val assigned = assignedIn(sx)
-        predEnv.pushContext(assigned)
-        val sxx = sx copy (stmts = sx.stmts.reverse map elevate_s(predEnv))
-        predEnv.popContext(assigned)
-        sxx copy (stmts = sxx.stmts.reverse)
-      case sx: Conditionally =>
-        predEnv.appendContext(assignedIn(sx), sx.pred)
-        sx map elevate_s(predEnv)
-      case sx: DefNode =>
-        sx map elevate_e(predEnv(sx.name))
-      case sx: Connect =>
-        sx copy( expr = elevate_e(predEnv(sx.loc.serialize))(sx.expr))
-      case sx: PartialConnect =>
-        sx copy( expr = elevate_e(predEnv(sx.loc.serialize))(sx.expr))
-      case sx => 
-        sx map elevate_s(predEnv)
-    }
+  def determine_pc_s(predEnv: PredEnv)(s: Statement): Statement = s match {
+    case sx: Block =>
+      val assigned = assignedIn(sx)
+      predEnv.pushContext(assigned)
+      val sxx = sx copy (stmts = sx.stmts.reverse map determine_pc_s(predEnv))
+      predEnv.popContext(assigned)
+      sxx copy (stmts = sxx.stmts.reverse)
+    case sx: Conditionally =>
+      predEnv.appendContext(assignedIn(sx), sx.pred)
+      sx map determine_pc_s(predEnv)
+    case DefNode(info, name, value) =>
+      DefNodePC(info, name, value, pcLabel(predEnv(name))) map
+        elevate_e(predEnv(name))
+    case Connect(info, loc, expr) =>
+      ConnectPC(info, loc, expr, pcLabel(predEnv(loc.serialize)))
+    case PartialConnect(info, loc, expr) =>
+      PartialConnectPC(info, loc, expr, pcLabel(predEnv(loc.serialize)))
+    case sx => 
+      sx map determine_pc_s(predEnv)
   }
 
-  def elevate(m: DefModule): DefModule = {
+  def determine_pc(m: DefModule): DefModule = {
     val predEnv = new PredEnv
-    m map elevate_s(predEnv)
+    m map determine_pc_s(predEnv)
   }
 
   def run(c: Circuit) = {
     bannerprintb(name)
     dprint(c.serialize)
     
-    val cprime = c copy (modules = c.modules map elevate)
+    val cprime = c copy (modules = c.modules map determine_pc)
 
     bannerprintb(s"after $name")
     dprint(cprime.serialize)

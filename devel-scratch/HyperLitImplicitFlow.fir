@@ -1,5 +1,5 @@
-circuit Downgrades :
-    module Downgrades :
+circuit HyperLitImplicitFlow :
+    module HyperLitImplicitFlow :
         input clock : {[[UInt(0)]]H H} Clock
         input rst: {[[UInt(0)]]H H} UInt<1>
         output io : {flip in0 : {[[UInt(0)]]H H} UInt<8>, flip in1 : {[[UInt("h0001")]]H H} UInt<8>, out : {[[UInt("hFFFF")]]H H} UInt<8>}
