@@ -9,7 +9,7 @@ import collection.mutable.Set
 
 object LabelCheck extends Pass with PassDebug {
   def name = "Label Check"
-  override def debugThisPass = true
+  override def debugThisPass = false
 
   val cgen = BVConstraintGen
 
@@ -44,7 +44,7 @@ object LabelCheck extends Pass with PassDebug {
     def collect_deps_lc(conEnv: ConnectionEnv, conSet: ConSet)(l: LabelComp) : LabelComp = 
       l map collect_deps_lc(conEnv, conSet) map collect_deps_e(conEnv, conSet)
 
-    def collect_deps(conEnv: ConnectionEnv)(l: Label) : ConSet =  {
+    def collect_deps(conEnv: ConnectionEnv)(l: Label) : ConSet = {
       val s = new ConSet
       collect_deps_l(conEnv, s)(l)
       s
@@ -82,7 +82,6 @@ object LabelCheck extends Pass with PassDebug {
     //------------------------------------------------------------------------- 
     // Check connections
     //-------------------------------------------------------------------------
-
     def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = {
       def ser(l:LabelComp) = consGenerator.serialize(l)
       s map label_check(conEnv, whenEnv) match {
@@ -98,7 +97,7 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"""(echo \"Checking Connection (Conf): ${sx.info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
+          emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
 
@@ -106,11 +105,12 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"""(echo \"Checking Connection (Integ): ${sx.info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(I(lhs) join I(pc))} ${ser(I(rhs))}) ) )\n")
+          // Note that "meet" is the same as the join over integ components
+          emit(s"(assert (not (leqi ${ser(I(rhs) meet I(pc))} ${ser(I(lhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
           emit("\n")
-          sx
+          sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: PartialConnectPC =>
           val lhs: Label = sx.loc.lbl
           val rhs: Label = sx.expr.lbl
@@ -123,7 +123,7 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"""(echo \"Checking Connection (Conf): ${sx.info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
+          emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
 
@@ -131,12 +131,54 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"""(echo \"Checking Connection (Integ): ${sx.info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
           emit_deps(deps)
-          emit(s"(assert (not (leq ${ser(I(lhs) join I(rhs))} ${ser(I(rhs))}) ) )\n")
+          // Note that "meet" is the same as the join over integ components
+          emit(s"(assert (not (leqi ${ser(I(rhs) meet I(pc))} ${ser(I(lhs))}) ) )\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
           emit("\n")
-          sx
-        case _ => s
+          sx map check_declass_e(deps, whenC, sx.pc, sx.info)
+        case sx => sx
+          // TODO need to check declassify for when statements as well... 
+          // conditional in when statement could matter
+      }
+    }
+
+    def check_declass_e(deps: ConSet, whenC: Constraint, pc: Label, info: Info)(e: Expression): Expression = {
+      val atk = PolicyHolder.attacker
+      def ser(l:LabelComp) = consGenerator.serialize(l)
+      e map check_declass_e(deps, whenC, pc, info) match {
+        case Declassify(expr, lbl) =>
+          emit("(push)\n")
+          emit(s"""(echo \"Checking Declassification: ${info}\")\n""" )
+          emit(s"(assert ${whenC.serialize})\n")
+          emit_deps(deps)
+          // Prove that the integrity label is not changing.
+          emit("(push)\n")
+          // Need to introduce a new scope. Otherwise this often lets you prove 
+          // false!
+          emit(s"(assert (not (= ${ser(I(expr.lbl))} ${ser(I(lbl))})))")
+          emit("(check-sat)\n")
+          emit("(pop)\n")
+          // Prove that the attacker cannot affect the PC value where 
+          // the declassification takes place.
+          // Since it's a proof by contradiction it's (not(not(leqi...)))
+          emit(s"(assert (leqi ${ser(I(atk))} ${ser(I(pc))} ))\n")
+          emit("(check-sat)\n")
+          emit("(pop)\n")
+          e
+        case Endorse(expr, lbl) =>
+          emit("(push)\n")
+          emit(s"""(echo \"Checking Endorsement: ${info}\")\n""" )
+          emit(s"(assert ${whenC.serialize})\n")
+          emit_deps(deps)
+          // Prove that the confidentiality label is not changing.
+          emit(s"(assert (not (= ${ser(C(expr.lbl))} ${ser(C(lbl))})))")
+          // TODO prove that "endorse cannot be used by attacker code". Same as 
+          // proving (not (leqi ${ser(I(atk))} ${ser(I(pc))} )) ?
+          emit("(check-sat)\n")
+          emit("(pop)\n")
+          e
+        case ex => ex
       }
     }
 

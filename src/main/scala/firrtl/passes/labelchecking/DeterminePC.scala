@@ -10,7 +10,7 @@ object DeterminePC extends Pass with PassDebug {
   def name    = "DeterminePC"
   override def debugThisPass = true
   
-  def bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.bottom)
+  def bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
 
   type PredStack = collection.mutable.Stack[Seq[Expression]]
 
@@ -45,7 +45,7 @@ object DeterminePC extends Pass with PassDebug {
   // Compute the join over the elements in the predicate stack
   def pcLabel(predStack: PredStack) = {
     val exprs :Seq[Expression] = predStack.toSeq.flatten
-    JoinLabel( Seq(bot,bot) ++ (exprs map { _.lbl }) :_* )
+    JoinLabel( Seq(bot, bot) ++ (exprs map { _.lbl }) :_* )
   }
 
   // Return a set containing all the variables assigned (recursively) in this 

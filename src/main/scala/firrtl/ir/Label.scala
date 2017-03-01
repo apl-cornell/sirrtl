@@ -47,10 +47,17 @@ object I {
 
 case object UnknownLabel extends ProdLabel(UnknownLabelComp, UnknownLabelComp)
 
+
+// Note: the join of two integrity components is defined in the same way as the 
+// meet of two confidentiality components. So rather than needing to push 
+// whether or not a component deals with integ or conf into the impl of 
+// components, Meet is used as the join over integrity components and Join is 
+// used as the meet over integrity components.
+
 object JoinLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
     case(ProdLabel(lc, li), ProdLabel(rc, ri)) =>
-      ProdLabel(JoinLabelComp(lc, rc), JoinLabelComp(li, ri))
+      ProdLabel(JoinLabelComp(lc, rc), MeetLabelComp(li, ri))
     case(_, _) => throw new Exception("Tried to join Bundle")
       UnknownLabel
   }
@@ -60,7 +67,7 @@ object JoinLabel {
 object MeetLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
     case(ProdLabel(lc, li), ProdLabel(rc, ri)) =>
-      ProdLabel(MeetLabelComp(lc, rc), MeetLabelComp(li, ri))
+      ProdLabel(MeetLabelComp(lc, rc), JoinLabelComp(li, ri))
     case(_, _) => throw new Exception("Tried to meet Bundle")
       UnknownLabel
   }

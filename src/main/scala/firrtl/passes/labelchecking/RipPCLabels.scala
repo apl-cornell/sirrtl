@@ -8,7 +8,7 @@ import collection.mutable.Set
 
 object RipPCLabels extends Pass with PassDebug {
   def name = "RipPCLabels"
-  override def debugThisPass = true
+  override def debugThisPass = false
 
   def ripPC(m: DefModule): DefModule =
     m map ripPCS

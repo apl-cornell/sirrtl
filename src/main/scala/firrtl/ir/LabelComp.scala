@@ -63,9 +63,13 @@ sealed class JoinLabelComp private(val l: LabelComp, val r: LabelComp) extends L
 object MeetLabelComp {
   val bottom : LabelComp = PolicyHolder.bottom
   val top : LabelComp = PolicyHolder.top
-  def meet(l: LabelComp, r: LabelComp): LabelComp = (l, r) match {
+  def apply(l: LabelComp, r: LabelComp): LabelComp = (l, r) match {
     case(UnknownLabelComp, _) => UnknownLabelComp
     case(_, UnknownLabelComp) => UnknownLabelComp
+    case(_, t: Level) if t == top => l
+    case(t: Level, _) if t == top => r
+    case(_, b: Level) if b == bottom => bottom
+    case(b: Level, _) if b == bottom => bottom 
     case (tl: Level, tr: Level)  => PolicyHolder.policy match {
       case p: LevelPolicy => p.levelLat.join(tl, tr)
       case _ => new MeetLabelComp(l, r)

@@ -7,6 +7,7 @@ class LevelPolicy extends Policy {
   // Lattice of security levels
   //---------------------------------------------------------------------------
   // TODO parse the covers relation from the firrtl source
+  // TODO probably need separate order for integrity...
   def levelLat = new Lattice[Level]{
     def covers: Map[Level,Set[Level]] = Map(
       Level("L") -> Set(Level("D1"),Level("D2")),
@@ -21,7 +22,13 @@ class LevelPolicy extends Policy {
   //---------------------------------------------------------------------------
   def top = levelLat.top
   def bottom = levelLat.bottom
-    
+  
+  //---------------------------------------------------------------------------
+  // Declassification / Endorsement
+  //---------------------------------------------------------------------------
+  // TODO parse attacker from a file.
+  def attacker = ProdLabel(Level("L"),Level("H"))
+
   //---------------------------------------------------------------------------
   // Z3 file preamble
   //---------------------------------------------------------------------------
