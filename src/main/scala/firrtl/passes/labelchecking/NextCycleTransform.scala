@@ -19,12 +19,15 @@ object NextCycleTransform extends Pass with PassDebug {
     s map declare_next_s match {
       case sx : DefRegister =>
         val next_l = swap_with_next_l(sx.lbl)
+        val ref_sx = WRef(sx.name, sx.tpe, sx.lbl, WireKind, FEMALE)
         val next_w = next_exp(
           WRef(sx.name, sx.tpe, next_l, WireKind, FEMALE))
         val dec_next = DefWire(sx.info, next_ident(sx.name), sx.tpe, next_l)
-        val def_next = Connect(sx.info, next_w,
+        val define_reg = Connect(sx. info, ref_sx,
+          WRef(next_ident(sx.name), sx.tpe, sx.lbl, RegKind, MALE))
+        val default_next = Connect(sx.info, next_w,
           WRef(sx.name, sx.tpe, sx.lbl, RegKind, MALE))
-        Block(Seq(sx, dec_next, def_next))
+        Block(Seq(sx, dec_next, define_reg, default_next))
       case sx => sx
     }
 
@@ -66,7 +69,7 @@ object NextCycleTransform extends Pass with PassDebug {
     s map swap_with_next_s map swap_with_next_e
 
   def swap_with_next(m: DefModule) : DefModule =
-    m map swap_with_next_s
+    m map swap_with_next_s map flatten_s
 
   def run(c: Circuit) = {
     bannerprintb(name)
