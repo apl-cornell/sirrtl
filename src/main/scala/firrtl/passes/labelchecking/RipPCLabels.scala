@@ -21,6 +21,8 @@ object RipPCLabels extends Pass with PassDebug {
         Connect(info, loc, expr)
       case PartialConnectPC(info, loc, expr, _) =>
         PartialConnect(info, loc, expr)
+      case ConditionallyPC(info, pred, conseq, alt, _) =>
+        Conditionally(info, pred, conseq, alt)
       case sx => sx
     }
 

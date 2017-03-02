@@ -77,8 +77,10 @@ object DeterminePC extends Pass with PassDebug {
       val sxx = sx copy (stmts = sx.stmts.reverse map determine_pc_s(predEnv))
       predEnv.popContext(assigned)
       sxx copy (stmts = sxx.stmts.reverse)
-    case sx: Conditionally =>
-      predEnv.appendContext(assignedIn(sx), sx.pred)
+    case Conditionally(info, pred, conseq, alt) =>
+      predEnv.appendContext(assignedIn(s), pred)
+      // TODO PC value?? Not sure if there can be a single value...
+      val sx = ConditionallyPC(info, pred, conseq, alt, bot)
       sx map determine_pc_s(predEnv)
     case DefNode(info, name, value) =>
       DefNodePC(info, name, value, pcLabel(predEnv(name))) map

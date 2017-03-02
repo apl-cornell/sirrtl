@@ -137,6 +137,14 @@ object LabelCheck extends Pass with PassDebug {
           emit("(pop)\n")
           emit("\n")
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
+        case sx: DefNodePC =>
+          val whenC = whenEnv(sx)
+          val deps = collect_deps_c(conEnv)(whenC)
+          sx map check_declass_e(deps, whenC, sx.pc, sx.info)
+        case sx: ConditionallyPC =>
+          val whenC = whenEnv(sx)
+          val deps = collect_deps_c(conEnv)(whenC)
+          sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx => sx
           // TODO need to check declassify for when statements as well... 
           // conditional in when statement could matter

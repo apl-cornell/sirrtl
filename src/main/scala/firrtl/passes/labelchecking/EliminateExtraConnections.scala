@@ -17,7 +17,7 @@ import collection.mutable.Set
 
 object EliminateUnusedConnections extends Pass with PassDebug {
   def name = "Eliminate Unused Connections"
-  override def debugThisPass = false 
+  override def debugThisPass = false
 
 
   //--------------------------------------------------------------------------
