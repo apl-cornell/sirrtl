@@ -8,7 +8,7 @@ import collection.mutable.Set
 
 object DeterminePC extends Pass with PassDebug {
   def name    = "DeterminePC"
-  override def debugThisPass = true
+  override def debugThisPass = false
   
   def bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
 
@@ -62,6 +62,21 @@ object DeterminePC extends Pass with PassDebug {
     vars
   }
 
+  def locsIn(e: Expression) : Set[String] = {
+    val locs = Set[String]()
+    def locsIn_(e: Expression) : Expression =  e match {
+      case ex: WRef => locs += ex.name; ex
+      // For subfields, and indexed vectors do not include subexprs
+      // since the location is the particular subfield / vector slice
+      case ex: WSubField => locs += ex.serialize; ex
+      case ex: WSubIndex => locs += ex.serialize; ex
+      case ex: WSubAccess => locs += ex.serialize; ex
+      case ex => ex map locsIn_
+    }
+    locsIn_(e)
+    locs
+  }
+
   // Only DefNode values are elevated eagerly since nodes are immutable.
   def elevate_e(predStack: PredStack)(e: Expression): Expression = 
     e match {
@@ -78,9 +93,11 @@ object DeterminePC extends Pass with PassDebug {
       predEnv.popContext(assigned)
       sxx copy (stmts = sxx.stmts.reverse)
     case Conditionally(info, pred, conseq, alt) =>
+      val pc = locsIn(pred) map { s: String =>
+        pcLabel(predEnv(s))
+      } reduceLeft { (_:Label) join (_:Label) }
+      val sx = ConditionallyPC(info, pred, conseq, alt, pc)
       predEnv.appendContext(assignedIn(s), pred)
-      // TODO PC value?? Not sure if there can be a single value...
-      val sx = ConditionallyPC(info, pred, conseq, alt, bot)
       sx map determine_pc_s(predEnv)
     case DefNode(info, name, value) =>
       DefNodePC(info, name, value, pcLabel(predEnv(name))) map

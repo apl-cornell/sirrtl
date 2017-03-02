@@ -146,8 +146,6 @@ object LabelCheck extends Pass with PassDebug {
           val deps = collect_deps_c(conEnv)(whenC)
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx => sx
-          // TODO need to check declassify for when statements as well... 
-          // conditional in when statement could matter
       }
     }
 
