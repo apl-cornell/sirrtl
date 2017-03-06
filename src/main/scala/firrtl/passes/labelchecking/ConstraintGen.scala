@@ -101,10 +101,13 @@ abstract class ConstraintGenerator {
 
   def decls_e(declSet: DeclSet)(e: Expression) : Expression = 
     e map decls_l(declSet) match {
+    case ex : WSubIndex => declSet += exprToDeclaration(ex); ex
+    case ex : WSubAccess => declSet += exprToDeclaration(ex); ex
     case ex : WRef => declSet += exprToDeclaration(ex); ex
     case ex : WSubField => declSet +=  exprToDeclaration(ex); ex
     case ex => ex map decls_e(declSet)
   }
+
   def decls_s(declSet: DeclSet)(s: Statement) : Statement = s match {
     // do not count references in invalid
     case sx : IsInvalid => sx 
@@ -122,42 +125,55 @@ object BVConstraintGen extends ConstraintGenerator {
   def toBInt(w: Width) =
     w.asInstanceOf[IntWidth].width
 
-  def exprToDeclaration(e: Expression) = e match {
-    case ex : WRef => 
-      val width = ex.tpe match {
-        case UIntType(w) => toBInt(w)
-        case SIntType(w) => toBInt(w)
-        case FixedType(w,_) => toBInt(w)
-        case ClockType => 1
-      }
-      s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
-    case ex : WSubField  =>
-      val width = ex.tpe match {
-        case UIntType(w) => toBInt(w)
-        case SIntType(w) => toBInt(w)
-        case FixedType(w,_) => toBInt(w)
-        case ClockType => 1
-      }
-      s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
-    case Declassify(exx, _) =>
-      exprToDeclaration(exx)
-    case Endorse(exx,_) =>
-      exprToDeclaration(exx)
-
+  // XXX This does not include a terribly precise representation of arrays. 
+  // Arrays are essentially modeled as single variables as in SecVerilog's 
+  // implementation. This is safe as long as vectors are not referenced in 
+  // dependent types. For now an exception should be thrown if an array is 
+  // referenced in a dependent type. Implementing precise reasoning about arrays 
+  // would be difficult - it would also require a representation of arbitrary 
+  // record types. Currently record elements are modeled as separate variables. 
+  // With a representation of arbitrary record types, the theory of arrays 
+  // should work. Arbitrary records can be represented with algebraic 
+  // datatypes.
+  def exprToDeclaration(e: Expression) = {
+    def tpeToW(tpe: Type) : BigInt = tpe match {
+      case UIntType(w) => toBInt(w)
+      case SIntType(w) => toBInt(w)
+      case FixedType(w,_) => toBInt(w)
+      case ClockType => 1
+      case VectorType(tx, s) => tpeToW(tx)
+    }
+    e match {
+      case ex : WSubIndex => exprToDeclaration(ex.exp)
+      case ex : WSubAccess=> exprToDeclaration(ex.exp)
+      case ex : WRef => 
+        println(s"declaring: ${ex.serialize} : ${ex.tpe.serialize}")
+        val width = tpeToW(ex.tpe)
+        s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
+      case ex : WSubField  =>
+        println(s"declaring: ${ex.serialize} : ${ex.tpe.serialize}, ${ex.exp.tpe.serialize}")
+        val width = tpeToW(ex.tpe)
+        s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
+      case Declassify(exx, _) =>
+        exprToDeclaration(exx)
+      case Endorse(exx,_) =>
+        exprToDeclaration(exx)
+    }
   }
 
-  def refToIdent(e: Expression) = e match {
+  def refToIdent(e: Expression) =  e match {
+    case ex: WSubIndex => refToIdent(ex.exp)
+    case ex: WSubAccess => refToIdent(ex.exp)
     case WRef(name,_,_,_,_) => name
-    case WSubField(exp,name,_,_,_) => exp match {
-      case expx : WRef => expx.name + "_" + name
-      case expx : WSubField => refToIdent(expx)
-      // else match error
-    }
+    case WSubField(exp,name,_,_,_) => 
+      refToIdent(exp) + "_" + name
   }
 
   def exprToCons(e: Expression) = e match {
     case ex : Literal => CBVLit(ex.value, toBInt(ex.width))
     case ex : DoPrim => primOpToBVOp(ex)
+    case ex : WSubIndex => CAtom(refToIdent(ex.exp))
+    case ex : WSubAccess => CAtom(refToIdent(ex.exp))
     case ex : WRef => CAtom(refToIdent(ex))
     case ex : WSubField => CAtom(refToIdent(ex))
     case Declassify(exx,_) => exprToCons(exx)

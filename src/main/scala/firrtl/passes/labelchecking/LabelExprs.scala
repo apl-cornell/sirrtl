@@ -50,7 +50,8 @@ object LabelExprs extends Pass with PassDebug {
       errors.append(new UnknownLabelException(i, n))
     
   // This function is used for declarations with BundleTypes to convert their 
-  // labels into BundleLabels
+  // labels into BundleLabels. This also supports type constructions in which a 
+  // BundleType may be nested arbitrarily deep within VectorTypes.
   def to_bundle(t: Type, l: Label) : Label = {
     def to_bundle__(t: Type, l: Label) = t match {
       case BundleType(fields) => BundleLabel(fields)
@@ -61,6 +62,7 @@ object LabelExprs extends Pass with PassDebug {
       case tx : BundleType => tx copy (fields = tx.fields map { f =>
         f copy (lbl = to_bundle__(f.tpe, f.lbl))
       })
+      case VectorType(tpe, _) => to_bundle_(tpe)
       case tx => tx
     }
     if(label_is_known(l)) l else to_bundle__(to_bundle_(t), l)

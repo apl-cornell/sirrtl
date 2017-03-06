@@ -15,7 +15,6 @@ trait InferTypesT extends Pass {
   // These are no longer nested in run so that DepsInferTypes can override the 
   // label one and it can refer to the expression one
   def infer_types_l(types: TypeMap)(l: Label): Label = l
-    // l map infer_types_e(types) map infer_types_l(types)
   
   def infer_types_e(types: TypeMap)(e: Expression): Expression =
     e map infer_types_e(types) map infer_types_l(types) match {
@@ -48,11 +47,11 @@ trait InferTypesT extends Pass {
       case sx: WDefInstance =>
         val t = mtypes(sx.module)
         types(sx.name) = t
-        sx copy (tpe = t)
+        sx copy (tpe = t) map infer_types_l(types)
       case sx: DefWire =>
         val t = remove_unknowns(sx.tpe)
         types(sx.name) = t
-        sx copy (tpe = t)
+        sx copy (tpe = t) map infer_types_l(types)
       case sx: DefNode =>
         val sxx = (sx map infer_types_e(types)).asInstanceOf[DefNode]
         val t = remove_unknowns(sxx.value.tpe)

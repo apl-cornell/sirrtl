@@ -112,3 +112,4 @@ class CBVWrappedBV(val c: Constraint, val w: BigInt) extends Constraint {
   def serialize = s"(not(= ${c.serialize} ${CBVLit(0,w).serialize}))"
   def mapCons(f: Constraint => Constraint) = CBVWrappedBV(f(c), w)
 }
+
