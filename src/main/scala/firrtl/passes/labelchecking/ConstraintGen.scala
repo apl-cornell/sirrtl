@@ -147,11 +147,9 @@ object BVConstraintGen extends ConstraintGenerator {
       case ex : WSubIndex => exprToDeclaration(ex.exp)
       case ex : WSubAccess=> exprToDeclaration(ex.exp)
       case ex : WRef => 
-        println(s"declaring: ${ex.serialize} : ${ex.tpe.serialize}")
         val width = tpeToW(ex.tpe)
         s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
       case ex : WSubField  =>
-        println(s"declaring: ${ex.serialize} : ${ex.tpe.serialize}, ${ex.exp.tpe.serialize}")
         val width = tpeToW(ex.tpe)
         s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
       case Declassify(exx, _) =>

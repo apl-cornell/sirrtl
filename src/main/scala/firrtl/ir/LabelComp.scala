@@ -32,6 +32,7 @@ object JoinLabelComp {
   val bottom : LabelComp = PolicyHolder.bottom
   val top : LabelComp = PolicyHolder.top
   def apply(l: LabelComp, r: LabelComp): LabelComp = (l, r) match {
+    case(lx, rx) if lx == rx => lx
     case(UnknownLabelComp, _) => UnknownLabelComp
     case(_, UnknownLabelComp) => UnknownLabelComp
     case(_, b: Level) if b == bottom => l
@@ -64,6 +65,7 @@ object MeetLabelComp {
   val bottom : LabelComp = PolicyHolder.bottom
   val top : LabelComp = PolicyHolder.top
   def apply(l: LabelComp, r: LabelComp): LabelComp = (l, r) match {
+    case(lx, rx) if lx == rx => lx
     case(UnknownLabelComp, _) => UnknownLabelComp
     case(_, UnknownLabelComp) => UnknownLabelComp
     case(_, t: Level) if t == top => l
@@ -99,7 +101,7 @@ case class FunLabel(fname: String, arg: Expression) extends LabelComp {
 }
 
 case class HLevel(arg: Expression) extends LabelComp {
-  def serialize = s"[[${arg.serialize}]]"
+  def serialize = s"[[${arg.serialize}]]H"
   def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
   def mapExpr(f: Expression => Expression): LabelComp = this.copy(arg = f(arg))
 }
