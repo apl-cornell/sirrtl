@@ -213,6 +213,18 @@ object Utils extends LazyLogging {
     }
     case vx => false
   }
+
+  def blabel_fields_match(l: BundleLabel, r: BundleLabel): Boolean = {
+    l.fields.foreach( f => r.fields.find (_.name == f.name) match {
+      case None => return false
+      case Some(_) =>
+    })
+    r.fields.foreach( f => l.fields.find (_.name == f.name) match {
+      case None => return false
+      case Some(_) =>
+    })
+    return true
+  }
    
 // =================================
   def error(str: String) = throw new FIRRTLException(str)

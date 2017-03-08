@@ -1,11 +1,13 @@
 package firrtl
 package ir
+import firrtl.Utils._
 
 sealed abstract class Label extends FirrtlNode {
   def serialize: String
   def mapLabel(f: Label => Label): Label
   def mapLabelComp(f: LabelComp => LabelComp): Label
   def join(that: Label) = JoinLabel(this, that)
+  def meet(that: Label) = MeetLabel(this, that)
 }
 
 // Behaves like a case class
@@ -54,11 +56,20 @@ case object UnknownLabel extends ProdLabel(UnknownLabelComp, UnknownLabelComp)
 // components, Meet is used as the join over integrity components and Join is 
 // used as the meet over integrity components.
 
+// These are "fake" case classes implemented using the same 
+// fake-case-class-with-fancy-factory-apply idiom as the join and meet 
+// label components
 object JoinLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
     case(ProdLabel(lc, li), ProdLabel(rc, ri)) =>
       ProdLabel(JoinLabelComp(lc, rc), MeetLabelComp(li, ri))
-    case(_, _) => throw new Exception("Tried to join Bundle")
+    case(bl: BundleLabel, br: BundleLabel) if(blabel_fields_match(bl, br)) =>
+      BundleLabel(bl.fields map { f => f mapLabel { _ join field_label(br, f.name) } })
+    case(bl: BundleLabel, br: BundleLabel) =>
+        throw new Exception("Tried to join two bundles with non-matching fields")
+    case(b: BundleLabel, r) => b mapLabel { _ join r }
+    case(l, b: BundleLabel) => b mapLabel { _ join l }
+    case(_, _) => throw new Exception("Tried to join something strange")
       UnknownLabel
   }
   def apply(l: Label*) : Label = l.reduceRight { apply(_,_) }
@@ -68,7 +79,13 @@ object MeetLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
     case(ProdLabel(lc, li), ProdLabel(rc, ri)) =>
       ProdLabel(MeetLabelComp(lc, rc), JoinLabelComp(li, ri))
-    case(_, _) => throw new Exception("Tried to meet Bundle")
+    case(bl: BundleLabel, br: BundleLabel) if(blabel_fields_match(bl, br)) =>
+      BundleLabel(bl.fields map { f => f mapLabel { _ meet field_label(br, f.name) } })
+    case(bl: BundleLabel, br: BundleLabel) =>
+        throw new Exception("Tried to meet two Bundles with non-matching fields")
+    case(b: BundleLabel, r) => b mapLabel { _ meet r }
+    case(l, b: BundleLabel) => b mapLabel { _ meet l }
+    case(_, _) => throw new Exception("Tried to meet something strange")
       UnknownLabel
   }
   def apply(l: Label*) : Label = l.reduceRight { apply(_,_) }

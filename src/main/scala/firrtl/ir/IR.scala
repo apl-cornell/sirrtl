@@ -430,6 +430,7 @@ case class Field(name: String, flip: Orientation, tpe: Type, lbl: Label,
   extends FirrtlNode with HasName {
   val lbl_s = lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "}
   def serialize: String = flip.serialize + name + " : " + lbl_s + tpe.serialize
+  def mapLabel(f: Label => Label): Field = this.copy(lbl = f(lbl))
 }
 
 abstract class Type extends FirrtlNode {
