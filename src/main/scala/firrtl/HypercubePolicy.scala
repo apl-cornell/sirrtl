@@ -33,7 +33,12 @@ class HypercubePolicy extends Policy {
     "D2" -> 0x0010,
     "D3" -> 0x0100,
     "D4" -> 0x1000,
-    "H"  -> 0xFFFF
+    "H"  -> 0xFFFF,
+    // Protection rings
+    // Not currently sure of the best way to encode these
+    "M"  -> 0xFFFF,
+    "Hyp" -> 0xEEEE,
+    "S"  -> 0xDDDD
   )
 
   //---------------------------------------------------------------------------
