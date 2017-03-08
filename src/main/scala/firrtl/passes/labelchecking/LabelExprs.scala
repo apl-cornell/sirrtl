@@ -87,7 +87,7 @@ object LabelExprs extends Pass with PassDebug {
   }
 
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 
-    s map label_exprs_s(labels) map label_exprs_e(labels) match {
+    s map label_exprs_s(labels) match {
       case sx: WDefInstance =>
         // This relies on the fact that a bundle type has been created for sx 
         // in InferTypes and that both type and label propagation have already 
@@ -96,12 +96,12 @@ object LabelExprs extends Pass with PassDebug {
         val lb = to_bundle(sx.tpe, UnknownLabel)
         checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
-        sx copy (lbl = lb)
+        (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefWire =>
         val lb = to_bundle(sx.tpe, sx.lbl)
         checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
-        sx copy (lbl = lb)
+        (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefRegister =>
         val lb = to_bundle(sx.tpe, sx.lbl)
         checkDeclared(lb, sx.info, sx.name)
@@ -110,15 +110,15 @@ object LabelExprs extends Pass with PassDebug {
         checkDeclared(lbx, sx.info, sx.name)
         labels(sx.name) = lbx
         val sxx = sx copy (lbl = lbx)
-        sxx
+        sxx map label_exprs_e(labels)
       case sx: DefNode =>
         checkKnown(sx.value.lbl, sx.info, sx.name)
         labels(sx.name) = sx.value.lbl
-        sx
+        sx map label_exprs_e(labels)
       // Not sure what should be done for:
       // WDefInstance 
       // DefMemory
-      case sx =>  sx
+      case sx => sx map label_exprs_e(labels)
   }
 
   // Add each port declaration to the label context
