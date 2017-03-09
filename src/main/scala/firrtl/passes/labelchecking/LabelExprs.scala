@@ -54,6 +54,7 @@ object LabelExprs extends Pass with PassDebug {
   // BundleType may be nested arbitrarily deep within VectorTypes.
   def to_bundle(t: Type, l: Label) : Label = {
     def to_bundle__(t: Type, l: Label) = t match {
+      case tx if label_is_known(l) => l
       case BundleType(fields) => BundleLabel(fields)
       case _ => l
     }
@@ -98,23 +99,30 @@ object LabelExprs extends Pass with PassDebug {
         labels(sx.name) = lb
         (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefWire =>
-        val lb = to_bundle(sx.tpe, sx.lbl)
-        checkDeclared(lb, sx.info, sx.name)
+        // Using assumeL for wire declarations. It turns out a lot of commonly 
+        // used macros in Chisel declare wires that store constants. Labeling 
+        // wires \bot if un-labeled should still lead to a type error if something 
+        // above \bot gets written to the wire. Perhaps a better alternative 
+        // would be to try to get actual label inference working again.
+        val lb = assumeL(to_bundle(sx.tpe, sx.lbl))
+        //checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
         (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefRegister =>
         val lb = to_bundle(sx.tpe, sx.lbl)
         checkDeclared(lb, sx.info, sx.name)
+        labels(sx.name) = lb
         val lbx = JoinLabel(lb, assumeL(sx.clock.lbl),
-          assumeL(sx.reset.lbl), sx.init.lbl)
+          assumeL(sx.reset.lbl), label_exprs_e(labels)(sx.init).lbl)
         checkDeclared(lbx, sx.info, sx.name)
         labels(sx.name) = lbx
         val sxx = sx copy (lbl = lbx)
         sxx map label_exprs_e(labels)
       case sx: DefNode =>
-        checkKnown(sx.value.lbl, sx.info, sx.name)
-        labels(sx.name) = sx.value.lbl
-        sx map label_exprs_e(labels)
+        val sxx = (sx map label_exprs_e(labels)).asInstanceOf[DefNode]
+        checkKnown(sxx.value.lbl, sxx.info, sxx.name)
+        labels(sxx.name) = sxx.value.lbl
+        sxx
       // Not sure what should be done for:
       // WDefInstance 
       // DefMemory
