@@ -63,7 +63,7 @@ object JoinLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
     case(ProdLabel(lc, li), ProdLabel(rc, ri)) =>
       ProdLabel(JoinLabelComp(lc, rc), MeetLabelComp(li, ri))
-    case(bl: BundleLabel, br: BundleLabel) if(blabel_fields_match(bl, br)) =>
+    case(bl: BundleLabel, br: BundleLabel) if(fields_match(bl, br)) =>
       BundleLabel(bl.fields map { f => f mapLabel { _ join field_label(br, f.name) } })
     case(bl: BundleLabel, br: BundleLabel) =>
         throw new Exception("Tried to join two bundles with non-matching fields")
@@ -79,7 +79,7 @@ object MeetLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
     case(ProdLabel(lc, li), ProdLabel(rc, ri)) =>
       ProdLabel(MeetLabelComp(lc, rc), JoinLabelComp(li, ri))
-    case(bl: BundleLabel, br: BundleLabel) if(blabel_fields_match(bl, br)) =>
+    case(bl: BundleLabel, br: BundleLabel) if(fields_match(bl, br)) =>
       BundleLabel(bl.fields map { f => f mapLabel { _ meet field_label(br, f.name) } })
     case(bl: BundleLabel, br: BundleLabel) =>
         throw new Exception("Tried to meet two Bundles with non-matching fields")

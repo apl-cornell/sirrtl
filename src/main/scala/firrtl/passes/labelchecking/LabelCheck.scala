@@ -80,8 +80,11 @@ object LabelCheck extends Pass with PassDebug {
     }
 
     //------------------------------------------------------------------------- 
-    // Check connections
+    // Check labels in statements
     //-------------------------------------------------------------------------
+
+    // This probably won't work for connections directly involving arbitrarily 
+    // nested bundles
     def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = {
       def ser(l:LabelComp) = consGenerator.serialize(l)
       s map label_check(conEnv, whenEnv) match {
@@ -93,23 +96,29 @@ object LabelCheck extends Pass with PassDebug {
           val deps = collect_deps(conEnv)(lhs) ++
             collect_deps(conEnv)(rhs) ++
             collect_deps_c(conEnv)(whenC)
-          emit("(push)\n")
-          emit(s"""(echo \"Checking Connection (Conf): ${sx.info}\")\n""" )
-          emit(s"(assert ${whenC.serialize})\n")
-          emit_deps(deps)
-          emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
-          emit("(check-sat)\n")
-          emit("(pop)\n")
-
-          emit("(push)\n")
-          emit(s"""(echo \"Checking Connection (Integ): ${sx.info}\")\n""" )
-          emit(s"(assert ${whenC.serialize})\n")
-          emit_deps(deps)
-          // Note that "meet" is the same as the join over integ components
-          emit(s"(assert (not (leqi ${ser(I(rhs) meet I(pc))} ${ser(I(lhs))}) ) )\n")
-          emit("(check-sat)\n")
-          emit("(pop)\n")
-          emit("\n")
+          (lhs, rhs) match {
+            case((lhsb: BundleLabel, rhsb: BundleLabel)) => 
+              lhsb.fields.foreach { f =>
+                val lhsx = f.lbl
+                val rhsx = field_label(rhs, f.name)
+                val inf = s" (field: ${f.name})"
+                check_connection(deps, whenC, pc, lhsx, rhsx, sx.info, inf)
+              }
+            case((lhsb: BundleLabel, _)) => 
+              lhsb.fields.foreach { f =>
+                val lhsx = f.lbl
+                val inf = s" (field: ${f.name})"
+                check_connection(deps, whenC, pc, lhsx, rhs, sx.info, inf)
+              }
+            case((_, rhsb: BundleLabel)) => 
+              rhsb.fields.foreach { f =>
+                val rhsx = f.lbl
+                val inf = s" (field: ${f.name})"
+                check_connection(deps, whenC, pc, lhs, rhsx, sx.info, inf)
+              }
+            case _ =>
+              check_connection(deps, whenC, pc, lhs, rhs, sx.info)
+          }
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: PartialConnectPC =>
           val lhs: Label = sx.loc.lbl
@@ -119,23 +128,29 @@ object LabelCheck extends Pass with PassDebug {
           val deps = collect_deps(conEnv)(lhs) ++
             collect_deps(conEnv)(rhs) ++
             collect_deps_c(conEnv)(whenC)
-          emit("(push)\n")
-          emit(s"""(echo \"Checking Connection (Conf): ${sx.info}\")\n""" )
-          emit(s"(assert ${whenC.serialize})\n")
-          emit_deps(deps)
-          emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
-          emit("(check-sat)\n")
-          emit("(pop)\n")
-
-          emit("(push)\n")
-          emit(s"""(echo \"Checking Connection (Integ): ${sx.info}\")\n""" )
-          emit(s"(assert ${whenC.serialize})\n")
-          emit_deps(deps)
-          // Note that "meet" is the same as the join over integ components
-          emit(s"(assert (not (leqi ${ser(I(rhs) meet I(pc))} ${ser(I(lhs))}) ) )\n")
-          emit("(check-sat)\n")
-          emit("(pop)\n")
-          emit("\n")
+          (lhs, rhs) match {
+            case((lhsb: BundleLabel, rhsb: BundleLabel)) => 
+              lhsb.fields.foreach { f =>
+                val lhsx = f.lbl
+                val rhsx = field_label(rhs, f.name)
+                val inf = s" (field: ${f.name})"
+                check_connection(deps, whenC, pc, lhsx, rhsx, sx.info, inf)
+              }
+            case((lhsb: BundleLabel, _)) => 
+              lhsb.fields.foreach { f =>
+                val lhsx = f.lbl
+                val inf = s" (field: ${f.name})"
+                check_connection(deps, whenC, pc, lhsx, rhs, sx.info, inf)
+              }
+            case((_, rhsb: BundleLabel)) => 
+              rhsb.fields.foreach { f =>
+                val rhsx = f.lbl
+                val inf = s" (field: ${f.name})"
+                check_connection(deps, whenC, pc, lhs, rhsx, sx.info, inf)
+              }
+            case _ =>
+              check_connection(deps, whenC, pc, lhs, rhs, sx.info)
+          }
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: DefNodePC =>
           val whenC = whenEnv(sx)
@@ -186,6 +201,28 @@ object LabelCheck extends Pass with PassDebug {
           e
         case ex => ex
       }
+    }
+
+    def check_connection(deps: ConSet, whenC: Constraint, pc: Label, lhs: Label, rhs: Label,
+      info: Info, extraInfo: String = ""): Unit = {
+      def ser(l:LabelComp) = consGenerator.serialize(l)
+      emit("(push)\n")
+      emit(s"""(echo \"Checking Connection (Conf): ${info}${extraInfo}\")\n""" )
+      emit(s"(assert ${whenC.serialize})\n")
+      emit_deps(deps)
+      emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
+      emit("(check-sat)\n")
+      emit("(pop)\n")
+
+      emit("(push)\n")
+      emit(s"""(echo \"Checking Connection (Integ): ${info}${extraInfo}\")\n""" )
+      emit(s"(assert ${whenC.serialize})\n")
+      emit_deps(deps)
+      // Note that "meet" is the same as the join over integ components
+      emit(s"(assert (not (leqi ${ser(I(rhs) meet I(pc))} ${ser(I(lhs))}) ) )\n")
+      emit("(check-sat)\n")
+      emit("(pop)\n")
+      emit("\n")
     }
 
     //------------------------------------------------------------------------

@@ -55,13 +55,37 @@ abstract class ConstraintGenerator {
     case sx: DefNode =>
         connect(conEnv, whenEnv, CAtom(sx.name), exprToCons(sx.value))
         whenEnv(sx) = whenEnv.cur; sx
-      case sx: Connect =>
-        val w = bitWidth(sx.loc.tpe)
-        connect(conEnv, whenEnv, exprToCons(sx.loc), exprToCons(sx.expr, w))
+      case sx: ConnectPC =>
+        (sx.loc.tpe, sx.expr.tpe) match {
+          case ((loct: BundleType, expt: BundleType))  =>
+            loct.fields.foreach { f =>
+              val locx = WSubField(sx.loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+              val expx = WSubField(sx.expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+              val w = bitWidth(locx.tpe)
+              connect(conEnv, whenEnv, exprToCons(locx), exprToCons(expx))
+            }
+          case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${sx.info}")
+          case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${sx.info}")
+          case _ =>
+            val w = bitWidth(sx.loc.tpe)
+            connect(conEnv, whenEnv, exprToCons(sx.loc), exprToCons(sx.expr, w))
+        }
         whenEnv(sx) = whenEnv.cur; sx
-      case sx: PartialConnect =>
-        val w = bitWidth(sx.loc.tpe)
-        connect(conEnv, whenEnv, exprToCons(sx.loc), exprToCons(sx.expr, w))
+      case sx: PartialConnectPC =>
+        (sx.loc.tpe, sx.expr.tpe) match {
+          case ((loct: BundleType, expt: BundleType))  =>
+            loct.fields.foreach { f =>
+              val locx = WSubField(sx.loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+              val expx = WSubField(sx.expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+              val w = bitWidth(locx.tpe)
+              connect(conEnv, whenEnv, exprToCons(locx), exprToCons(expx))
+            }
+          case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${sx.info}")
+          case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${sx.info}")
+          case _ =>
+            val w = bitWidth(sx.loc.tpe)
+            connect(conEnv, whenEnv, exprToCons(sx.loc), exprToCons(sx.expr, w))
+        }
         whenEnv(sx) = whenEnv.cur; sx
       case sx: Conditionally =>
         val pred = exprToConsBool(sx.pred)
@@ -109,9 +133,45 @@ abstract class ConstraintGenerator {
   }
 
   def decls_s(declSet: DeclSet)(s: Statement) : Statement = s match {
-    // do not count references in invalid
+    // do not count references in invalid, defreg, or defwire
     case sx : IsInvalid => sx 
-    case sx => sx map decls_s(declSet) map decls_e(declSet) map decls_l(declSet)
+    case sx : DefRegister => sx
+    case sx : DefWire => sx
+    case PartialConnectPC(info, loc, expr, pc) => (loc.tpe, expr.tpe) match {
+      case ((loct: BundleType, exprt: BundleType)) =>
+        loct.fields.foreach { f =>
+          val locx  = WSubField(loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+          val exprx = WSubField(expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+          declSet += exprToDeclaration(locx map decls_l(declSet))
+          declSet += exprToDeclaration(exprx map decls_l(declSet))
+        }
+        s
+      case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${info}")
+      case ((_, exprx: BundleType)) => throw new Exception(s"bad expr: ${info}")
+      case _ => s map decls_e(declSet) map decls_l(declSet)
+    }
+    case ConnectPC(info, loc, expr, pc) => (loc.tpe, expr.tpe) match {
+      case ((loct: BundleType, exprt: BundleType)) =>
+        loct.fields.foreach { f =>
+          val locx  = WSubField(loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+          val exprx = WSubField(expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+          declSet += exprToDeclaration(locx map decls_l(declSet))
+          declSet += exprToDeclaration(exprx map decls_l(declSet))
+        }
+        s
+      case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${info}")
+      case ((_, exprx: BundleType)) => throw new Exception(s"bad expr: ${info}")
+      case _ => s map decls_e(declSet) map decls_l(declSet)
+    }
+    case sx : Block =>
+      sx map decls_s(declSet) map decls_e(declSet) map decls_l(declSet)
+    case sx => try {
+      sx map decls_s(declSet) map decls_e(declSet) map decls_l(declSet)
+    } catch {
+      case (e: Exception) =>
+        throw new Exception(s"bad statement: [${sx.getClass.toString}] ${sx.info} ${sx.serialize}")
+      throw e
+    }
   }
 
   def declarations(m: DefModule) : Set[String] = {
@@ -136,6 +196,7 @@ object BVConstraintGen extends ConstraintGenerator {
   // should work. Arbitrary records can be represented with algebraic 
   // datatypes.
   def exprToDeclaration(e: Expression) = {
+    /*
     def tpeToW(tpe: Type) : BigInt = tpe match {
       case UIntType(w) => toBInt(w)
       case SIntType(w) => toBInt(w)
@@ -143,14 +204,23 @@ object BVConstraintGen extends ConstraintGenerator {
       case ClockType => 1
       case VectorType(tx, s) => tpeToW(tx)
     }
+    */
     e match {
       case ex : WSubIndex => exprToDeclaration(ex.exp)
       case ex : WSubAccess=> exprToDeclaration(ex.exp)
       case ex : WRef => 
-        val width = tpeToW(ex.tpe)
-        s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
+        var s = ""
+        try {
+          val width = bitWidth(ex.tpe)
+          s = s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
+        } catch {
+          case (excp: Exception) =>
+            println(s"bad ex: ${ex.serialize}\n${ex.toString}\n${ex.tpe.serialize}\n${ex.tpe.toString}")
+            throw excp
+        }
+        s
       case ex : WSubField  =>
-        val width = tpeToW(ex.tpe)
+        val width = bitWidth(ex.tpe)
         s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
       case Declassify(exx, _) =>
         exprToDeclaration(exx)
