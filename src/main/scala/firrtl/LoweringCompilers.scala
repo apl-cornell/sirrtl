@@ -58,7 +58,6 @@ class ResolveAndCheck extends CoreTransform {
 class ResolveAndCheckWLabels extends ResolveAndCheck {
   override def passSeq = super.passSeq ++ Seq(
     passes.LabelExprs,
-    //passes.InferLabels,
     passes.DepsToWorkingIR, 
     passes.DepsResolveKinds, 
     passes.DepsInferTypes,
@@ -67,6 +66,7 @@ class ResolveAndCheckWLabels extends ResolveAndCheck {
     passes.SeqPortGenNext,
     passes.EliminateUnusedConnections,
     passes.DeterminePC,
+    passes.InferLabels,
     passes.LabelCheck,
     passes.RipDowngrades,
     passes.RipPCLabels,

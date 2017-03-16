@@ -33,7 +33,7 @@ object C {
   def apply(l: Label): LabelComp = l match {
     case ProdLabel(conf, _) => conf
     case _ =>
-      throw new Exception("tried to conf project Bundle")
+      throw new Exception("tried to conf project non-product")
       UnknownLabelComp
   }
 }
@@ -42,13 +42,18 @@ object I {
   def apply(l: Label): LabelComp = l match {
     case ProdLabel(_, integ) => integ
     case _ =>
-      throw new Exception("tried to integ project Bundle")
+      throw new Exception("tried to integ project non-product")
       UnknownLabelComp
   }
 }
 
 case object UnknownLabel extends ProdLabel(UnknownLabelComp, UnknownLabelComp)
 
+case class VarLabel(id: String) extends Label {
+  def serialize = s"var: $id"
+  def mapLabelComp(f: LabelComp => LabelComp): Label = this
+  def mapLabel(f: Label => Label): Label = this
+}
 
 // Note: the join of two integrity components is defined in the same way as the 
 // meet of two confidentiality components. So rather than needing to push 
@@ -69,10 +74,20 @@ object JoinLabel {
         throw new Exception("Tried to join two bundles with non-matching fields")
     case(b: BundleLabel, r) => b mapLabel { _ join r }
     case(l, b: BundleLabel) => b mapLabel { _ join l }
-    case(_, _) => throw new Exception("Tried to join something strange")
-      UnknownLabel
+    case _ => new JoinLabel(l, r)
   }
   def apply(l: Label*) : Label = l.reduceRight { apply(_,_) }
+  def unapply(j: JoinLabel) = Some((j.l, j.r))
+}
+
+sealed class JoinLabel private(val l: Label, val r: Label) extends Label {
+  override def equals(that: Any) = that match {
+    case JoinLabel(lx, rx) => lx == l && rx == r
+    case _ => false
+  }
+  def serialize = s"${l.serialize} join ${r.serialize}"
+  def mapLabelComp(f: LabelComp => LabelComp): Label = this
+  def mapLabel(f: Label => Label): Label = JoinLabel(f(l), f(r))
 }
 
 object MeetLabel {
@@ -85,10 +100,20 @@ object MeetLabel {
         throw new Exception("Tried to meet two Bundles with non-matching fields")
     case(b: BundleLabel, r) => b mapLabel { _ meet r }
     case(l, b: BundleLabel) => b mapLabel { _ meet l }
-    case(_, _) => throw new Exception("Tried to meet something strange")
-      UnknownLabel
+    case _ => new MeetLabel(l, r)
   }
   def apply(l: Label*) : Label = l.reduceRight { apply(_,_) }
+  def unapply(j: MeetLabel) = Some((j.l, j.r))
+}
+
+sealed class MeetLabel private(val l: Label, val r: Label) extends Label {
+  override def equals(that: Any) = that match {
+    case MeetLabel(lx, rx) => lx == l && rx == r
+    case _ => false
+  }
+  def serialize = s"${l.serialize} meet ${r.serialize}"
+  def mapLabelComp(f: LabelComp => LabelComp): Label = this
+  def mapLabel(f: Label => Label): Label = MeetLabel(f(l), f(r))
 }
 
 // These never get serialized in a z3 file

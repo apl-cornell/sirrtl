@@ -28,6 +28,8 @@ object LabelExprs extends Pass with PassDebug {
   // assumed very obvious
   def assumeL(l:Label) = if(label_is_known(l)) l else bot
 
+  def labelOrVar(l: Label, id: String) = if(label_is_known(l)) l else VarLabel(id)
+
   def label_is_known(l: Label): Boolean = {
     var b = true
     def label_is_known_(l: Label): Label =
@@ -99,29 +101,26 @@ object LabelExprs extends Pass with PassDebug {
         labels(sx.name) = lb
         (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefWire =>
-        // Using assumeL for wire declarations. It turns out a lot of commonly 
-        // used macros in Chisel declare wires that store constants. Labeling 
-        // wires \bot if un-labeled should still lead to a type error if something 
-        // above \bot gets written to the wire. Perhaps a better alternative 
-        // would be to try to get actual label inference working again.
-        val lb = assumeL(to_bundle(sx.tpe, sx.lbl))
-        //checkDeclared(lb, sx.info, sx.name)
+        var lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
+        // val lb = assumeL(to_bundle(sx.tpe, sx.lbl))
+        // checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
         (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefRegister =>
-        val lb = to_bundle(sx.tpe, sx.lbl)
-        checkDeclared(lb, sx.info, sx.name)
+        val lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
+        // checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
-        val lbx = JoinLabel(lb, assumeL(sx.clock.lbl),
-          assumeL(sx.reset.lbl), label_exprs_e(labels)(sx.init).lbl)
-        checkDeclared(lbx, sx.info, sx.name)
-        labels(sx.name) = lbx
-        val sxx = sx copy (lbl = lbx)
-        sxx map label_exprs_e(labels)
+        // val lbx = JoinLabel(lb, assumeL(sx.clock.lbl),
+        //   assumeL(sx.reset.lbl), label_exprs_e(labels)(sx.init).lbl)
+        //checkDeclared(lbx, sx.info, sx.name)
+        // labels(sx.name) = lbx
+        // val sxx = sx copy (lbl = lbx)
+        (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefNode =>
         val sxx = (sx map label_exprs_e(labels)).asInstanceOf[DefNode]
-        checkKnown(sxx.value.lbl, sxx.info, sxx.name)
-        labels(sxx.name) = sxx.value.lbl
+        val lb = labelOrVar(sxx.value.lbl, sxx.name)
+        //checkKnown(sxx.value.lbl, sxx.info, sxx.name)
+        labels(sxx.name) = lb
         sxx
       // Not sure what should be done for:
       // WDefInstance 
