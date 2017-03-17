@@ -26,7 +26,7 @@ object DeterminePC extends Pass with PassDebug {
       sx map determine_pc_s(pc_)(pcEnv)
     case DefNode(info, name, value, lbl) =>
       pcEnv(name) = pcEnv(name) join pc
-      DefNodePC(info, name, value, pcEnv(name), lbl)
+      DefNodePC(info, name, value, lbl, pcEnv(name))
     case Connect(info, loc, expr) =>
       pcEnv(loc.serialize) = pcEnv(loc.serialize) join pc
       ConnectPC(info, loc, expr, pcEnv(loc.serialize))
