@@ -102,19 +102,11 @@ object LabelExprs extends Pass with PassDebug {
         (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefWire =>
         var lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
-        // val lb = assumeL(to_bundle(sx.tpe, sx.lbl))
-        // checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
         (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefRegister =>
         val lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
-        // checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
-        // val lbx = JoinLabel(lb, assumeL(sx.clock.lbl),
-        //   assumeL(sx.reset.lbl), label_exprs_e(labels)(sx.init).lbl)
-        //checkDeclared(lbx, sx.info, sx.name)
-        // labels(sx.name) = lbx
-        // val sxx = sx copy (lbl = lbx)
         (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefNode =>
         // There is no syntax for labeling nodes! They're always inferred
