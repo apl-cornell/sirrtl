@@ -55,8 +55,20 @@ class ResolveAndCheck extends CoreTransform {
     deLabel()
 }
 
-class ResolveAndCheckWLabels extends ResolveAndCheck {
-  override def passSeq = super.passSeq ++ Seq(
+// For defaulting to doing nothing when label checking is not desured in the 
+// call to getLoweringTransforms. This can't be an anonymous class in that 
+// file because CoreTransform is sealed.
+
+class EmptyTransform extends CoreTransform{
+  def inputForm = HighForm
+  def outputForm = HighForm
+  def passSeq = Seq()
+}
+
+class LabelChecking extends CoreTransform {
+  def inputForm = HighForm
+  def outputForm = HighForm
+  def passSeq =  Seq(
     passes.LabelExprs,
     passes.DepsToWorkingIR, 
     passes.DepsResolveKinds, 
@@ -67,7 +79,14 @@ class ResolveAndCheckWLabels extends ResolveAndCheck {
     passes.EliminateUnusedConnections,
     passes.DeterminePC,
     passes.InferLabels,
-    passes.LabelCheck,
+    passes.LabelCheck
+  )
+}
+
+class LabelTeardown extends CoreTransform {
+  def inputForm = HighForm
+  def outputForm = HighForm
+  def passSeq = Seq(
     passes.RipDowngrades,
     passes.RipPCLabels,
     passes.DeLabel
@@ -148,6 +167,16 @@ import firrtl.transforms.BlackBoxSourceHelper
 class HighFirrtlCompiler extends Compiler {
   def emitter = new FirrtlEmitter
   def transforms: Seq[Transform] = getLoweringTransforms(ChirrtlForm, HighForm)
+}
+
+/** Emits labeled HighFirrtl after label inference, label related 
+ *  transformations, and determining the PC value.
+ */
+class LabeledFirrtlCompiler extends Compiler {
+  def emitter = new FirrtlEmitter
+  def transforms: Seq[Transform] =
+    getLoweringTransforms(ChirrtlForm, HighForm) ++
+      Seq(new IRToWorkingIR, new ResolveAndCheck, new LabelChecking)
 }
 
 /** Emits middle Firrtl input circuit */

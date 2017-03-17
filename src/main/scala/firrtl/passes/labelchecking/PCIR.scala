@@ -7,7 +7,11 @@ import Utils.indent
 // all over the code.
 
 case class PartialConnectPC(info: Info, loc: Expression, expr: Expression, pc: Label) extends Statement with HasInfo {
-  def serialize: String =  s"[${pc.serialize}] ${loc.serialize} <- ${expr.serialize}" + info.serialize
+  def serialize: String = {
+    val lbl_l = loc.lbl match { case UnknownLabel => ""; case _ => s" {${loc.lbl.serialize}}" }
+    val lbl_r = expr.lbl match { case UnknownLabel => ""; case _ => s" {${expr.lbl.serialize}}" }
+    s"[${pc.serialize}] ${loc.serialize}${lbl_l} <= ${expr.serialize}${lbl_r}" + info.serialize
+  }
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement = PartialConnectPC(info, f(loc), f(expr), pc)
   def mapType(f: Type => Type): Statement = this
@@ -30,7 +34,8 @@ case class ConnectPC(info: Info, loc: Expression, expr: Expression, pc: Label) e
 }
 
 case class DefNodePC(info: Info, name: String, value: Expression, pc: Label) extends Statement with IsDeclaration {
-  def serialize: String = s"[${pc.serialize}] node $name = ${value.serialize}" + info.serialize
+  val lbl_s = value.lbl match {case UnknownLabel => ""; case _ => s"{${value.lbl.serialize}} "}
+  def serialize: String = s"[${pc.serialize}] node $name ${lbl_s}= ${value.serialize}" + info.serialize
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement = DefNodePC(info, name, f(value), pc)
   def mapType(f: Type => Type): Statement = this

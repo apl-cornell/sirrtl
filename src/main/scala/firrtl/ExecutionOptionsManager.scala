@@ -162,6 +162,7 @@ case class FirrtlExecutionOptions(
   def compiler: Compiler = {
     compilerName match {
       case "high"      => new HighFirrtlCompiler()
+      case "labeled"   => new LabeledFirrtlCompiler()
       case "low"       => new LowFirrtlCompiler()
       case "middle"    => new MiddleFirrtlCompiler()
       case "verilog"   => new VerilogCompiler()
@@ -171,6 +172,7 @@ case class FirrtlExecutionOptions(
   def outputSuffix: String = {
     compilerName match {
       case "verilog"   => "v"
+      case "labeled"   => "lbl.fir"
       case "low"       => "lo.fir"
       case "high"      => "hi.fir"
       case "middle"    => "mid.fir"
@@ -270,12 +272,12 @@ trait HasFirrtlOptions {
 
   parser.opt[String]("compiler")
     .abbr("X")
-    .valueName ("<high|low|verilog>")
+    .valueName ("<high|low|verilog|labeled>")
     .foreach { x =>
       firrtlOptions = firrtlOptions.copy(compilerName = x)
     }
     .validate { x =>
-      if (Array("high", "middle", "low", "verilog").contains(x.toLowerCase)) parser.success
+      if (Array("high", "middle", "low", "verilog", "labeled").contains(x.toLowerCase)) parser.success
       else parser.failure(s"$x not a legal compiler")
     }.text {
       s"compiler to use, default is ${firrtlOptions.compilerName}"

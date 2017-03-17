@@ -153,14 +153,18 @@ object CompilerUtils {
     */
   def getLoweringTransforms(inputForm: CircuitForm, outputForm: CircuitForm): Seq[Transform] = {
     // If outputForm is equal-to or higher than inputForm, nothing to lower
-    val resolver = if(Driver.doLabelChecking) new ResolveAndCheckWLabels else new ResolveAndCheck
+    val labelPasses = if(Driver.doLabelChecking) 
+      Seq(new LabelChecking, new LabelTeardown)
+    else
+      Seq(new EmptyTransform)
+
     if (outputForm >= inputForm) {
       Seq.empty
     } else {
       inputForm match {
         case ChirrtlForm => Seq(new ChirrtlToHighFirrtl) ++ getLoweringTransforms(HighForm, outputForm)
         case HighForm =>
-          Seq(new IRToWorkingIR, resolver, new transforms.DedupModules,
+          Seq(new IRToWorkingIR, new ResolveAndCheck) ++ labelPasses ++ Seq(new transforms.DedupModules,
               new HighFirrtlToMiddleFirrtl) ++ getLoweringTransforms(MidForm, outputForm)
         case MidForm => Seq(new MiddleFirrtlToLowFirrtl) ++ getLoweringTransforms(LowForm, outputForm)
         case LowForm => error("Internal Error! This shouldn't be possible") // should be caught by if above

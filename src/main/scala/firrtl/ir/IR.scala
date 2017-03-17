@@ -254,7 +254,8 @@ case class DefMemory(
   def mapLabel(f: Label => Label): Statement = this.copy(lbl = f(lbl))
 }
 case class DefNode(info: Info, name: String, value: Expression) extends Statement with IsDeclaration {
-  def serialize: String = s"node $name = ${value.serialize}" + info.serialize
+  val lbl_s = value.lbl match {case UnknownLabel => ""; case _ => s"{${value.lbl.serialize}} "}
+  def serialize: String = s"node $name ${lbl_s}= ${value.serialize}" + info.serialize
   def mapStmt(f: Statement => Statement): Statement = this
   def mapExpr(f: Expression => Expression): Statement = DefNode(info, name, f(value))
   def mapType(f: Type => Type): Statement = this

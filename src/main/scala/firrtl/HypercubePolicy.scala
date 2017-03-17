@@ -243,8 +243,8 @@ class HypercubePolicy extends Policy {
    |""".stripMargin
   }
 
-  def optionDecl: String = 
-   "(set-option :timeout 4000)\n\n"
+  def optionDecl: String =  ""
+   //"(set-option :timeout 4000)\n\n"
 
 
   def preamble: String = 

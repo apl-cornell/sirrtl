@@ -118,7 +118,7 @@ sealed class MeetLabel private(val l: Label, val r: Label) extends Label {
 
 // These never get serialized in a z3 file
 sealed case class BundleLabel(fields: Seq[Field]) extends Label {
-  def serializeField(f: Field) = f.flip.serialize + f.name + " : " + f.lbl.serialize
+  def serializeField(f: Field) =  f.name + " : {" + f.lbl.serialize + "}"
   def serialize: String = (fields map (serializeField(_)) mkString ", ") 
   def mapLabel(f: Label => Label): Label = 
     BundleLabel( fields map ( x => x.copy(lbl = f(x.lbl))))
