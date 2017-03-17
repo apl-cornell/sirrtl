@@ -165,11 +165,11 @@ object RemoveCHIRRTL extends Pass {
       case ex => ex map remove_chirrtl_e(g)
    }
    s match {
-      case DefNode(info, name, value) =>
+      case DefNode(info, name, value, lbl) =>
         val valuex = remove_chirrtl_e(MALE)(value)
-        val sx = DefNode(info, name, valuex)
+        val sx = DefNode(info, name, valuex, lbl)
         // Check node is used for read port address
-        remove_chirrtl_e(FEMALE)(Reference(name, value.tpe, value.lbl))
+        remove_chirrtl_e(FEMALE)(Reference(name, value.tpe, lbl))
         has_read_mport match {
           case None => sx
           case Some(en) => Block(Seq(sx, Connect(info, en, one)))

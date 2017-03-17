@@ -137,7 +137,7 @@ object ExpandWhens extends Pass {
                   val name = namespace.newTemp
                   nodes(res) = name
                   netlist(lvalue) = WRef(name, res.tpe, res.lbl, NodeKind, MALE)
-                  DefNode(sx.info, name, res)
+                  DefNode(sx.info, name, res, res.lbl)
               }
               case _ =>
                 netlist(lvalue) = res

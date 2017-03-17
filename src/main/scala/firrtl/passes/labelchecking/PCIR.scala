@@ -33,14 +33,14 @@ case class ConnectPC(info: Info, loc: Expression, expr: Expression, pc: Label) e
   def mapLabel(f: Label => Label): Statement = this.copy(pc = f(pc))
 }
 
-case class DefNodePC(info: Info, name: String, value: Expression, pc: Label) extends Statement with IsDeclaration {
-  val lbl_s = value.lbl match {case UnknownLabel => ""; case _ => s"{${value.lbl.serialize}} "}
+case class DefNodePC(info: Info, name: String, value: Expression, lbl: Label, pc: Label) extends Statement with IsDeclaration {
+  val lbl_s = lbl match {case UnknownLabel => ""; case _ => s"{${lbl.serialize}} "}
   def serialize: String = s"[${pc.serialize}] node $name ${lbl_s}= ${value.serialize}" + info.serialize
   def mapStmt(f: Statement => Statement): Statement = this
-  def mapExpr(f: Expression => Expression): Statement = DefNodePC(info, name, f(value), pc)
+  def mapExpr(f: Expression => Expression): Statement = this.copy(value = f(value))
   def mapType(f: Type => Type): Statement = this
-  def mapString(f: String => String): Statement = DefNodePC(info, f(name), value, pc)
-  def mapLabel(f: Label => Label): Statement = this.copy(pc = f(pc))
+  def mapString(f: String => String): Statement = this.copy(name = f(name))
+  def mapLabel(f: Label => Label): Statement = this.copy(pc = f(pc), lbl = f(lbl))
 }
 
 case class ConditionallyPC(

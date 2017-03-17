@@ -140,7 +140,7 @@ class Wiring(wiSeq: Seq[WiringInfo]) extends Pass {
       case WDefInstance(_, n, m, t, l) if n == root => 
         tpe = Some(t)
         s
-      case DefNode(_, n, e) if n == root =>
+      case DefNode(_, n, e, _) if n == root =>
         tpe = Some(e.tpe)
         s
       case sx: DefMemory if sx.name == root =>

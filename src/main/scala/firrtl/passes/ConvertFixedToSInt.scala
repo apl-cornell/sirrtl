@@ -73,11 +73,11 @@ object ConvertFixedToSInt extends Pass {
           val newType = toSIntType(tpe)
           types(name) = newType
           DefWire(info, name, newType, lbl)
-        case DefNode(info, name, value) =>
+        case DefNode(info, name, value, lbl) =>
           val newValue = updateExpType(value)
           val newType = toSIntType(newValue.tpe)
           types(name) = newType
-          DefNode(info, name, newValue)
+          DefNode(info, name, newValue, lbl)
         case DefMemory(info, name, dt, lbl, depth, wL, rL, rs, ws, rws, ruw) =>
           val newStmt = DefMemory(info, name, toSIntType(dt), lbl, depth, wL, rL, rs, ws, rws, ruw)
           val newType = MemPortUtils.memType(newStmt)

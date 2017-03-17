@@ -303,7 +303,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
             }: Must provide cmem with vector type")
           }
         case "inst" => DefInstance(info, ctx.id(0).getText, ctx.id(1).getText)
-        case "node" => DefNode(info, ctx.id(0).getText, visitExp(ctx.exp(0)))
+        case "node" => DefNode(info, ctx.id(0).getText, visitExp(ctx.exp(0)), UnknownLabel)
 
         case "stop(" => Stop(info, string2Int(ctx.IntLit().getText), visitExp(ctx.exp(0)), visitExp(ctx.exp(1)))
         case "attach" => Attach(info, visitExp(ctx.exp.head), ctx.exp.tail map visitExp)

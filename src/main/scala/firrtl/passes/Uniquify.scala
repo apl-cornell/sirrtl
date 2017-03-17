@@ -292,7 +292,7 @@ object Uniquify extends Pass {
             sinfo = sx.info
             if (nameMap.contains(sx.name)) {
               val node = nameMap(sx.name)
-              DefNode(sx.info, node.name, sx.value)
+              DefNode(sx.info, node.name, sx.value, sx.lbl)
             } else {
               sx
             }

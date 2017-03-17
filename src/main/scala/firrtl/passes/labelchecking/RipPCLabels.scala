@@ -15,8 +15,8 @@ object RipPCLabels extends Pass with PassDebug {
 
   def ripPCS(s: Statement): Statement =
     s map ripPCS match {
-      case DefNodePC(info, name, value, _) =>
-        DefNode(info, name, value)
+      case DefNodePC(info, name, value, lbl, _) =>
+        DefNode(info, name, value, lbl)
       case ConnectPC(info, loc, expr, _) =>
         Connect(info, loc, expr)
       case PartialConnectPC(info, loc, expr, _) =>

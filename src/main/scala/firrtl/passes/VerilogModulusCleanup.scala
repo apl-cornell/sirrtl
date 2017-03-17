@@ -51,7 +51,7 @@ object VerilogModulusCleanup extends Pass {
           case Rem => 
             val name = namespace.newTemp
             val newType = e mapType verilogRemWidth(e)
-            v += DefNode(get_info(s), name, e mapType verilogRemWidth(e))
+            v += DefNode(get_info(s), name, e mapType verilogRemWidth(e), UnknownLabel)
             val remRef = WRef(name, newType.tpe, e.lbl, kind(e), gender(e))
             val remWidth = bitWidth(e.tpe)
             DoPrim(Bits, Seq(remRef), Seq(remWidth - 1, BigInt(0)), e.tpe, UnknownLabel)

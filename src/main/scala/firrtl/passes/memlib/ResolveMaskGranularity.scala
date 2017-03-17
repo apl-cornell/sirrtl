@@ -22,7 +22,7 @@ object AnalysisUtils {
       s match {
         case Connect(_, loc, expr) =>
           connects(loc.serialize) = expr
-        case DefNode(_, name, value) =>
+        case DefNode(_, name, value, _) =>
           connects(name) = value
         case IsInvalid(_, value) =>
           connects(value.serialize) = WInvalid

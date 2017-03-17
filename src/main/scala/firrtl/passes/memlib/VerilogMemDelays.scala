@@ -60,7 +60,7 @@ object VerilogMemDelays extends Pass {
         // returns
         // 1) reference to the last pipe register
         // 2) pipe registers and connects
-        val node = DefNode(NoInfo, namespace.newTemp, netlist(e))
+        val node = DefNode(NoInfo, namespace.newTemp, netlist(e), sx.lbl)
         val wref = WRef(node.name, e.tpe, e.lbl, NodeKind, MALE)
         ((0 until n) foldLeft (wref, Seq[Statement](node))){case ((ex, stmts), i) =>
           val name = namespace newName s"${LowerTypes.loweredName(e)}_pipe_$i"
@@ -70,7 +70,7 @@ object VerilogMemDelays extends Pass {
             (if (i < n - 1 && WrappedExpression.weq(cond, one)) Seq(Connect(NoInfo, exx, ex)) else {
               val condn = namespace newName s"${LowerTypes.loweredName(e)}_en"
               val condx = WRef(condn, BoolType, e.lbl, NodeKind, FEMALE)
-              Seq(DefNode(NoInfo, condn, cond),
+              Seq(DefNode(NoInfo, condn, cond, UnknownLabel),
                   Connect(NoInfo, exx, Mux(condx, ex, exx, e.tpe, JoinLabel(ex.lbl, exx.lbl))))
             })
           )

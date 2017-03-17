@@ -23,15 +23,15 @@ object SplitExpressions extends Pass {
         def split(e: Expression): Expression = e match {
           case e: DoPrim =>
             val name = namespace.newTemp
-            v += DefNode(get_info(s), name, e)
+            v += DefNode(get_info(s), name, e, e.lbl)
             WRef(name, e.tpe, e.lbl, kind(e), gender(e))
           case e: Mux =>
             val name = namespace.newTemp
-            v += DefNode(get_info(s), name, e)
+            v += DefNode(get_info(s), name, e, e.lbl)
             WRef(name, e.tpe, e.lbl, kind(e), gender(e))
           case e: ValidIf =>
             val name = namespace.newTemp
-            v += DefNode(get_info(s), name, e)
+            v += DefNode(get_info(s), name, e, e.lbl)
             WRef(name, e.tpe, e.lbl, kind(e), gender(e))
           case _ => e
         }

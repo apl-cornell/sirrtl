@@ -23,7 +23,7 @@ object RemoveAllButClocks extends Pass {
   def name = this.getClass.getSimpleName
   def onStmt(s: Statement): Statement = (s map onStmt) match {
     case DefWire(i, n, ClockType, lbl) => s
-    case DefNode(i, n, value) if value.tpe == ClockType => s
+    case DefNode(i, n, value, lbl) if value.tpe == ClockType => s
     case Connect(i, l, r) if l.tpe == ClockType => s
     case sx: WDefInstance => sx
     case sx: DefInstance => sx

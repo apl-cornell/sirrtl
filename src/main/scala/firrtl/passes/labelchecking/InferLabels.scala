@@ -65,14 +65,16 @@ object InferLabels extends Pass with PassDebug {
   def gen_constr_s(conSet: ConstrSet)(s: Statement): Statement =
     s map gen_constr_s(conSet) match {
       case sx: ConnectPC => 
-        val s = new ConstrSet
         canon_labels(sx.expr) foreach { v => conSet += ((v, sx.loc.lbl)) }
         canon_labels(sx.pc)   foreach { v => conSet += ((v, sx.loc.lbl)) }
         sx
       case sx: PartialConnectPC =>
-        val s = new ConstrSet 
         canon_labels(sx.expr) foreach { v => conSet += ((v, sx.loc.lbl)) }
         canon_labels(sx.pc)   foreach { v => conSet += ((v, sx.loc.lbl)) }
+        sx
+      case sx: DefNodePC =>
+        canon_labels(sx.value) foreach { v => conSet += ((v, sx.lbl)) }
+        canon_labels(sx.pc)   foreach { v => conSet += ((v, sx.lbl)) }
         sx
       case sx => sx
     }

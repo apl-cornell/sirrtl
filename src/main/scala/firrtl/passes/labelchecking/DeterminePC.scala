@@ -99,8 +99,8 @@ object DeterminePC extends Pass with PassDebug {
       val sx = ConditionallyPC(info, pred, conseq, alt, pc)
       predEnv.appendContext(assignedIn(s), pred)
       sx map determine_pc_s(predEnv)
-    case DefNode(info, name, value) =>
-      DefNodePC(info, name, value, pcLabel(predEnv(name))) map
+    case DefNode(info, name, value, lbl) =>
+      DefNodePC(info, name, value, pcLabel(predEnv(name)), lbl) map
         elevate_e(predEnv(name))
     case Connect(info, loc, expr) =>
       ConnectPC(info, loc, expr, pcLabel(predEnv(loc.serialize)))

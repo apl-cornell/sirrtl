@@ -161,7 +161,7 @@ object LowerTypes extends Pass {
       case sx: DefNode =>
         val names = create_exps(sx.name, sx.value.tpe) map lowerTypesExp(memDataTypeMap, info, mname)
         val exps = create_exps(sx.value) map lowerTypesExp(memDataTypeMap, info, mname)
-        Block(names zip exps map { case (n, e) => DefNode(info, loweredName(n), e) })
+        Block(names zip exps map { case (n, e) => DefNode(info, loweredName(n), e, sx.lbl) })
       case sx: IsInvalid => kind(sx.expr) match {
         case MemKind =>
           Block(lowerTypesMemExp(memDataTypeMap, info, mname)(sx.expr) map (IsInvalid(info, _)))

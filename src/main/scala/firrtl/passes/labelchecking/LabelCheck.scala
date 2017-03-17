@@ -91,70 +91,79 @@ object LabelCheck extends Pass with PassDebug {
         case sx: ConnectPC =>
           val lhs: Label = sx.loc.lbl
           val rhs: Label = sx.expr.lbl
-          val pc: Label = sx.pc
           val whenC: Constraint = whenEnv(sx)
           val deps = collect_deps(conEnv)(lhs) ++
             collect_deps(conEnv)(rhs) ++
             collect_deps_c(conEnv)(whenC)
+          check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
+          /*
           (lhs, rhs) match {
             case((lhsb: BundleLabel, rhsb: BundleLabel)) => 
               lhsb.fields.foreach { f =>
                 val lhsx = f.lbl
                 val rhsx = field_label(rhs, f.name)
                 val inf = s" (field: ${f.name})"
-                check_connection(deps, whenC, pc, lhsx, rhsx, sx.info, inf)
+                emit_conn_check(deps, whenC, pc, lhsx, rhsx, sx.info, inf)
               }
             case((lhsb: BundleLabel, _)) => 
               lhsb.fields.foreach { f =>
                 val lhsx = f.lbl
                 val inf = s" (field: ${f.name})"
-                check_connection(deps, whenC, pc, lhsx, rhs, sx.info, inf)
+                emit_conn_check(deps, whenC, pc, lhsx, rhs, sx.info, inf)
               }
             case((_, rhsb: BundleLabel)) => 
               rhsb.fields.foreach { f =>
                 val rhsx = f.lbl
                 val inf = s" (field: ${f.name})"
-                check_connection(deps, whenC, pc, lhs, rhsx, sx.info, inf)
+                emit_conn_check(deps, whenC, pc, lhs, rhsx, sx.info, inf)
               }
             case _ =>
-              check_connection(deps, whenC, pc, lhs, rhs, sx.info)
+              emit_conn_check(deps, whenC, pc, lhs, rhs, sx.info)
           }
+          */
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: PartialConnectPC =>
           val lhs: Label = sx.loc.lbl
           val rhs: Label = sx.expr.lbl
-          val pc: Label = sx.pc
           val whenC: Constraint = whenEnv(sx)
           val deps = collect_deps(conEnv)(lhs) ++
             collect_deps(conEnv)(rhs) ++
             collect_deps_c(conEnv)(whenC)
+          check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
+          /*
           (lhs, rhs) match {
             case((lhsb: BundleLabel, rhsb: BundleLabel)) => 
               lhsb.fields.foreach { f =>
                 val lhsx = f.lbl
                 val rhsx = field_label(rhs, f.name)
                 val inf = s" (field: ${f.name})"
-                check_connection(deps, whenC, pc, lhsx, rhsx, sx.info, inf)
+                emit_conn_check(deps, whenC, pc, lhsx, rhsx, sx.info, inf)
               }
             case((lhsb: BundleLabel, _)) => 
               lhsb.fields.foreach { f =>
                 val lhsx = f.lbl
                 val inf = s" (field: ${f.name})"
-                check_connection(deps, whenC, pc, lhsx, rhs, sx.info, inf)
+                emit_conn_check(deps, whenC, pc, lhsx, rhs, sx.info, inf)
               }
             case((_, rhsb: BundleLabel)) => 
               rhsb.fields.foreach { f =>
                 val rhsx = f.lbl
                 val inf = s" (field: ${f.name})"
-                check_connection(deps, whenC, pc, lhs, rhsx, sx.info, inf)
+                emit_conn_check(deps, whenC, pc, lhs, rhsx, sx.info, inf)
               }
             case _ =>
-              check_connection(deps, whenC, pc, lhs, rhs, sx.info)
+              emit_conn_check(deps, whenC, pc, lhs, rhs, sx.info)
           }
+          */
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: DefNodePC =>
+          val lhs: Label = sx.lbl
+          val rhs: Label = sx.value.lbl
           val whenC = whenEnv(sx)
-          val deps = collect_deps_c(conEnv)(whenC)
+          val deps = collect_deps(conEnv)(lhs) ++
+            collect_deps(conEnv)(rhs) ++
+            collect_deps_c(conEnv)(whenC)
+          check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: ConditionallyPC =>
           val whenC = whenEnv(sx)
@@ -203,7 +212,33 @@ object LabelCheck extends Pass with PassDebug {
       }
     }
 
-    def check_connection(deps: ConSet, whenC: Constraint, pc: Label, lhs: Label, rhs: Label,
+    def check_connection(deps: ConSet, whenC: Constraint, lhs: Label, rhs: Label, pc: Label, info: Info): Unit = {
+      (lhs, rhs) match {
+        case((lhsb: BundleLabel, rhsb: BundleLabel)) => 
+          lhsb.fields.foreach { f =>
+            val lhsx = f.lbl
+            val rhsx = field_label(rhs, f.name)
+            val inf = s" (field: ${f.name})"
+            emit_conn_check(deps, whenC, pc, lhsx, rhsx, info, inf)
+          }
+        case((lhsb: BundleLabel, _)) => 
+          lhsb.fields.foreach { f =>
+            val lhsx = f.lbl
+            val inf = s" (field: ${f.name})"
+            emit_conn_check(deps, whenC, pc, lhsx, rhs, info, inf)
+          }
+        case((_, rhsb: BundleLabel)) => 
+          rhsb.fields.foreach { f =>
+            val rhsx = f.lbl
+            val inf = s" (field: ${f.name})"
+            emit_conn_check(deps, whenC, pc, lhs, rhsx, info, inf)
+          }
+        case _ =>
+          emit_conn_check(deps, whenC, pc, lhs, rhs, info)
+      }
+    }
+
+    def emit_conn_check(deps: ConSet, whenC: Constraint, pc: Label, lhs: Label, rhs: Label,
       info: Info, extraInfo: String = ""): Unit = {
       def ser(l:LabelComp) = consGenerator.serialize(l)
       emit("(push)\n")
