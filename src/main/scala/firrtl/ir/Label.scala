@@ -85,7 +85,7 @@ sealed class JoinLabel private(val l: Label, val r: Label) extends Label {
     case JoinLabel(lx, rx) => lx == l && rx == r
     case _ => false
   }
-  def serialize = s"${l.serialize} join ${r.serialize}"
+  def serialize = s"{${l.serialize}} join {${r.serialize}}"
   def mapLabelComp(f: LabelComp => LabelComp): Label = this
   def mapLabel(f: Label => Label): Label = JoinLabel(f(l), f(r))
 }
@@ -111,7 +111,7 @@ sealed class MeetLabel private(val l: Label, val r: Label) extends Label {
     case MeetLabel(lx, rx) => lx == l && rx == r
     case _ => false
   }
-  def serialize = s"${l.serialize} meet ${r.serialize}"
+  def serialize = s"{${l.serialize}} meet {${r.serialize}}"
   def mapLabelComp(f: LabelComp => LabelComp): Label = this
   def mapLabel(f: Label => Label): Label = MeetLabel(f(l), f(r))
 }
