@@ -57,11 +57,11 @@ object InferLabels extends Pass with PassDebug {
   def infer_labels(m: DefModule): DefModule = {
     val env = new LabelVarEnv
     val conSet = gen_constr(m)
-    // dprint(s"generated constraints (${m.name}):")
-    // dprint(conSet.toString)
+    dprint(s"generated constraints (${m.name}):")
+    dprint(conSet.toString)
     resolve_constraints(env, conSet)
-    // dprint(s"env after resolving constraints (${m.name}):")
-    // dprint(env.toString)
+    dprint(s"env after resolving constraints (${m.name}):")
+    dprint(env.toString)
     prop_env_m(env)(m)
   }
 
@@ -123,11 +123,6 @@ object InferLabels extends Pass with PassDebug {
   //-----------------------------------------------------------------------------
   // Constraint Resoluton
   //-----------------------------------------------------------------------------
-  // XXX there is supposed to be some contradiction case... this does not test 
-  // for a contradiction, but I think z3 will catch contradictions.
-  //
-  // This seems to do a better job when the constraints with non-var RHS lbls
-  // are resolved first
   def resolve_constraints(env: LabelVarEnv, conSet: ConstrSet): Unit = {
     type ConstrList = collection.mutable.ListBuffer[(Label, Label)]
 
@@ -135,7 +130,7 @@ object InferLabels extends Pass with PassDebug {
     // key VarLabel. By keeping this subscriber list, we can update the 
     // subscribers whenever the labels they depend on change. This should make 
     // the result of constraint evaluation independent of the order in which 
-    // onstraints are evaluated
+    // constraints are evaluated
     val varSubs = new collection.mutable.HashMap[VarLabel, Set[VarLabel]] {
       override def default(l:VarLabel) = Set()
       override def toString: String = {
@@ -148,14 +143,22 @@ object InferLabels extends Pass with PassDebug {
     }
    
     conSet foreach { case (l1: Label, l2: Label) =>
-      // dprint(s"resolving ${l1.lbl.serialize} flowsto ${l2.lbl.serialize}")
+      dprint(s"resolving ${l1.lbl.serialize} flowsto ${l2.lbl.serialize}")
       // dprint(s"before ${env.toString}")
       l1 match {
         case lx: VarLabel =>
           vars_in(l2) foreach { v => varSubs(v) = varSubs(v) + lx }
-          val lx_ = env(lx) meet resolve_label(env)(l2)
-          env(lx) = lx_ 
-          varSubs(lx) foreach { v=> env(v) = env(v) meet lx_ }
+          env(lx) = env(lx) meet resolve_label(env)(l2)
+         
+          // There can be cyclic dependencies because there are regs.
+          val visited = new collection.mutable.HashSet[VarLabel]
+          def update_subs(l: VarLabel, upd: Label): Unit =
+            varSubs(l) foreach { v => if(!(visited contains v)) {
+              visited += v
+              env(v) = env(v) meet upd
+              update_subs(v, env(v))
+            }}
+          update_subs(lx, env(lx))
         case _ =>
       }
       // dprint(s"after ${env.toString}\n\n")
