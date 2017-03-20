@@ -148,17 +148,21 @@ object InferLabels extends Pass with PassDebug {
       l1 match {
         case lx: VarLabel =>
           vars_in(l2) foreach { v => varSubs(v) = varSubs(v) + lx }
-          env(lx) = env(lx) meet resolve_label(env)(l2)
+          val lx_ = env(lx) meet resolve_label(env)(l2)
          
-          // There can be cyclic dependencies because there are regs.
-          val visited = new collection.mutable.HashSet[VarLabel]
           def update_subs(l: VarLabel, upd: Label): Unit =
-            varSubs(l) foreach { v => if(!(visited contains v)) {
-              visited += v
-              env(v) = env(v) meet upd
-              update_subs(v, env(v))
-            }}
-          update_subs(lx, env(lx))
+            varSubs(l) foreach { v => 
+              val lx = env(v) meet upd
+              if(lx != env(v)) {
+                env(v) = lx
+                update_subs(v, lx)
+              }
+            }
+
+          if(lx_ != env(lx)) {
+            env(lx) = lx_
+            update_subs(lx, env(lx))
+          }
         case _ =>
       }
       // dprint(s"after ${env.toString}\n\n")
