@@ -260,7 +260,8 @@ object BVConstraintGen extends ConstraintGenerator {
     CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
 
   override def serialize(l: LabelComp) = l match {
-    case FunLabel(fname,arg) => s"($fname ${refToIdent(arg)})"
+    case FunLabel(fname, args) => //s"($fname ${refToIdent(arg)})"
+      s"($fname ${args map { refToIdent(_) } mkString(" ")})"
     case JoinLabelComp(l,r) => s"(join ${serialize(l)} ${serialize(r)})"
     case MeetLabelComp(l,r) => s"(meet ${serialize(l)} ${serialize(r)})"
     case lx: Level => lx.serialize

@@ -67,8 +67,8 @@ label
 
 labelComp
   :  id               // Constant security level
-  |  id exp           // Dependent type function applied to expression
-  |  '[['  exp ']]H'  // Hypercube label interpretation of expression
+  |  '(' id exp+ ')'  // Dependent type function
+  |  '[[' exp ']]H'   // Hypercube label interpretation of expression
   ;
 
 field

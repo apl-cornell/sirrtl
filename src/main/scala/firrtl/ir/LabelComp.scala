@@ -93,11 +93,15 @@ sealed class MeetLabelComp private(val l: LabelComp, val r: LabelComp) extends L
   def mapLabelComp(f: LabelComp => LabelComp) : LabelComp = MeetLabelComp(f(l), f(r))
 }
 
-
-case class FunLabel(fname: String, arg: Expression) extends LabelComp {
-  def serialize = s"($fname ${arg.serialize})"
+case class FunLabel(fname: String, args: List[Expression]) extends LabelComp {
+  def serialize = s"($fname ${args map { _ serialize } mkString(" ")})"
   def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
-  def mapExpr(f: Expression => Expression): LabelComp = this.copy(arg = f(arg))
+  def mapExpr(f: Expression => Expression): LabelComp = this.copy(args = args map f)
+}
+
+object FunLabel{
+  def apply(fname: String, args: Expression*) =
+    new FunLabel(fname, args.toList)
 }
 
 case class HLevel(arg: Expression) extends LabelComp {
@@ -105,33 +109,3 @@ case class HLevel(arg: Expression) extends LabelComp {
   def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
   def mapExpr(f: Expression => Expression): LabelComp = this.copy(arg = f(arg))
 }
-/*
-object IfLabel {
-   def apply(cond: Node, t : Label, f : Label) = (cond,t,f) match {
-     case(_,tt,ft) if tt == ft => tt
-     case _ => new IfLabel(cond,t,f)
-   }
-   def unapply(ift: IfLabel) = Some((ift.cond, ift.tType, ift.fType))
-}
-
-// Behaves like a case class
-class IfLabel private (var cond: Node, var tType : Label,
-  var fType : Label) extends Label with DepLabel {
-  override def toString = s"if(??) $tType else $fType"
-  
-  override def equals(that: Any) = that match {
-    case IfLabel(c,t,f) => cond == c && tType == t && fType == f
-    case _ => false
-  }
-  override def accept[T](visitor : LabelVisitor[T]) : T = visitor visit this
-  override def accept(visitor : LabelSwapVisitor) : Label =
-    visitor visit this
-}
-
-object CaseLabel {
-  def apply(cond: Data, alternatives: Label*) =
-    alternatives.zipWithIndex.map { case (alt: Label, idx: Int) =>
-      IfLabel(cond === UInt(idx), alt, _: Label)
-    }.foldRight(alternatives.last) {_ apply _}
-}
-*/

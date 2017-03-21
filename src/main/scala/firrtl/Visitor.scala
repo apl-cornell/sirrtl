@@ -154,10 +154,10 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
 
   private def visitLabelComp[FirrtlNode](ctx: FIRRTLParser.LabelCompContext): LabelComp = {
     if(ctx.getChild(0).getText == "[[") {
-        HLevel(visitExp(ctx.exp))
+        HLevel(visitExp(ctx.exp(0)))
     } else Option(ctx.exp) match {
         case None => Level(ctx.id.getText)
-        case Some(ectx) => FunLabel(ctx.id.getText, visitExp(ectx))
+        case Some(ectx) => FunLabel(ctx.id.getText, ectx.map(visitExp):_*)
     }
   }
 
