@@ -8,7 +8,7 @@ import collection.mutable.Set
 
 object DeterminePC extends Pass with PassDebug {
   def name    = "DeterminePC"
-  override def debugThisPass = true
+  override def debugThisPass = false
   
   def bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
 

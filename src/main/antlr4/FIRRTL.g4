@@ -111,7 +111,7 @@ stmt
   | 'smem' id ':' type info?
   | mdir 'mport' id '=' id '[' exp ']' exp info?
   | 'inst' id 'of' id info?
-  | 'node' id '=' exp info?
+  | 'node' id label? '=' exp info?
   | exp '<=' exp info?
   | exp '<-' exp info?
   | exp 'is' 'invalid' info?

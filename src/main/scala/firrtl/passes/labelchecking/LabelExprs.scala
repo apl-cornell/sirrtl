@@ -109,10 +109,10 @@ object LabelExprs extends Pass with PassDebug {
         labels(sx.name) = lb
         (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefNode =>
-        // There is no syntax for labeling nodes! They're always inferred
+        var lb = labelOrVar(sx.lbl, sx.name)
         val sxx = ((sx map label_exprs_e(labels)).asInstanceOf[DefNode]).copy(
-          lbl = VarLabel(sx.name))
-        labels(sxx.name) = sxx.lbl
+          lbl = lb)
+        labels(sxx.name) = lb
         sxx
       case sx => sx map label_exprs_e(labels)
   }

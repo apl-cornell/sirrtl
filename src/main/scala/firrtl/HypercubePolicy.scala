@@ -239,11 +239,12 @@ class HypercubePolicy extends Policy {
    |  (ite (= x (_ bv1 2)) D1
    |  (ite (= x (_ bv2 2)) D2
    |                       H ))))
+   |
    |(define-fun condcmp ((cond (_ BitVec 1)) (t (_ BitVec 16)) (f (_ BitVec 16))) (_ BitVec 16)
-   |  (ite (= t (_ bv0 1)) t f)
+   |  (ite (= cond (_ bv0 1)) t f))
    |
    |(define-fun mpriv ((cond (_ BitVec 2)) (alt (_ BitVec 16))) (_ BitVec 16)
-   |  (ite (= t (_ bv3 2)) M alt)
+   |  (ite (= cond (_ bv3 2)) M alt))
    |
    |""".stripMargin
   }
