@@ -133,13 +133,6 @@ object InferLabels extends Pass with PassDebug {
     // constraints are evaluated
     val varSubs = new collection.mutable.HashMap[VarLabel, Set[VarLabel]] {
       override def default(l:VarLabel) = Set()
-      override def toString: String = {
-        var s = ""
-        this.foreach { case(l1: VarLabel, subs: Set[VarLabel]) =>
-          s = s + s"${l1.serialize} has subscribers: ${subs.toString}\n"
-        }
-        s
-      }
     }
    
     conSet foreach { case (l1: Label, l2: Label) =>
@@ -154,6 +147,7 @@ object InferLabels extends Pass with PassDebug {
             varSubs(l) foreach { v => 
               val lx = env(v) meet upd
               if(lx != env(v)) {
+                dprint(s"updating ${v.serialize} to ${lx.serialize}")
                 env(v) = lx
                 update_subs(v, lx)
               }

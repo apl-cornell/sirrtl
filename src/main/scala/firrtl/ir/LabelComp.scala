@@ -33,6 +33,8 @@ object JoinLabelComp {
   val top : LabelComp = PolicyHolder.top
   def apply(l: LabelComp, r: LabelComp): LabelComp = (l, r) match {
     case(lx, rx) if lx == rx => lx
+    case(JoinLabelComp(lxx, rxx), rx) if lxx == rx || rxx == rx => JoinLabelComp(lxx, rxx)
+    case(lx, JoinLabelComp(lxx, rxx)) if lxx == lx || rxx == lx => JoinLabelComp(lxx, rxx)
     case(UnknownLabelComp, _) => UnknownLabelComp
     case(_, UnknownLabelComp) => UnknownLabelComp
     case(_, b: Level) if b == bottom => l
@@ -66,6 +68,8 @@ object MeetLabelComp {
   val top : LabelComp = PolicyHolder.top
   def apply(l: LabelComp, r: LabelComp): LabelComp = (l, r) match {
     case(lx, rx) if lx == rx => lx
+    case(MeetLabelComp(lxx, rxx), rx) if lxx == rx || rxx == rx => MeetLabelComp(lxx, rxx)
+    case(lx, MeetLabelComp(lxx, rxx)) if lxx == lx || rxx == lx => MeetLabelComp(lxx, rxx)
     case(UnknownLabelComp, _) => UnknownLabelComp
     case(_, UnknownLabelComp) => UnknownLabelComp
     case(_, t: Level) if t == top => l

@@ -157,6 +157,7 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
         HLevel(visitExp(ctx.exp(0)))
     } else Option(ctx.exp) match {
         case None => Level(ctx.id.getText)
+        case Some(ectx) if ectx.size == 0 => Level(ctx.id.getText)
         case Some(ectx) => FunLabel(ctx.id.getText, ectx.map(visitExp):_*)
     }
   }

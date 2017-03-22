@@ -66,14 +66,16 @@ case class VarLabel(id: String) extends Label {
 // label components
 object JoinLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
-    case(ProdLabel(lc, li), ProdLabel(rc, ri)) =>
+    case (JoinLabel(lxx, rxx), rx) if lxx == rx || rxx == rx => JoinLabel(lxx, rxx)
+    case (lx, JoinLabel(lxx, rxx)) if lxx == lx || rxx == lx => JoinLabel(lxx, rxx)
+    case (ProdLabel(lc, li), ProdLabel(rc, ri)) =>
       ProdLabel(JoinLabelComp(lc, rc), MeetLabelComp(li, ri))
-    case(bl: BundleLabel, br: BundleLabel) if(fields_match(bl, br)) =>
+    case (bl: BundleLabel, br: BundleLabel) if(fields_match(bl, br)) =>
       BundleLabel(bl.fields map { f => f mapLabel { _ join field_label(br, f.name) } })
-    case(bl: BundleLabel, br: BundleLabel) =>
+    case (bl: BundleLabel, br: BundleLabel) =>
         throw new Exception("Tried to join two bundles with non-matching fields")
-    case(b: BundleLabel, r) => b mapLabel { _ join r }
-    case(l, b: BundleLabel) => b mapLabel { _ join l }
+    case (b: BundleLabel, r) => b mapLabel { _ join r }
+    case (l, b: BundleLabel) => b mapLabel { _ join l }
     case _ => new JoinLabel(l, r)
   }
   def apply(l: Label*) : Label = l.reduceRight { apply(_,_) }
@@ -92,14 +94,16 @@ sealed class JoinLabel private(val l: Label, val r: Label) extends Label {
 
 object MeetLabel {
   def apply(l: Label, r: Label): Label = (l, r) match {
-    case(ProdLabel(lc, li), ProdLabel(rc, ri)) =>
+    case (MeetLabel(lxx, rxx), rx) if lxx == rx || rxx == rx => MeetLabel(lxx, rxx)
+    case (lx, MeetLabel(lxx, rxx)) if lxx == lx || rxx == lx => MeetLabel(lxx, rxx)
+    case (ProdLabel(lc, li), ProdLabel(rc, ri)) =>
       ProdLabel(MeetLabelComp(lc, rc), JoinLabelComp(li, ri))
-    case(bl: BundleLabel, br: BundleLabel) if(fields_match(bl, br)) =>
+    case (bl: BundleLabel, br: BundleLabel) if(fields_match(bl, br)) =>
       BundleLabel(bl.fields map { f => f mapLabel { _ meet field_label(br, f.name) } })
-    case(bl: BundleLabel, br: BundleLabel) =>
+    case (bl: BundleLabel, br: BundleLabel) =>
         throw new Exception("Tried to meet two Bundles with non-matching fields")
-    case(b: BundleLabel, r) => b mapLabel { _ meet r }
-    case(l, b: BundleLabel) => b mapLabel { _ meet l }
+    case (b: BundleLabel, r) => b mapLabel { _ meet r }
+    case (l, b: BundleLabel) => b mapLabel { _ meet l }
     case _ => new MeetLabel(l, r)
   }
   def apply(l: Label*) : Label = l.reduceRight { apply(_,_) }
