@@ -6,6 +6,7 @@ import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.Driver._
 
+// TODO mems are sequential too!!!!
 
 // This pass checks that all expressions of form next(e) are valid, and 
 // replaces them with a unique compiler-mangled WIR expression. Valid next 

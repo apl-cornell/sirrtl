@@ -114,6 +114,11 @@ object LabelExprs extends Pass with PassDebug {
           lbl = lb)
         labels(sxx.name) = lb
         sxx
+      case sx: DefMemory =>
+        // Don't do inference for memories for now.
+        checkDeclared(sx.lbl, sx.info, sx.name)
+        labels(sx.name) = sx.lbl
+        sx
       case sx => sx map label_exprs_e(labels)
   }
 

@@ -100,6 +100,7 @@ object RemoveCHIRRTL extends Pass {
       val addrs = ArrayBuffer[String]()
       val clks = ArrayBuffer[String]()
       val ens = ArrayBuffer[String]()
+      // XXX Substitute indexing expression here if it is a vec type
       sx.direction match {
         case MReadWrite =>
           refs(sx.name) = DataRef(SubField(Reference(sx.mem, ut, sx.lbl), sx.name, ut, sx.lbl), "rdata", "wdata", "wmask", rdwrite = true)

@@ -107,8 +107,8 @@ stmt
   : 'wire' id ':' label? type info?
   | 'reg' id ':' label? type exp ('with' ':' reset_block)? info?
   | 'mem' id ':' info? INDENT memField* DEDENT
-  | 'cmem' id ':' type info?
-  | 'smem' id ':' type info?
+  | 'cmem' id ':' label? type info?
+  | 'smem' id ':' label? type info?
   | mdir 'mport' id '=' id '[' exp ']' exp info?
   | 'inst' id 'of' id info?
   | 'node' id label? '=' exp info?

@@ -8,6 +8,11 @@ object deLabel {
     if(!Driver.doLabelChecking) Seq(passes.DeLabel) else Seq()
 }
 
+object chirrtlLabels {
+  def apply(): Seq[passes.Pass] =
+    if(Driver.doLabelChecking) Seq(passes.LabelMPorts) else Seq()
+}
+
 sealed abstract class CoreTransform extends PassBasedTransform
 
 /** This transforms "CHIRRTL", the chisel3 IR, to "Firrtl". Note the resulting
@@ -20,8 +25,9 @@ class ChirrtlToHighFirrtl extends CoreTransform {
   def passSeq = Seq(
     passes.CheckChirrtl,
     passes.CInferTypes,
-    passes.CInferMDir,
-    passes.RemoveCHIRRTL) ++
+    passes.CInferMDir) ++
+    chirrtlLabels() ++
+    Seq(passes.RemoveCHIRRTL) ++
     deLabel()
 }
 

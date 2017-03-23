@@ -7,6 +7,8 @@ import firrtl.Mappers._
 import firrtl.Driver._
 import collection.mutable.Set
 
+// TODO mems are sequential too!!!!
+
 object NextCycleTransform extends Pass with PassDebug {
   def name = "Next Cycle Transform"
   override def debugThisPass = false

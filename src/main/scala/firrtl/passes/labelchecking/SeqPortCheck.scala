@@ -13,6 +13,8 @@ import firrtl.Driver._
 // mapped exactly to an atom which represents either: a sequential port which is
 // an input, or a register
 
+// TODO mems are sequential too!!
+
 object SeqPortCheck extends LabelPass with LabelPassDebug {
   def name = "SeqPortCheck"
   override def debugThisPass = false
