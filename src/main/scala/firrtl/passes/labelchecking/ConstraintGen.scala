@@ -52,7 +52,7 @@ abstract class ConstraintGenerator {
   // The purpose of this function is to mutate conEnv and whenEnv (by populating 
   // them) Note: this is the identity function on the statement argument. 
   def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = s match {
-    case sx: DefNode =>
+      case sx: DefNodePC =>
         connect(conEnv, whenEnv, CAtom(sx.name), exprToCons(sx.value))
         whenEnv(sx) = whenEnv.cur; sx
       case sx: ConnectPC =>
@@ -87,7 +87,7 @@ abstract class ConstraintGenerator {
             connect(conEnv, whenEnv, exprToCons(sx.loc), exprToCons(sx.expr, w))
         }
         whenEnv(sx) = whenEnv.cur; sx
-      case sx: Conditionally =>
+      case sx: ConditionallyPC =>
         val pred = exprToConsBool(sx.pred)
         val oldWhen = whenEnv.cur
         // True side
@@ -116,6 +116,9 @@ abstract class ConstraintGenerator {
   //---------------------------------------------------------------------------
   // This is done by locating all refs/subfields that are referenced in the 
   // module.
+  //
+  // TODO Re-try implementing this by looking at actual declartions. I don't 
+  // remember why I did it by reference the first time...
   type DeclSet = Set[String]
   def decls_l(declSet: DeclSet)(l: Label) : Label =
     l map decls_lc(declSet) map decls_l(declSet)
@@ -163,6 +166,10 @@ abstract class ConstraintGenerator {
       case ((_, exprx: BundleType)) => throw new Exception(s"bad expr: ${info}")
       case _ => s map decls_e(declSet) map decls_l(declSet)
     }
+    case sx: DefNodePC =>
+      val locx = WRef(sx.name, sx.value.tpe, sx.lbl, WireKind, UNKNOWNGENDER)
+      declSet += exprToDeclaration(locx map decls_l(declSet))
+      sx
     case sx : Block =>
       sx map decls_s(declSet) map decls_e(declSet) map decls_l(declSet)
     case sx => try {
@@ -174,9 +181,22 @@ abstract class ConstraintGenerator {
     }
   }
 
+  def decls_p(declSet: DeclSet)(p: Port): Port = p.tpe match {
+      case tpe: BundleType =>
+        tpe.fields.foreach { f =>
+          val pref = WRef(p.name, p.tpe, p.lbl, PortKind, UNKNOWNGENDER)
+          val px= WSubField(pref,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+          declSet += exprToDeclaration(px map decls_l(declSet))
+        }; p
+      case _ => 
+        val pref = WRef(p.name, p.tpe, p.lbl, PortKind, UNKNOWNGENDER)
+        declSet += exprToDeclaration(pref map decls_l(declSet))
+        p
+  }
+
   def declarations(m: DefModule) : Set[String] = {
     val declSet = Set[String]()
-    m map decls_s(declSet)
+    m map decls_p(declSet) map decls_s(declSet)
     declSet
   }
 }

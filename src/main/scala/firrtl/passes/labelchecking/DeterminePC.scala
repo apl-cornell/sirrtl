@@ -21,9 +21,8 @@ object DeterminePC extends Pass with PassDebug {
       val sxx = sx copy (stmts = sx.stmts.reverse map determine_pc_s(pc)(pcEnv))
       sxx copy (stmts = sxx.stmts.reverse)
     case Conditionally(info, pred, conseq, alt) =>
-      val sx = ConditionallyPC(info, pred, conseq, alt, pc)
       val pc_ = pred.lbl join pc
-      sx map determine_pc_s(pc_)(pcEnv)
+      ConditionallyPC(info, pred, conseq, alt, pc) map determine_pc_s(pc_)(pcEnv)
     case DefNode(info, name, value, lbl) =>
       pcEnv(name) = pcEnv(name) join pc
       DefNodePC(info, name, value, lbl, pcEnv(name))

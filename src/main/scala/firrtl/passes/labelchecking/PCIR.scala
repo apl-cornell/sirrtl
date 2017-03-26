@@ -50,12 +50,12 @@ case class ConditionallyPC(
     alt: Statement,
     pc: Label) extends Statement with HasInfo {
   def serialize: String =
-    s"when ${pred.serialize} :" + info.serialize +
+    s"[${pc.serialize}] when ${pred.serialize} :" + info.serialize +
     indent("\n" + conseq.serialize) +
     (if (alt == EmptyStmt) ""
     else "\nelse :" + indent("\n" + alt.serialize))
-  def mapStmt(f: Statement => Statement): Statement = Conditionally(info, pred, f(conseq), f(alt))
-  def mapExpr(f: Expression => Expression): Statement = Conditionally(info, f(pred), conseq, alt)
+  def mapStmt(f: Statement => Statement): Statement = this.copy(conseq = f(conseq), alt = f(alt))
+  def mapExpr(f: Expression => Expression): Statement = this.copy(pred = f(pred))
   def mapType(f: Type => Type): Statement = this
   def mapString(f: String => String): Statement = this
   def mapLabel(f: Label => Label): Statement = this.copy(pc = f(pc))

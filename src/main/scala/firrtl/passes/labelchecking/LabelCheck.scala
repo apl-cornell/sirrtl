@@ -96,31 +96,6 @@ object LabelCheck extends Pass with PassDebug {
             collect_deps(conEnv)(rhs) ++
             collect_deps_c(conEnv)(whenC)
           check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
-          /*
-          (lhs, rhs) match {
-            case((lhsb: BundleLabel, rhsb: BundleLabel)) => 
-              lhsb.fields.foreach { f =>
-                val lhsx = f.lbl
-                val rhsx = field_label(rhs, f.name)
-                val inf = s" (field: ${f.name})"
-                emit_conn_check(deps, whenC, pc, lhsx, rhsx, sx.info, inf)
-              }
-            case((lhsb: BundleLabel, _)) => 
-              lhsb.fields.foreach { f =>
-                val lhsx = f.lbl
-                val inf = s" (field: ${f.name})"
-                emit_conn_check(deps, whenC, pc, lhsx, rhs, sx.info, inf)
-              }
-            case((_, rhsb: BundleLabel)) => 
-              rhsb.fields.foreach { f =>
-                val rhsx = f.lbl
-                val inf = s" (field: ${f.name})"
-                emit_conn_check(deps, whenC, pc, lhs, rhsx, sx.info, inf)
-              }
-            case _ =>
-              emit_conn_check(deps, whenC, pc, lhs, rhs, sx.info)
-          }
-          */
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: PartialConnectPC =>
           val lhs: Label = sx.loc.lbl
@@ -130,31 +105,6 @@ object LabelCheck extends Pass with PassDebug {
             collect_deps(conEnv)(rhs) ++
             collect_deps_c(conEnv)(whenC)
           check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
-          /*
-          (lhs, rhs) match {
-            case((lhsb: BundleLabel, rhsb: BundleLabel)) => 
-              lhsb.fields.foreach { f =>
-                val lhsx = f.lbl
-                val rhsx = field_label(rhs, f.name)
-                val inf = s" (field: ${f.name})"
-                emit_conn_check(deps, whenC, pc, lhsx, rhsx, sx.info, inf)
-              }
-            case((lhsb: BundleLabel, _)) => 
-              lhsb.fields.foreach { f =>
-                val lhsx = f.lbl
-                val inf = s" (field: ${f.name})"
-                emit_conn_check(deps, whenC, pc, lhsx, rhs, sx.info, inf)
-              }
-            case((_, rhsb: BundleLabel)) => 
-              rhsb.fields.foreach { f =>
-                val rhsx = f.lbl
-                val inf = s" (field: ${f.name})"
-                emit_conn_check(deps, whenC, pc, lhs, rhsx, sx.info, inf)
-              }
-            case _ =>
-              emit_conn_check(deps, whenC, pc, lhs, rhs, sx.info)
-          }
-          */
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: DefNodePC =>
           val lhs: Label = sx.lbl
@@ -203,8 +153,6 @@ object LabelCheck extends Pass with PassDebug {
           emit_deps(deps)
           // Prove that the confidentiality label is not changing.
           emit(s"(assert (not (= ${ser(C(expr.lbl))} ${ser(C(lbl))})))")
-          // TODO prove that "endorse cannot be used by attacker code". Same as 
-          // proving (not (leqi ${ser(I(atk))} ${ser(I(pc))} )) ?
           emit("(check-sat)\n")
           emit("(pop)\n")
           e
@@ -244,7 +192,7 @@ object LabelCheck extends Pass with PassDebug {
       emit("(push)\n")
       emit(s"""(echo \"Checking Connection (Conf): ${info}${extraInfo}\")\n""" )
       emit(s"(assert ${whenC.serialize})\n")
-      emit_deps(deps)
+      // emit_deps(deps) XXX This is broken
       emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
       emit("(check-sat)\n")
       emit("(pop)\n")
@@ -252,7 +200,7 @@ object LabelCheck extends Pass with PassDebug {
       emit("(push)\n")
       emit(s"""(echo \"Checking Connection (Integ): ${info}${extraInfo}\")\n""" )
       emit(s"(assert ${whenC.serialize})\n")
-      emit_deps(deps)
+      // emit_deps(deps)
       // Note that "meet" is the same as the join over integ components
       emit(s"(assert (not (leqi ${ser(I(rhs) meet I(pc))} ${ser(I(lhs))}) ) )\n")
       emit("(check-sat)\n")
@@ -300,8 +248,9 @@ object LabelCheck extends Pass with PassDebug {
       // This is temporary. In the future, connection checks should be scoped, 
       // and only relevant parts of the connection graph will be printed within 
       // that scope. Possibly the same should be done to the declarations.
-      // emitConEnv(conEnv)
-      // emit("\n")
+      //
+      emitConEnv(conEnv)
+      emit("\n")
       
       //-----------------------------------------------------------------------
       // Check Assignments
