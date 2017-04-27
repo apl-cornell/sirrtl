@@ -213,6 +213,13 @@ object Utils extends LazyLogging {
     }
     case vx => false
   }
+
+  def has_field(t: BundleType, name: String): Boolean = {
+    t.fields.find( _.name == name) match {
+      case Some(_) => true
+      case None => false
+    }
+  }
   
   def fields_match(l: BundleType, r: BundleType): Boolean = {
     l.fields.foreach( f => r.fields.find (_.name == f.name) match {

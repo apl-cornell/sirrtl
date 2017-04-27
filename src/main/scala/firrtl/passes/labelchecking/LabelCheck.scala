@@ -249,8 +249,10 @@ object LabelCheck extends Pass with PassDebug {
       // and only relevant parts of the connection graph will be printed within 
       // that scope. Possibly the same should be done to the declarations.
       //
+      emit("; Connection Env\n")
       emitConEnv(conEnv)
       emit("\n")
+      emit("; End Connection Env\n\n")
       
       //-----------------------------------------------------------------------
       // Check Assignments

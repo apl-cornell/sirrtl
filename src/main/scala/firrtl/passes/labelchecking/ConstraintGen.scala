@@ -5,6 +5,9 @@ import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.Driver._
 import collection.mutable.Set
+import collection.mutable.LinkedHashSet
+import collection.mutable.Map
+import collection.mutable.LinkedHashMap
 
 // A mapping from locations in the constraint domain to their values in the 
 // constraint domain.
@@ -33,7 +36,9 @@ abstract class ConstraintGenerator {
   // Serialization of labels. May depend on particular constraint generator
   def serialize(l: LabelComp) = l.serialize
   // Declaration string
-  def emitDecl(name: String, t: Type): String
+  def emitDecl(typeDecs: TypeDeclSet, name: String, t: Type): String
+  // Type declaration string
+  def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String
   
   //---------------------------------------------------------------------------
   // Connection Environment Population
@@ -58,12 +63,12 @@ abstract class ConstraintGenerator {
       case sx: ConnectPC =>
         (sx.loc.tpe, sx.expr.tpe) match {
           case ((loct: BundleType, expt: BundleType))  =>
-            loct.fields.foreach { f =>
+            loct.fields.foreach { f => if(has_field(expt, f.name)) {
               val locx = WSubField(sx.loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
               val expx = WSubField(sx.expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
               val w = bitWidth(locx.tpe)
               connect(conEnv, whenEnv, exprToCons(locx), exprToCons(expx))
-            }
+            }}
           case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${sx.info}")
           case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${sx.info}")
           case _ =>
@@ -74,12 +79,12 @@ abstract class ConstraintGenerator {
       case sx: PartialConnectPC =>
         (sx.loc.tpe, sx.expr.tpe) match {
           case ((loct: BundleType, expt: BundleType))  =>
-            loct.fields.foreach { f =>
+            loct.fields.foreach { f => if (has_field(expt, f.name)) {
               val locx = WSubField(sx.loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
               val expx = WSubField(sx.expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
               val w = bitWidth(locx.tpe)
               connect(conEnv, whenEnv, exprToCons(locx), exprToCons(expx))
-            }
+            }}
           case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${sx.info}")
           case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${sx.info}")
           case _ =>
@@ -112,38 +117,58 @@ abstract class ConstraintGenerator {
     m map gen_cons_s(conEnv, whenEnv)
 
   //--------------------------------------------------------------------------- 
-  // Collect set of all Refs / Subfields that must be declared
+  // Collect all declarations and declare them in Z3
   //---------------------------------------------------------------------------
-  // This is done by locating all refs/subfields that are referenced in the 
-  // module.
-  //
-  // TODO Re-try implementing this by looking at actual declartions. I don't 
-  // remember why I did it by reference the first time...
-  type DeclSet = Set[String]
+  type DeclSet = LinkedHashSet[String]
+  type TypeDeclSet = LinkedHashMap[AggregateType, String]
 
-  def decls_s(declSet: DeclSet)(s: Statement): Statement = s match {
+  def collect_type_decls(typeDecs: TypeDeclSet)(name: String, t: Type): Unit =  t match {
+    case tx : BundleType =>
+      val n = name.replace("$", "").toUpperCase
+      if(!typeDecs.contains(tx)) {
+        tx.fields.foreach {f => collect_type_decls(typeDecs)(n + "_" + f.name, f.tpe) }
+        typeDecs(tx) = n
+      } else typeDecs(tx)
+    case VectorType(tpe, _) =>
+      // TODO make an array
+      collect_type_decls(typeDecs)(name, tpe)
+    case tx =>
+  }
+
+  def decls_s(declSet: DeclSet, typeDecs: TypeDeclSet)(s: Statement): Statement = s match {
     case sx: DefRegister =>
-      declSet += emitDecl(sx.name, sx.tpe); sx
+      collect_type_decls(typeDecs)(sx.name, sx.tpe)
+      declSet += emitDecl(typeDecs, sx.name, sx.tpe); sx
     case sx: DefWire => 
-      declSet += emitDecl(sx.name, sx.tpe); sx
+      collect_type_decls(typeDecs)(sx.name, sx.tpe)
+      declSet += emitDecl(typeDecs, sx.name, sx.tpe); sx
     case sx: DefNode =>
-      declSet += emitDecl(sx.name, sx.value.tpe); sx
+      collect_type_decls(typeDecs)(sx.name, sx.value.tpe)
+      declSet += emitDecl(typeDecs, sx.name, sx.value.tpe); sx
+    case sx: DefNodePC =>
+      collect_type_decls(typeDecs)(sx.name, sx.value.tpe)
+      declSet += emitDecl(typeDecs, sx.name, sx.value.tpe); sx
     case sx: DefMemory =>
       // TODO this probably needs to be declared as an array
       // of datatypes
-      declSet += emitDecl(sx.name, sx.dataType); sx
-    case sx => sx map decls_s(declSet)
+      collect_type_decls(typeDecs)(sx.name, sx.dataType)
+      declSet += emitDecl(typeDecs, sx.name, sx.dataType); sx
+    case sx => sx map decls_s(declSet, typeDecs)
   }
 
-  def decls_p(declSet: DeclSet)(p: Port): Port ={
-    declSet += emitDecl(p.name, p.tpe)
+  def decls_p(declSet: DeclSet, typeDecs: TypeDeclSet)(p: Port): Port ={
+    collect_type_decls(typeDecs)(p.name, p.tpe)
+    declSet += emitDecl(typeDecs, p.name, p.tpe)
     p
   }
 
-  def declarations(m: DefModule) : Set[String] = {
-    val declSet = Set[String]()
-    m map decls_p(declSet) map decls_s(declSet)
-    declSet
+  def declarations(m: DefModule) : LinkedHashSet[String] = {
+    val declSet = new LinkedHashSet[String]()
+    val typeDecs = new LinkedHashMap[AggregateType, String]()
+    m map decls_p(declSet, typeDecs) map decls_s(declSet, typeDecs)
+    var type_dec_strs = new LinkedHashSet[String]()
+    typeDecs.keys.foreach { k => type_dec_strs += emitTypeDecl(typeDecs)(k) }
+    type_dec_strs ++ declSet
   }
 }
 
@@ -151,30 +176,35 @@ object BVConstraintGen extends ConstraintGenerator {
   def toBInt(w: Width) =
     w.asInstanceOf[IntWidth].width
 
-  def emitDatatype(name: String, t: Type): String = t match {
+  def emitDatatype(typeDecls: TypeDeclSet, t: Type): String = t match {
     case tx : UIntType => s"(_ BitVec ${bitWidth(tx)})"
     case tx : SIntType => s"(_ BitVec ${bitWidth(tx)})"
-    case BundleType(_) => s"DT-${name.toUpperCase}"
+    case tx : BundleType => typeDecls(tx)
     case VectorType(tpe, _) => 
       // TODO actually represent this as an array
-      emitDatatype(name, tpe)
-      throw new Exception("Vecs not supported yet")
+      emitDatatype(typeDecls, tpe)
     case ClockType => s"(_ BitVec 1)"
   }
 
-  def emitDecl(name: String, t: Type) = t match {
-    case UIntType(w) => s"(declare-const $name ${emitDatatype(name, t)})\n"
-    case SIntType(w) => s"(declare-const $name ${emitDatatype(name, t)})\n"
-    case BundleType(fields) => 
-      val field_decls = fields.map { case Field(n,_,tpe,_,_) =>
-        s"($n ${emitDatatype(n, tpe)})"
-      } reduceLeft (_ + _)
-        s"(declare-datatypes () ((${emitDatatype(name, t)} (mk-$name $field_decls))))\n" +
-        s"(declare-const $name ${emitDatatype(name, t)})\n"
+  def emitDecl(typeDecls: TypeDeclSet, name: String, t: Type): String = t match {
+    case tx : UIntType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
+    case tx : SIntType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
+    case tx : BundleType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case VectorType(tpe, _) => 
       // TODO actually represent this as an array
-      s"(declare-const $name ${emitDatatype(name, tpe)})\n"
+      emitDecl(typeDecls, name, tpe)
     case ClockType => s"(declare-const $name (_ BitVec 1))\n"
+  }
+
+
+  def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String = t match {
+    case tx : BundleType => 
+      val name = typeDecs(tx)
+      val field_decls = tx.fields.map { case Field(n,_,tpe,_,_) =>
+        s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+      } reduceLeft (_ + _)
+      s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
+    case tx : VectorType => ""
   }
 
   def refToIdent(e: Expression) =  e match {
@@ -182,16 +212,20 @@ object BVConstraintGen extends ConstraintGenerator {
     case ex: WSubAccess => refToIdent(ex.exp)
     case WRef(name,_,_,_,_) => name
     case WSubField(exp,name,_,_,_) => 
-      s"($name ${refToIdent(exp)})"
+      s"(field_$name ${refToIdent(exp)})"
   }
 
-  def exprToCons(e: Expression) = e match {
+  def exprToCons(e: Expression): Constraint = e match {
     case ex : Literal => CBVLit(ex.value, toBInt(ex.width))
     case ex : DoPrim => primOpToBVOp(ex)
     case ex : WSubIndex => CAtom(refToIdent(ex.exp))
     case ex : WSubAccess => CAtom(refToIdent(ex.exp))
     case ex : WRef => CAtom(refToIdent(ex))
     case ex : WSubField => CAtom(refToIdent(ex))
+    case ex : Mux => 
+      val w = bitWidth(ex.tpe)
+      val sel = CBVWrappedBV(exprToCons(ex.cond), bitWidth(ex.cond.tpe))
+      CIfTE(sel, exprToCons(ex.tval, w), exprToCons(ex.fval, w))
     case Declassify(exx,_) => exprToCons(exx)
     case Endorse(exx,_) => exprToCons(exx)
   }
@@ -201,7 +235,9 @@ object BVConstraintGen extends ConstraintGenerator {
     case _ =>
       val diff = w - bitWidth(e.tpe)
       val c = exprToCons(e)
-      if(diff > 0) CBinOp("concat", CBVLit(0, diff), c) else c
+      if(diff > 0) CBinOp("concat", CBVLit(0, diff), c) 
+      else if(diff < 0) CBVExtract(w-1, 0, c)
+      else c
   }
 
   def exprToConsBool(e: Expression) =
@@ -237,11 +273,15 @@ object BVConstraintGen extends ConstraintGenerator {
   def mkBinC(op: String, e: DoPrim) =
     CBinOp(op, exprToCons(e.args(0)), CBVLit(e.consts(0), bitWidth(e.args(0).tpe)))
 
-  def unimpl(s: String) =
-    CAtom(s"UNIMPL $s")
+  // So dangeresque ~(*.*)~
+  def unimpl(s: String, w:BigInt) =
+    // 0xbeef
+    if(w > 16) CBVLit(48879, w)
+    else CBVLit(0, w)
 
   def primOpToBVOp(e: DoPrim) = e.op.serialize match {
-    case "add" => mkBin("bvadd", e)
+    case "add" => 
+      CBinOp("concat", CBVLit(0, 1), mkBin("bvadd", e))
     case "sub" => mkBin("bvsub", e)
     case "mul" => mkBin("bvmul", e)
     case "div" => e.tpe match {
@@ -277,12 +317,19 @@ object BVConstraintGen extends ConstraintGenerator {
     case "asUInt" => exprToCons(e.args(0))
     case "asSInt" => exprToCons(e.args(0))
     case "asClock" => exprToCons(e.args(0))
-    case "shl" => mkBinC("bvshl", e)
-    case "shr" => e.tpe match {
-      case UIntType(_) => mkBinC("bvlshr", e)
-      case SIntType(_) => mkBinC("bvashr", e)
-    }
-    case "dshl" => mkBin("bvshl", e)
+    case "shl" => 
+      val diff = e.consts(0).toInt
+      CBinOp("concat", CBVLit(0, diff), mkBinC("bvshl", e))
+    case "shr" => 
+      val shift = e.tpe match {
+        case UIntType(_) => mkBinC("bvlshr", e)
+        case SIntType(_) => mkBinC("bvashr", e)
+      }
+      CBVExtract(bitWidth(e.tpe)-1, 0, shift)
+    case "dshl" => 
+      val w = Math.max(bitWidth(e.args(0).tpe), bitWidth(e.args(1).tpe))
+      val diff = bitWidth(e.tpe) - w 
+      CBinOp("concat", CBVLit(0, diff), mkBin("bvshl", e))
     case "dshr" => e.tpe match {
       case UIntType(_) => mkBin("bvlshr", e)
       case SIntType(_) => mkBin("bvashr", e)
@@ -299,18 +346,18 @@ object BVConstraintGen extends ConstraintGenerator {
     case "bits" => CBVExtract(e.consts(0),e.consts(1),exprToCons(e.args(0)))
 
     // TODO Multi-arg ops
-    case "cvt" => unimpl(e.op.serialize)
-    case "andr" => unimpl(e.op.serialize)
-    case "orr" => unimpl(e.op.serialize)
-    case "xorr" => unimpl(e.op.serialize)
-    case "head" => unimpl(e.op.serialize)
-    case "tail" => unimpl(e.op.serialize)
+    case "cvt"  => unimpl(e.op.serialize, bitWidth(e.tpe))
+    case "andr" => unimpl(e.op.serialize, bitWidth(e.tpe))
+    case "orr"  => unimpl(e.op.serialize, bitWidth(e.tpe))
+    case "xorr" => unimpl(e.op.serialize, bitWidth(e.tpe))
+    case "head" => unimpl(e.op.serialize, bitWidth(e.tpe))
+    case "tail" => unimpl(e.op.serialize, bitWidth(e.tpe))
 
     // TODO FixPoint Ops
-    case "asFixedPoint" => unimpl(e.op.serialize)
-    case "bpshl" => unimpl(e.op.serialize)
-    case "bpshr" => unimpl(e.op.serialize)
-    case "bpset" => unimpl(e.op.serialize)
+    case "asFixedPoint" => unimpl(e.op.serialize, bitWidth(e.tpe))
+    case "bpshl" => unimpl(e.op.serialize, bitWidth(e.tpe))
+    case "bpshr" => unimpl(e.op.serialize, bitWidth(e.tpe))
+    case "bpset" => unimpl(e.op.serialize, bitWidth(e.tpe))
   }
 
 }
