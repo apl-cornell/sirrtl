@@ -25,8 +25,6 @@ class WhenEnv extends collection.mutable.HashMap[Statement,Constraint] {
 abstract class ConstraintGenerator {
   // Identifier used for reference expression in Z3 constraints
   def refToIdent(e: Expression): String
-  // Declaration string for reference expressions
-  def exprToDeclaration(e: Expression): String
   // Representation of expression in Z3
   def exprToCons(e: Expression): Constraint
   def exprToCons(e: Expression, w: BigInt): Constraint
@@ -34,6 +32,8 @@ abstract class ConstraintGenerator {
   def exprToConsBool(e: Expression): Constraint
   // Serialization of labels. May depend on particular constraint generator
   def serialize(l: LabelComp) = l.serialize
+  // Declaration string
+  def emitDecl(name: String, t: Type): String
   
   //---------------------------------------------------------------------------
   // Connection Environment Population
@@ -120,78 +120,24 @@ abstract class ConstraintGenerator {
   // TODO Re-try implementing this by looking at actual declartions. I don't 
   // remember why I did it by reference the first time...
   type DeclSet = Set[String]
-  def decls_l(declSet: DeclSet)(l: Label) : Label =
-    l map decls_lc(declSet) map decls_l(declSet)
 
-  def decls_lc(declSet: DeclSet)(l: LabelComp) : LabelComp =
-    l map decls_e(declSet) map decls_lc(declSet)
-
-  def decls_e(declSet: DeclSet)(e: Expression) : Expression = 
-    e map decls_l(declSet) match {
-    case ex : WSubIndex => declSet += exprToDeclaration(ex); ex
-    case ex : WSubAccess => declSet += exprToDeclaration(ex); ex
-    case ex : WRef => declSet += exprToDeclaration(ex); ex
-    case ex : WSubField => declSet +=  exprToDeclaration(ex); ex
-    case ex => ex map decls_e(declSet)
+  def decls_s(declSet: DeclSet)(s: Statement): Statement = s match {
+    case sx: DefRegister =>
+      declSet += emitDecl(sx.name, sx.tpe); sx
+    case sx: DefWire => 
+      declSet += emitDecl(sx.name, sx.tpe); sx
+    case sx: DefNode =>
+      declSet += emitDecl(sx.name, sx.value.tpe); sx
+    case sx: DefMemory =>
+      // TODO this probably needs to be declared as an array
+      // of datatypes
+      declSet += emitDecl(sx.name, sx.dataType); sx
+    case sx => sx map decls_s(declSet)
   }
 
-  def decls_s(declSet: DeclSet)(s: Statement) : Statement = s match {
-    // do not count references in invalid, defreg, or defwire
-    case sx : IsInvalid => sx 
-    case sx : DefRegister => sx
-    case sx : DefWire => sx
-    case PartialConnectPC(info, loc, expr, pc) => (loc.tpe, expr.tpe) match {
-      case ((loct: BundleType, exprt: BundleType)) =>
-        loct.fields.foreach { f =>
-          val locx  = WSubField(loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
-          val exprx = WSubField(expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
-          declSet += exprToDeclaration(locx map decls_l(declSet))
-          declSet += exprToDeclaration(exprx map decls_l(declSet))
-        }
-        s
-      case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${info}")
-      case ((_, exprx: BundleType)) => throw new Exception(s"bad expr: ${info}")
-      case _ => s map decls_e(declSet) map decls_l(declSet)
-    }
-    case ConnectPC(info, loc, expr, pc) => (loc.tpe, expr.tpe) match {
-      case ((loct: BundleType, exprt: BundleType)) =>
-        loct.fields.foreach { f =>
-          val locx  = WSubField(loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
-          val exprx = WSubField(expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
-          declSet += exprToDeclaration(locx map decls_l(declSet))
-          declSet += exprToDeclaration(exprx map decls_l(declSet))
-        }
-        s
-      case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${info}")
-      case ((_, exprx: BundleType)) => throw new Exception(s"bad expr: ${info}")
-      case _ => s map decls_e(declSet) map decls_l(declSet)
-    }
-    case sx: DefNodePC =>
-      val locx = WRef(sx.name, sx.value.tpe, sx.lbl, WireKind, UNKNOWNGENDER)
-      declSet += exprToDeclaration(locx map decls_l(declSet))
-      sx
-    case sx : Block =>
-      sx map decls_s(declSet) map decls_e(declSet) map decls_l(declSet)
-    case sx => try {
-      sx map decls_s(declSet) map decls_e(declSet) map decls_l(declSet)
-    } catch {
-      case (e: Exception) =>
-        throw new Exception(s"bad statement: [${sx.getClass.toString}] ${sx.info} ${sx.serialize}")
-      throw e
-    }
-  }
-
-  def decls_p(declSet: DeclSet)(p: Port): Port = p.tpe match {
-      case tpe: BundleType =>
-        tpe.fields.foreach { f =>
-          val pref = WRef(p.name, p.tpe, p.lbl, PortKind, UNKNOWNGENDER)
-          val px= WSubField(pref,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
-          declSet += exprToDeclaration(px map decls_l(declSet))
-        }; p
-      case _ => 
-        val pref = WRef(p.name, p.tpe, p.lbl, PortKind, UNKNOWNGENDER)
-        declSet += exprToDeclaration(pref map decls_l(declSet))
-        p
+  def decls_p(declSet: DeclSet)(p: Port): Port ={
+    declSet += emitDecl(p.name, p.tpe)
+    p
   }
 
   def declarations(m: DefModule) : Set[String] = {
@@ -205,48 +151,30 @@ object BVConstraintGen extends ConstraintGenerator {
   def toBInt(w: Width) =
     w.asInstanceOf[IntWidth].width
 
-  // XXX This does not include a terribly precise representation of arrays. 
-  // Arrays are essentially modeled as single variables as in SecVerilog's 
-  // implementation. This is safe as long as vectors are not referenced in 
-  // dependent types. For now an exception should be thrown if an array is 
-  // referenced in a dependent type. Implementing precise reasoning about arrays 
-  // would be difficult - it would also require a representation of arbitrary 
-  // record types. Currently record elements are modeled as separate variables. 
-  // With a representation of arbitrary record types, the theory of arrays 
-  // should work. Arbitrary records can be represented with algebraic 
-  // datatypes.
-  def exprToDeclaration(e: Expression) = {
-    /*
-    def tpeToW(tpe: Type) : BigInt = tpe match {
-      case UIntType(w) => toBInt(w)
-      case SIntType(w) => toBInt(w)
-      case FixedType(w,_) => toBInt(w)
-      case ClockType => 1
-      case VectorType(tx, s) => tpeToW(tx)
-    }
-    */
-    e match {
-      case ex : WSubIndex => exprToDeclaration(ex.exp)
-      case ex : WSubAccess=> exprToDeclaration(ex.exp)
-      case ex : WRef => 
-        var s = ""
-        try {
-          val width = bitWidth(ex.tpe)
-          s = s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
-        } catch {
-          case (excp: Exception) =>
-            println(s"bad ex: ${ex.serialize}\n${ex.toString}\n${ex.tpe.serialize}\n${ex.tpe.toString}")
-            throw excp
-        }
-        s
-      case ex : WSubField  =>
-        val width = bitWidth(ex.tpe)
-        s"(declare-const ${refToIdent(ex)} (_ BitVec $width))\n"
-      case Declassify(exx, _) =>
-        exprToDeclaration(exx)
-      case Endorse(exx,_) =>
-        exprToDeclaration(exx)
-    }
+  def emitDatatype(name: String, t: Type): String = t match {
+    case tx : UIntType => s"(_ BitVec ${bitWidth(tx)})"
+    case tx : SIntType => s"(_ BitVec ${bitWidth(tx)})"
+    case BundleType(_) => s"DT-${name.toUpperCase}"
+    case VectorType(tpe, _) => 
+      // TODO actually represent this as an array
+      emitDatatype(name, tpe)
+      throw new Exception("Vecs not supported yet")
+    case ClockType => s"(_ BitVec 1)"
+  }
+
+  def emitDecl(name: String, t: Type) = t match {
+    case UIntType(w) => s"(declare-const $name ${emitDatatype(name, t)})\n"
+    case SIntType(w) => s"(declare-const $name ${emitDatatype(name, t)})\n"
+    case BundleType(fields) => 
+      val field_decls = fields.map { case Field(n,_,tpe,_,_) =>
+        s"($n ${emitDatatype(n, tpe)})"
+      } reduceLeft (_ + _)
+        s"(declare-datatypes () ((${emitDatatype(name, t)} (mk-$name $field_decls))))\n" +
+        s"(declare-const $name ${emitDatatype(name, t)})\n"
+    case VectorType(tpe, _) => 
+      // TODO actually represent this as an array
+      s"(declare-const $name ${emitDatatype(name, tpe)})\n"
+    case ClockType => s"(declare-const $name (_ BitVec 1))\n"
   }
 
   def refToIdent(e: Expression) =  e match {
@@ -254,7 +182,7 @@ object BVConstraintGen extends ConstraintGenerator {
     case ex: WSubAccess => refToIdent(ex.exp)
     case WRef(name,_,_,_,_) => name
     case WSubField(exp,name,_,_,_) => 
-      refToIdent(exp) + "_" + name
+      s"($name ${refToIdent(exp)})"
   }
 
   def exprToCons(e: Expression) = e match {
