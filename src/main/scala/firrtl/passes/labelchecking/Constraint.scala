@@ -58,6 +58,19 @@ case class CUnOp(op: String, c: Constraint) extends Constraint {
   def serialize = s"($op ${c.serialize})"
   def mapCons(f: Constraint => Constraint) = CUnOp(op, f(c))
 }
+//-----------------------------------------------------------------------------
+// Array Theory Constraints
+//-----------------------------------------------------------------------------
+case class CASelect(arr: String, idx: Constraint) extends Constraint {
+  def serialize = s"(select $arr ${idx.serialize})"
+  def mapCons(f: Constraint => Constraint) = this.copy(idx = f(idx))
+}
+
+// Satisfied when an array has the given value at the given index
+case class CAStore(arr: String, idx: Constraint, data: Constraint) extends Constraint {
+  def serialize = s"(= (store $arr ${idx.serialize} ${data.serialize}) $arr)"
+  def mapCons(f: Constraint => Constraint) = this.copy(idx = f(idx), data = f(data))
+}
 
 //-----------------------------------------------------------------------------
 // FixedSizeBitVector Theory Constraints
