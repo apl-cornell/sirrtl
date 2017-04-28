@@ -16,6 +16,12 @@ class FIRRTLException(str: String) extends Exception(str)
 
 object Utils extends LazyLogging {
 
+
+  def log2(x: Int): Int =
+    scala.math.ceil(scala.math.log(x) / scala.math.log(2)).toInt
+  def log2Up(x: Int): Int =
+    Math.max(1, log2(x))
+
   //--------------------------------------------------------------------------
   // Flatten blocks
   //--------------------------------------------------------------------------

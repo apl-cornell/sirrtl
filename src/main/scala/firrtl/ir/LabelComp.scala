@@ -113,3 +113,19 @@ case class HLevel(arg: Expression) extends LabelComp {
   def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
   def mapExpr(f: Expression => Expression): LabelComp = this.copy(arg = f(arg))
 }
+
+// The arr should have a vector type. This is not currently enforced
+case class VecHLevel(arr: Expression) extends LabelComp {
+  def serialize = s"[[${arr.serialize}]]V"
+  def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
+  def mapExpr(f: Expression => Expression): LabelComp = this.copy(arr = f(arr))
+}
+
+// Arr should have a vector type and the value of index should be bounded by 
+// the range of the array.
+case class IndexedVecHLevel(arr: Expression, index: Expression) extends LabelComp {
+  def serialize = s"[[${arr.serialize}]]V[${index.serialize}]"
+  def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
+  def mapExpr(f: Expression => Expression): LabelComp =
+    this.copy(arr = f(arr), index = f(index))
+}

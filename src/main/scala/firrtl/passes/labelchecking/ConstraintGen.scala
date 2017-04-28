@@ -39,6 +39,9 @@ abstract class ConstraintGenerator {
   def emitDecl(typeDecs: TypeDeclSet, name: String, t: Type): String
   // Type declaration string
   def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String
+
+  val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
+  val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
   
   //---------------------------------------------------------------------------
   // Connection Environment Population
@@ -149,10 +152,21 @@ abstract class ConstraintGenerator {
       collect_type_decls(typeDecs)(sx.name, sx.value.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.value.tpe); sx
     case sx: DefMemory =>
-      // TODO this probably needs to be declared as an array
-      // of datatypes
-      collect_type_decls(typeDecs)(sx.name, sx.dataType)
-      declSet += emitDecl(typeDecs, sx.name, sx.dataType); sx
+      // TODO address, en, possibly need separate labels from data
+      val addrTpe = UIntType(IntWidth(log2Up(sx.depth)))
+      val portBundleT = BundleType(Seq(
+          Field("addr", Default, addrTpe, bot, false),
+          Field("clk", Default, ClockType, bot, false),
+          Field("en", Default, UIntType(IntWidth(1)), bot, false),
+          Field("mask", Default, UIntType(IntWidth(1)), bot, false),
+          Field("data", Default, sx.dataType, sx.lbl, true)))
+      val portBundleL = LabelExprs.to_bundle(portBundleT, UnknownLabel)
+      val declType = BundleType(
+        (sx.readers ++ sx.writers ++ sx.readwriters) map { pname =>
+          Field(pname, Default, portBundleT, portBundleL, false)
+        })
+      collect_type_decls(typeDecs)(sx.name, declType)
+      declSet += emitDecl(typeDecs, sx.name, declType); sx
     case sx => sx map decls_s(declSet, typeDecs)
   }
 
@@ -327,7 +341,7 @@ object BVConstraintGen extends ConstraintGenerator {
       }
       CBVExtract(bitWidth(e.tpe)-1, 0, shift)
     case "dshl" => 
-      val w = Math.max(bitWidth(e.args(0).tpe), bitWidth(e.args(1).tpe))
+      val w = Math.max(bitWidth(e.args(0).tpe).toInt, bitWidth(e.args(1).tpe).toInt)
       val diff = bitWidth(e.tpe) - w 
       CBinOp("concat", CBVLit(0, diff), mkBin("bvshl", e))
     case "dshr" => e.tpe match {

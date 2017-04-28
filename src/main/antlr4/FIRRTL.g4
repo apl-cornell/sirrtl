@@ -69,6 +69,7 @@ labelComp
   :  id               // Constant security level
   |  '(' id exp+ ')'  // Dependent type function
   |  '[[' exp ']]H'   // Hypercube label interpretation of expression
+  |  '[[' exp ']]V'   // Vector of hypercube labels
   ;
 
 field

@@ -72,7 +72,8 @@ object LabelExprs extends Pass with PassDebug {
   }
 
   def label_exprs_e(labels: LabelMap)(e: Expression) : Expression =
-    e map label_exprs_e(labels) match {
+    if(label_is_known(e.lbl)) e
+    else e map label_exprs_e(labels) match {
       case ex: WRef => ex copy (lbl = labels(ex.name))
       case ex: Next => ex copy (lbl = ex.exp.lbl)
       case ex: WSubField =>
@@ -87,7 +88,7 @@ object LabelExprs extends Pass with PassDebug {
       case ex: SIntLiteral => ex copy (lbl = assumeL(ex.lbl))
       case ex: Declassify => ex
       case ex: Endorse => ex
-  }
+    }
 
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 
     s map label_exprs_s(labels) match {
