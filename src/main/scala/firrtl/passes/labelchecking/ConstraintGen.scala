@@ -311,6 +311,17 @@ object BVConstraintGen extends ConstraintGenerator {
   def exprToConsBool(e: Expression) =
     CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
 
+  def transformMemData(e: Expression): Expression =
+    e map transformMemData match {
+      case ex: WRef => //if ex.kind == MemKind =>
+        // Somehow despite the dependands resolving to MemKinds as expected in 
+        // that pass, they seem to all have NodeKind by the time they get 
+        // here... For now just assume this is only used with memories and not 
+        // other kinds of vectors
+        ex.copy(name = ex.name + "_data")
+      case ex => ex
+    }
+
   override def serialize(l: LabelComp) = l match {
     case FunLabel(fname, args) => //s"($fname ${refToIdent(arg)})"
       s"($fname ${args map { refToIdent(_) } mkString(" ")})"
@@ -322,6 +333,14 @@ object BVConstraintGen extends ConstraintGenerator {
       case p: HypercubePolicy => exprToCons(lx.arg, p.lvlwidth).serialize
       case _ => throw new Exception("Tried to serialize Hypercube label without Hypercube Policy")
     }
+    case IndexedVecHLevel(arr, idx) => PolicyHolder.policy match {
+      case p: HypercubePolicy => 
+        val idx_cons = exprToCons(idx).serialize
+        val arr_cons = exprToCons(transformMemData(arr)).serialize
+        s"(select $arr_cons $idx_cons)"
+      case _ => throw new Exception("Tried to serialize Hypercube label without Hypercube Policy")
+    }
+      case lx: VecHLevel => lx.serialize
   }
 
   // Shortcut for creating a binary operator in the constraint domain

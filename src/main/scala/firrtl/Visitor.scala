@@ -154,7 +154,10 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
 
   private def visitLabelComp[FirrtlNode](ctx: FIRRTLParser.LabelCompContext): LabelComp = {
     if(ctx.getChild(0).getText == "[[") {
+      if(ctx.children.last.getText == "]]H")
         HLevel(visitExp(ctx.exp(0)))
+      else
+        VecHLevel(visitExp(ctx.exp(0)))
     } else Option(ctx.exp) match {
         case None => Level(ctx.id.getText)
         case Some(ectx) if ectx.size == 0 => Level(ctx.id.getText)

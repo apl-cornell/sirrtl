@@ -17,6 +17,9 @@ case class DataRef(exp: Expression, male: String, female: String, mask: String, 
 object RemoveCHIRRTL extends Pass {
   def name = "Remove CHIRRTL"
 
+  val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
+  val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
+
   val ut = UnknownType
   type MPortMap = collection.mutable.LinkedHashMap[String, MPorts]
   type SeqMemSet = collection.mutable.HashSet[String]
@@ -71,12 +74,12 @@ object RemoveCHIRRTL extends Pass {
         IsInvalid(sx.info, SubField(SubField(Reference(sx.name, ut, sx.lbl), r.name, ut, sx.lbl), "clk", ClockType, sx.lbl))
       ))
       def set_enable(vec: Seq[MPort], en: String) = vec map (r =>
-        Connect(sx.info, SubField(SubField(Reference(sx.name, ut, sx.lbl), r.name, ut, sx.lbl), en, BoolType, sx.lbl), zero)
+        Connect(sx.info, SubField(SubField(Reference(sx.name, ut, sx.lbl), r.name, ut, bot), en, BoolType, bot), zero)
       )
       def set_write(vec: Seq[MPort], data: String, mask: String) = vec flatMap {r =>
         val tmask = createMask(sx.tpe)
         IsInvalid(sx.info, SubField(SubField(Reference(sx.name, ut, sx.lbl), r.name, ut, sx.lbl), data, tdata, sx.lbl)) +:
-             (create_exps(SubField(SubField(Reference(sx.name, ut, sx.lbl), r.name, ut, sx.lbl), mask, tmask, sx.lbl))
+             (create_exps(SubField(SubField(Reference(sx.name, ut, sx.lbl), r.name, ut, sx.lbl), mask, tmask, bot))
                map (Connect(sx.info, _, zero))
              )
       }
@@ -134,7 +137,8 @@ object RemoveCHIRRTL extends Pass {
     e map get_mask(refs) match {
       case ex: Reference => refs get ex.name match {
         case None => ex
-        case Some(p) => SubField(p.exp, p.mask, createMask(ex.tpe), ex.lbl)
+        case Some(p) => 
+          SubField(p.exp, p.mask, createMask(ex.tpe), bot)
       }
       case ex => ex
     }

@@ -13,17 +13,23 @@ object DepsToWorkingIR extends ToWorkingIRT {
     lc map toExp map toLblComp
 }
 
-// This should resolve the kinds of expressions within labels, but leave 
-// actual expressions (that reside directly in statements) as they are.
-// It is particularly important that this object does not attempt to resolve 
-// kinds of "actual expressions" because at this phase Next(ids) have been
-// converted to references which have not yet been declared!
-object DepsResolveKinds extends ResolveKindsT {
+object DepsResolveKinds extends ResolveKindsT with PassDebug {
   override def name = "Resolve Kinds of Dep Expressions"
+  override def debugThisPass = false 
+
+  def printExprs(l: LabelComp): LabelComp = {
+    def pex(e: Expression): Expression = {
+      println(e.toString)
+      e
+    }
+    l map printExprs map pex
+  }
+
   override def resolve_lbl(kinds: KindMap)(l: Label): Label = 
     l map resolve_lbl_cmp(kinds) map resolve_lbl(kinds)
-  def resolve_lbl_cmp(kinds: KindMap)(l: LabelComp): LabelComp = 
+  def resolve_lbl_cmp(kinds: KindMap)(l: LabelComp): LabelComp = {
     l map resolve_lbl_cmp(kinds) map resolve_expr(kinds)
+  }
 }
 
 object DepsInferTypes extends InferTypesT {

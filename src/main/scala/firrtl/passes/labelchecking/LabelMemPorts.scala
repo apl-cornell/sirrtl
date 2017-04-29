@@ -27,6 +27,17 @@ object LabelMPorts extends Pass with PassDebug {
     if(!label_is_known(l))
       errors.append(new UndeclaredException(i, n))
 
+  def apply_index(l: Label, idx: Expression): Label = {
+    def apply_index_c(idx: Expression)(lc: LabelComp): LabelComp = 
+      lc map apply_index_c(idx) match {
+        case lcx: VecHLevel => IndexedVecHLevel(lcx.arr, idx)
+        case lcx => lcx
+      }
+    def apply_index_(idx: Expression)(l: Label): Label = 
+      l map apply_index_(idx) map apply_index_c(idx)
+    apply_index_(idx)(l)
+  }
+
   def label_mports_s(labels: LabelMap)(s: Statement): Statement = s match {
     case sx: CDefMemory => 
       checkDeclared(sx.lbl, sx.info, sx.name)
@@ -35,7 +46,12 @@ object LabelMPorts extends Pass with PassDebug {
     case sx: CDefMPort =>
       val lb = labels getOrElse(sx.mem, UnknownLabel)
       checkDeclared(lb, sx.info, sx.mem)
-      sx copy (lbl = lb)
+      // If the label of the memory contains vector labels recursively apply 
+      // the address expression of the memory port as the index to the vector.
+      val idx = sx.exps.head
+      val lbx = apply_index(lb, idx)
+
+      sx copy (lbl = apply_index(lb, idx))
     case sx => sx map label_mports_s(labels)
   }
 
