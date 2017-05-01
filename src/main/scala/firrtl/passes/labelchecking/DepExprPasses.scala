@@ -28,7 +28,7 @@ object DepsResolveKinds extends ResolveKindsT with PassDebug {
   override def resolve_lbl(kinds: KindMap)(l: Label): Label = 
     l map resolve_lbl_cmp(kinds) map resolve_lbl(kinds)
   def resolve_lbl_cmp(kinds: KindMap)(l: LabelComp): LabelComp = {
-    l map resolve_lbl_cmp(kinds) map resolve_expr(kinds)
+    l map resolve_expr(kinds) map resolve_lbl_cmp(kinds) 
   }
 }
 

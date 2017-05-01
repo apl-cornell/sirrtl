@@ -136,8 +136,8 @@ class HypercubePolicy extends Policy {
     // meet for a particular config
     def meet(d: Int, k: Int): String = {
       var ret = s"(define-fun meet$d$k ((x (_ BitVec $w))(y (_ BitVec $w))) (_ BitVec $w)"
-      for( i <- 0 until w by k) {
-        ret += s"\n   (concat (min$k ((_ extract ${i+k-1} $i) x)((_ extract ${i+k-1} $i) y))"
+      for( i <- Range(w, 0, -k)) {
+        ret += s"\n   (concat (min$k ((_ extract ${i-1} ${i-k}) x)((_ extract ${i-1} ${i-k}) y))"
       }
       ret += ")" * (d+1) + "\n\n"
       ret
@@ -170,8 +170,8 @@ class HypercubePolicy extends Policy {
     // meet for a particular config
     def join(d: Int, k: Int): String = {
       var ret = s"(define-fun join$d$k ((x (_ BitVec $w))(y (_ BitVec $w))) (_ BitVec $w)"
-      for( i <- 0 until w by k) {
-        ret += s"\n   (concat (max$k ((_ extract ${i+k-1} $i) x)((_ extract ${i+k-1} $i) y))"
+      for( i <- Range(w, 0, -k)) {
+        ret += s"\n   (concat (max$k ((_ extract ${i-1} ${i-k}) x)((_ extract ${i-1} ${i-k}) y))"
       }
       ret += ")" * (d+1) + "\n\n"
       ret
