@@ -184,6 +184,9 @@ abstract class ConstraintGenerator {
       declSet += emitDecl(typeDecs, sx.name, declType)
       declSet += emitMemDataDecl(typeDecs, sx)
       sx
+    case sx: WDefInstance =>
+      collect_type_decls(typeDecs)(sx.name, sx.tpe)
+      declSet += emitDecl(typeDecs, sx.name, sx.tpe); sx
     case sx => sx map decls_s(declSet, typeDecs)
   }
 
@@ -369,8 +372,12 @@ object BVConstraintGen extends ConstraintGenerator {
   def primOpToBVOp(e: DoPrim) = e.op.serialize match {
     case "add" => 
       CBinOp("concat", CBVLit(0, 1), mkBin("bvadd", e))
-    case "sub" => mkBin("bvsub", e)
-    case "mul" => mkBin("bvmul", e)
+    case "sub" => CBinOp("concat", CBVLit(0, 1), mkBin("bvsub", e))
+    case "mul" => 
+      val w = Math.max(bitWidth(e.args(0).tpe).toInt, bitWidth(e.args(1).tpe).toInt)
+      val diff = bitWidth(e.tpe) - w 
+      if(diff > 0) CBinOp("concat", CBVLit(0, diff), mkBin("bvmul", e))
+      else mkBin("bvmul", e)
     case "div" => e.tpe match {
       case UIntType(_) => mkBin("bvudiv", e)
       case SIntType(_) => mkBin("bvsdiv", e)
@@ -406,7 +413,8 @@ object BVConstraintGen extends ConstraintGenerator {
     case "asClock" => exprToCons(e.args(0))
     case "shl" => 
       val diff = e.consts(0).toInt
-      CBinOp("concat", CBVLit(0, diff), mkBinC("bvshl", e))
+      if(diff > 0) CBinOp("concat", mkBinC("bvshl", e), CBVLit(0, diff))
+      else mkBinC("bvshl", e)
     case "shr" => 
       val shift = e.tpe match {
         case UIntType(_) => mkBinC("bvlshr", e)
@@ -416,7 +424,9 @@ object BVConstraintGen extends ConstraintGenerator {
     case "dshl" => 
       val w = Math.max(bitWidth(e.args(0).tpe).toInt, bitWidth(e.args(1).tpe).toInt)
       val diff = bitWidth(e.tpe) - w 
-      CBinOp("concat", CBVLit(0, diff), mkBin("bvshl", e))
+      if( diff > 0) CBinOp("concat", mkBin("bvshl", e), CBVLit(0, diff))
+      else mkBin("bvshl", e)
+
     case "dshr" => e.tpe match {
       case UIntType(_) => mkBin("bvlshr", e)
       case SIntType(_) => mkBin("bvashr", e)
