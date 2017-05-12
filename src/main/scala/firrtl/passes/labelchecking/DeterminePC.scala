@@ -18,20 +18,21 @@ object DeterminePC extends Pass with PassDebug {
 
   def determine_pc_s(pc: Label)(pcEnv: PCEnv)(s: Statement): Statement = s match {
     case sx: Block =>
-      val sxx = sx copy (stmts = sx.stmts.reverse map determine_pc_s(pc)(pcEnv))
-      sxx copy (stmts = sxx.stmts.reverse)
+      sx map determine_pc_s(pc)(pcEnv)
+      // val sxx = sx copy (stmts = sx.stmts.reverse map determine_pc_s(pc)(pcEnv))
+      // sxx copy (stmts = sxx.stmts.reverse)
     case Conditionally(info, pred, conseq, alt) =>
       val pc_ = pred.lbl join pc
       ConditionallyPC(info, pred, conseq, alt, pc) map determine_pc_s(pc_)(pcEnv)
     case DefNode(info, name, value, lbl) =>
-      pcEnv(name) = pcEnv(name) join pc
-      DefNodePC(info, name, value, lbl, pcEnv(name))
+      // pcEnv(name) = pcEnv(name) join pc
+      DefNodePC(info, name, value, lbl, pc)
     case Connect(info, loc, expr) =>
-      pcEnv(loc.serialize) = pcEnv(loc.serialize) join pc
-      ConnectPC(info, loc, expr, pcEnv(loc.serialize))
+      // pcEnv(loc.serialize) = pcEnv(loc.serialize) join pc
+      ConnectPC(info, loc, expr, pc)
     case PartialConnect(info, loc, expr) =>
-      pcEnv(loc.serialize) = pcEnv(loc.serialize) join pc
-      PartialConnectPC(info, loc, expr, pcEnv(loc.serialize))
+      // pcEnv(loc.serialize) = pcEnv(loc.serialize) join pc
+      PartialConnectPC(info, loc, expr, pc)
     case sx => 
       // can't declare regs under a when
       sx map determine_pc_s(pc)(pcEnv)

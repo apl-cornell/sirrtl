@@ -57,11 +57,11 @@ object InferLabels extends Pass with PassDebug {
   def infer_labels(m: DefModule): DefModule = {
     val env = new LabelVarEnv
     val conSet = gen_constr(m)
-    dprint(s"generated constraints (${m.name}):")
-    dprint(conSet.toString)
+    // dprint(s"generated constraints (${m.name}):")
+    // dprint(conSet.toString)
     resolve_constraints(env, conSet)
-    dprint(s"env after resolving constraints (${m.name}):")
-    dprint(env.toString)
+    // dprint(s"env after resolving constraints (${m.name}):")
+    // dprint(env.toString)
     prop_env_m(env)(m)
   }
 
@@ -89,7 +89,7 @@ object InferLabels extends Pass with PassDebug {
         sx
       case sx: DefNodePC =>
         canon_labels(sx.value) foreach { v => conSet += ((v, sx.lbl)) }
-        canon_labels(sx.pc)   foreach { v => conSet += ((v, sx.lbl)) }
+        canon_labels(sx.pc)    foreach { v => conSet += ((v, sx.lbl)) }
         sx
       case sx => sx
     }
@@ -136,7 +136,7 @@ object InferLabels extends Pass with PassDebug {
     }
    
     conSet foreach { case (l1: Label, l2: Label) =>
-      dprint(s"resolving ${l1.lbl.serialize} flowsto ${l2.lbl.serialize}")
+      // dprint(s"resolving ${l1.lbl.serialize} flowsto ${l2.lbl.serialize}")
       // dprint(s"before ${env.toString}")
       l1 match {
         case lx: VarLabel =>
@@ -147,7 +147,7 @@ object InferLabels extends Pass with PassDebug {
             varSubs(l) foreach { v => 
               val lx = env(v) meet upd
               if(lx != env(v)) {
-                dprint(s"updating ${v.serialize} to ${lx.serialize}")
+                // dprint(s"updating ${v.serialize} to ${lx.serialize}")
                 env(v) = lx
                 update_subs(v, lx)
               }
@@ -155,6 +155,7 @@ object InferLabels extends Pass with PassDebug {
 
           if(lx_ != env(lx)) {
             env(lx) = lx_
+            // dprint(s"updating ${lx.serialize} to ${lx_.serialize}")
             update_subs(lx, env(lx))
           }
         case _ =>

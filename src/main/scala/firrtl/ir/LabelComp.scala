@@ -51,7 +51,7 @@ object JoinLabelComp {
   def unapply(j: JoinLabelComp) = Some((j.l, j.r))
 }
 
-sealed class JoinLabelComp private(val l: LabelComp, val r: LabelComp) extends LabelComp{
+sealed class JoinLabelComp private(val l: LabelComp, val r: LabelComp) extends LabelComp {
   override def equals(that: Any) = that match {
     case JoinLabelComp(lx, rx) => lx == l && rx == r
     case _ => false
