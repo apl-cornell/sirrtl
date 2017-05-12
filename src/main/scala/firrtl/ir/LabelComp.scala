@@ -112,6 +112,11 @@ case class HLevel(arg: Expression) extends LabelComp {
   def serialize = s"[[${arg.serialize}]]H"
   def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
   def mapExpr(f: Expression => Expression): LabelComp = this.copy(arg = f(arg))
+  override def equals(that: Any) = that match {
+    case HLevel(argx) => arg.serialize.hashCode == argx.serialize.hashCode
+    case _ => false
+  }
+  override def hashCode = arg.serialize.hashCode
 }
 
 // The arr should have a vector type. This is not currently enforced
@@ -119,6 +124,11 @@ case class VecHLevel(arr: Expression) extends LabelComp {
   def serialize = s"[[${arr.serialize}]]V"
   def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
   def mapExpr(f: Expression => Expression): LabelComp = this.copy(arr = f(arr))
+  override def equals(that: Any) = that match {
+    case VecHLevel(arrx) => arr.serialize.hashCode == arrx.serialize.hashCode
+    case _ => false
+  }
+  override def hashCode = arr.serialize.hashCode
 }
 
 // Arr should have a vector type and the value of index should be bounded by 

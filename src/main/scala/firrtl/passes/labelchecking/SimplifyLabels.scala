@@ -5,7 +5,7 @@ import firrtl.Mappers._
 
 object SimplifyLabels extends Pass with PassDebug {
   def name = "SimplifyLabels"
-  override def debugThisPass = true 
+  override def debugThisPass = false 
 
   val bot = PolicyHolder.bottom
   val top = PolicyHolder.top
@@ -25,16 +25,16 @@ object SimplifyLabels extends Pass with PassDebug {
     }
 
   def simplify_lb_cmp(l: LabelComp): LabelComp = 
-    l match {
+    l map simplify_lb_cmp map simplify_e match {
       case lbx: MeetLabelComp => 
         val cmps = new CompSet
         simplify_mt(cmps)(lbx)
-        cmps.foldRight(top) { _ meet _ }
+        (cmps.toList sortBy { _.hashCode }).foldRight(top) { _ meet _ }
       case lbx: JoinLabelComp => 
         val cmps = new CompSet
         simplify_jn(cmps)(lbx)
-        cmps.foldRight(bot) { _ join _ }
-      case lbx => lbx map simplify_lb_cmp
+        (cmps.toList sortBy { _.hashCode }).foldRight(bot) { _ join _ }
+      case lbx => lbx
     }
 
   def simplify_lb(l: Label) : Label = 
@@ -53,7 +53,6 @@ object SimplifyLabels extends Pass with PassDebug {
     m map simplify_p map simplify_s
 
   def run(c: Circuit) = {
-
     bannerprintb(name)
     dprint(c.serialize)
     
@@ -61,7 +60,6 @@ object SimplifyLabels extends Pass with PassDebug {
 
     bannerprintb(s"after $name")
     dprint(cprime.serialize)
-
     cprime
   }
 }
