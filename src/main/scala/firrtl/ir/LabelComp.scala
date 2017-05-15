@@ -37,6 +37,7 @@ object JoinLabelComp {
     case(lx, JoinLabelComp(lxx, rxx)) if lxx == lx || rxx == lx => JoinLabelComp(lxx, rxx)
     case(UnknownLabelComp, _) => UnknownLabelComp
     case(_, UnknownLabelComp) => UnknownLabelComp
+    case(x, MeetLabelComp(xx, y)) if xx == x => x
     case(_, b: Level) if b == bottom => l
     case(b: Level, _) if b == bottom => r
     case(_, t: Level) if t == top => top
@@ -72,6 +73,7 @@ object MeetLabelComp {
     case(lx, MeetLabelComp(lxx, rxx)) if lxx == lx || rxx == lx => MeetLabelComp(lxx, rxx)
     case(UnknownLabelComp, _) => UnknownLabelComp
     case(_, UnknownLabelComp) => UnknownLabelComp
+    case(x, JoinLabelComp(xx, yy)) if xx == x => x
     case(_, t: Level) if t == top => l
     case(t: Level, _) if t == top => r
     case(_, b: Level) if b == bottom => bottom

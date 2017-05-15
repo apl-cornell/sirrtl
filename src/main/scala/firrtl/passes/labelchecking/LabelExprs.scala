@@ -110,11 +110,24 @@ object LabelExprs extends Pass with PassDebug {
         labels(sx.name) = lb
         (sx copy (lbl = lb)) map label_exprs_e(labels)
       case sx: DefNode =>
-        var lb = labelOrVar(sx.lbl, sx.name)
-        val sxx = ((sx map label_exprs_e(labels)).asInstanceOf[DefNode]).copy(
-          lbl = lb)
-        labels(sxx.name) = lb
-        sxx
+        // Node definitions are not inferred. They are essentially
+        // "immutable wires" so there is no reason to use a label other than
+        // the label of the expression in its only assignment. So node
+        // definition labels are not inferred, but forward-propagated.a
+        // When compiling from chisel, nodes also don't correspond to 
+        // something directly written by the programmer. Using the
+        // forward-propaged label means node declarations will never
+        // fail to type-check, so the errors will be moved to places
+        // like wire and register declarations which correspond
+        // directly to things written by the programmer.
+        val sxx = (sx map label_exprs_e(labels)).asInstanceOf[DefNode]
+        labels(sx.name) = sxx.value.lbl
+        sxx.copy(lbl = sxx.value.lbl)
+        // var lb = labelOrVar(sx.lbl, sx.name)
+        // val sxx = ((sx map label_exprs_e(labels)).asInstanceOf[DefNode]).copy(
+        //   lbl = lb)
+        // labels(sxx.name) = lb
+        // sxx
       case sx: DefMemory =>
         // Don't do inference for memories for now.
         checkDeclared(sx.lbl, sx.info, sx.name)

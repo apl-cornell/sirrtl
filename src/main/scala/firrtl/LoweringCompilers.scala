@@ -81,11 +81,11 @@ class LabelChecking extends CoreTransform {
     passes.DepsInferTypes,
     passes.DeterminePC,
     passes.InferLabels,
-    passes.PullNexts,
-    passes.NextCycleTransform,
-    passes.SeqPortGenNext,
+    // passes.PullNexts,
+    // passes.NextCycleTransform,
+    // passes.SeqPortGenNext,
     passes.EliminateUnusedConnections,
-    passes.SimplifyLabels,
+    passes.LabelsToCNF,
     passes.LabelCheck
   )
 }
