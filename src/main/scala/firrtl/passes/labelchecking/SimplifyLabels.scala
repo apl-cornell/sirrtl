@@ -5,6 +5,11 @@ import firrtl.Mappers._
 import scala.collection.mutable.LinkedHashSet
 import scala.collection.mutable.Set
 
+// TODO level 1: clean up this code.
+// TODO level 2: make the apply methods of meet/join produce simplified 
+// CNF labelComps/labels on the fly so this pass isn't needed and inference
+// doesn't have to call its methods.
+
 object SimplifyLabels extends Pass with PassDebug {
   def name = "Simplify Lables"
   override def debugThisPass = false 
@@ -45,8 +50,40 @@ object SimplifyLabels extends Pass with PassDebug {
       clauses_(cls)(l)
       sortClauses(cls)
     }
-  
-    l map cnf_lb_cmp map cnf_e match {
+
+    def is_clause(l: LabelComp): Boolean = {
+      var ret = true
+      def is_clause_(l: LabelComp): LabelComp = 
+        l map is_clause_ match {
+        case lb: JoinLabelComp => ret = false; lb
+        case lb => lb
+      }
+      is_clause_(l); ret
+    }
+
+    // Should only be called on clauses
+    def terms(l: LabelComp): Set[LabelComp] = {
+      val termSet = new LinkedHashSet[LabelComp]
+      def terms_(l: LabelComp): LabelComp = l match {
+        case lx: JoinLabelComp => throw new Exception
+        case lx: MeetLabelComp => l map terms_
+        case lx => termSet += lx; lx
+      }
+      terms_(l); termSet
+    }
+
+    // Can only be applied once the labelComp is in CNF
+    def simplifySubsumptions(l: LabelComp): LabelComp = 
+      l map simplifySubsumptions match {
+        case JoinLabelComp(x, y) if is_clause(x) && is_clause(y) &&
+          (terms(x) subsetOf terms(y)) => y
+        case JoinLabelComp(y, x) if is_clause(x) && is_clause(y) &&
+          (terms(x) subsetOf terms(y)) => y
+        case lx => lx
+      }
+
+
+    simplifyMeet(simplifySubsumptions(l map cnf_lb_cmp map cnf_e map simplifyMeet match {
       case lbx: MeetLabelComp => 
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
           case (lhs:LabelComp, rhs:LabelComp) => lhs meet rhs
@@ -56,7 +93,7 @@ object SimplifyLabels extends Pass with PassDebug {
         // should further simplify
         sortClauses(clauses(lbx)).foldLeft(bot) { _ join _ }
       case lbx => lbx
-    }
+    }))
   }
 
   // Convert lables into simplified CNF.

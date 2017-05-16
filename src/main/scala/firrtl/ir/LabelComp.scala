@@ -48,7 +48,7 @@ object JoinLabelComp {
     }
     case _ => new JoinLabelComp(l,r)
   }
-  def apply(l: LabelComp*) : LabelComp = l.foldRight(bottom) { apply(_,_) }
+  def apply(l: LabelComp*) : LabelComp = l.foldLeft(bottom) { apply(_,_) }
   def unapply(j: JoinLabelComp) = Some((j.l, j.r))
 }
 
@@ -85,7 +85,7 @@ object MeetLabelComp {
     }
     case _ => new MeetLabelComp(l,r)
   }
-  def apply(l: LabelComp*) : LabelComp = l.foldRight(top) { apply(_,_) }
+  def apply(l: LabelComp*) : LabelComp = l.foldLeft(top) { apply(_,_) }
   def unapply(m: MeetLabelComp) = Some((m.l, m.r))
 }
 
@@ -108,7 +108,7 @@ case class FunLabel(fname: String, args: List[Expression]) extends LabelComp {
   override def hashCode = serialize.hashCode
 }
 
-object FunLabel{
+object FunLabel {
   def apply(fname: String, args: Expression*) =
     new FunLabel(fname, args.toList)
 }

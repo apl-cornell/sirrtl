@@ -13,10 +13,12 @@ object InferLabels extends Pass with PassDebug {
   // TODO: I had to comment out these debug prints since it seems like for real 
   // rocket code evaluting the interpolated strings takes non-trivial time. I 
   // wish I had C-style macros for this, but maybe I can get what I want by 
-  // making the argument of dprint a call-by-name argument
+  // making the argument of dprina a call-by-name argument
   
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
   val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
+
+  def simplifyLabel(l: Label): Label = SimplifyLabels.cnf_lb(l)
 
   // Mapping from label vars to labels
   class LabelVarEnv extends collection.mutable.HashMap[VarLabel, Label] {
@@ -56,11 +58,12 @@ object InferLabels extends Pass with PassDebug {
   //-----------------------------------------------------------------------------
   def infer_labels(m: DefModule): DefModule = {
     val env = new LabelVarEnv
+    dprint("generating constraints")
     val conSet = gen_constr(m)
-    // dprint(s"generated constraints (${m.name}):")
+    dprint(s"generated constraints (${m.name}):")
     // dprint(conSet.toString)
     resolve_constraints(env, conSet)
-    // dprint(s"env after resolving constraints (${m.name}):")
+    dprint(s"env after resolving constraints (${m.name}):")
     // dprint(env.toString)
     prop_env_m(env)(m)
   }
@@ -137,18 +140,18 @@ object InferLabels extends Pass with PassDebug {
     }
    
     conSet foreach { case (l1: Label, l2: Label) =>
-      // dprint(s"resolving ${l1.lbl.serialize} flowsto ${l2.lbl.serialize}")
-      // dprint(s"before ${env.toString}")
+      dprint(s"resolving ${l1.lbl.serialize} flowsto ${l2.lbl.serialize}")
+      dprint(s"before ${env.toString}")
       l1 match {
         case lx: VarLabel =>
           vars_in(l2) foreach { v => varSubs(v) = varSubs(v) + lx }
-          val lx_ = env(lx) meet resolve_label(env)(l2)
+          val lx_ = simplifyLabel(env(lx) meet resolve_label(env)(l2))
          
           def update_subs(l: VarLabel, upd: Label): Unit =
             varSubs(l) foreach { v => 
-              val lx = env(v) meet upd
+              val lx = simplifyLabel(env(v) meet upd)
               if(lx != env(v)) {
-                // dprint(s"updating ${v.serialize} to ${lx.serialize}")
+                dprint(s"updating ${v.serialize} to ${lx.serialize}")
                 env(v) = lx
                 update_subs(v, lx)
               }
@@ -156,12 +159,12 @@ object InferLabels extends Pass with PassDebug {
 
           if(lx_ != env(lx)) {
             env(lx) = lx_
-            // dprint(s"updating ${lx.serialize} to ${lx_.serialize}")
+            dprint(s"updating ${lx.serialize} to ${lx_.serialize}")
             update_subs(lx, env(lx))
           }
         case _ =>
       }
-      // dprint(s"after ${env.toString}\n\n")
+      dprint(s"after ${env.toString}\n\n")
     }
   }
 
