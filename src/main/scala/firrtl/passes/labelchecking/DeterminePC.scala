@@ -26,7 +26,7 @@ object DeterminePC extends Pass with PassDebug {
       ConditionallyPC(info, pred, conseq, alt, pc) map determine_pc_s(pc_)(pcEnv)
     case DefNode(info, name, value, lbl) =>
       // pcEnv(name) = pcEnv(name) join pc
-      DefNodePC(info, name, value, lbl, pc)
+      DefNodePC(info, name, value, lbl join pc, pc)
     case Connect(info, loc, expr) =>
       // pcEnv(loc.serialize) = pcEnv(loc.serialize) join pc
       ConnectPC(info, loc, expr, pc)

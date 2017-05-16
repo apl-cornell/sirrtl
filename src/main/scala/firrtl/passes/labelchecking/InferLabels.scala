@@ -89,7 +89,8 @@ object InferLabels extends Pass with PassDebug {
         sx
       case sx: DefNodePC =>
         canon_labels(sx.value) foreach { v => conSet += ((v, sx.lbl)) }
-        canon_labels(sx.pc)    foreach { v => conSet += ((v, sx.lbl)) }
+        // The label of the value is joined by the PC before we get here.
+        // canon_labels(sx.pc)    foreach { v => conSet += ((v, sx.lbl)) }
         sx
       case sx => sx
     }

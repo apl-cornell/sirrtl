@@ -60,6 +60,7 @@ sealed class JoinLabelComp private(val l: LabelComp, val r: LabelComp) extends L
   def serialize = s"(join ${l.serialize} ${r.serialize})"
   def mapExpr(f: Expression => Expression) = this
   def mapLabelComp(f: LabelComp => LabelComp) = JoinLabelComp(f(l), f(r))
+  override def hashCode = serialize.hashCode
 }
 
 // Behaves like a case class
@@ -97,12 +98,14 @@ sealed class MeetLabelComp private(val l: LabelComp, val r: LabelComp) extends L
   def serialize=  s"(meet ${l.serialize} ${r.serialize})"
   def mapExpr(f: Expression => Expression) = this
   def mapLabelComp(f: LabelComp => LabelComp) : LabelComp = MeetLabelComp(f(l), f(r))
+  override def hashCode = serialize.hashCode
 }
 
 case class FunLabel(fname: String, args: List[Expression]) extends LabelComp {
   def serialize = s"($fname ${args map { _ serialize } mkString(" ")})"
   def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
   def mapExpr(f: Expression => Expression): LabelComp = this.copy(args = args map f)
+  override def hashCode = serialize.hashCode
 }
 
 object FunLabel{
@@ -118,7 +121,7 @@ case class HLevel(arg: Expression) extends LabelComp {
     case HLevel(argx) => arg.serialize.hashCode == argx.serialize.hashCode
     case _ => false
   }
-  override def hashCode = arg.serialize.hashCode
+  override def hashCode = serialize.hashCode
 }
 
 // The arr should have a vector type. This is not currently enforced
@@ -130,7 +133,7 @@ case class VecHLevel(arr: Expression) extends LabelComp {
     case VecHLevel(arrx) => arr.serialize.hashCode == arrx.serialize.hashCode
     case _ => false
   }
-  override def hashCode = arr.serialize.hashCode
+  override def hashCode = serialize.hashCode
 }
 
 // Arr should have a vector type and the value of index should be bounded by 
@@ -140,4 +143,5 @@ case class IndexedVecHLevel(arr: Expression, index: Expression) extends LabelCom
   def mapLabelComp(f: LabelComp => LabelComp): LabelComp = this
   def mapExpr(f: Expression => Expression): LabelComp =
     this.copy(arr = f(arr), index = f(index))
+  override def hashCode = serialize.hashCode
 }

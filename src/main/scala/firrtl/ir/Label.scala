@@ -65,7 +65,18 @@ case class VarLabel(id: String) extends Label {
 // fake-case-class-with-fancy-factory-apply idiom as the join and meet 
 // label components
 object JoinLabel {
+  val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
+  val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
   def apply(l: Label, r: Label): Label = (l, r) match {
+    case (lx, rx) if lx == rx => lx
+    case (b:ProdLabel, _) if b == bot => r
+    case (_, b:ProdLabel) if b == bot => l
+    case (t:ProdLabel, _) if t == top => top
+    case (_, t:ProdLabel) if t == top => top
+    case (x, MeetLabelComp(xx, y)) if xx == x => x
+    case (MeetLabelComp(xx, y), x) if xx == x => x
+    case (x, MeetLabelComp(y, xx)) if xx == x => x
+    case (MeetLabelComp(y, xx), x) if xx == x => x
     case (JoinLabel(lxx, rxx), rx) if lxx == rx || rxx == rx => JoinLabel(lxx, rxx)
     case (lx, JoinLabel(lxx, rxx)) if lxx == lx || rxx == lx => JoinLabel(lxx, rxx)
     case (ProdLabel(lc, li), ProdLabel(rc, ri)) =>
@@ -93,7 +104,18 @@ sealed class JoinLabel private(val l: Label, val r: Label) extends Label {
 }
 
 object MeetLabel {
+  val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
+  val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
   def apply(l: Label, r: Label): Label = (l, r) match {
+    case (lx, rx) if lx == rx => lx
+    case (b:ProdLabel, _) if b == bot => bot
+    case (_, b:ProdLabel) if b == bot => bot
+    case (t:ProdLabel, _) if t == top => r
+    case (_, t:ProdLabel) if t == top => l
+    case (x, JoinLabelComp(xx, y)) if xx == x => x
+    case (JoinLabelComp(xx, y), x) if xx == x => x
+    case (x, JoinLabelComp(y, xx)) if xx == x => x
+    case (JoinLabelComp(y, xx), x) if xx == x => x
     case (MeetLabel(lxx, rxx), rx) if lxx == rx || rxx == rx => MeetLabel(lxx, rxx)
     case (lx, MeetLabel(lxx, rxx)) if lxx == lx || rxx == lx => MeetLabel(lxx, rxx)
     case (ProdLabel(lc, li), ProdLabel(rc, ri)) =>
