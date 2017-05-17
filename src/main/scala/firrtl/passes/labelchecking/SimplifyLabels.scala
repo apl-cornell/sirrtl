@@ -5,19 +5,69 @@ import firrtl.Mappers._
 import scala.collection.mutable.LinkedHashSet
 import scala.collection.mutable.Set
 
-// TODO level 1: clean up this code.
-// TODO level 2: make the apply methods of meet/join produce simplified 
-// CNF labelComps/labels on the fly so this pass isn't needed and inference
-// doesn't have to call its methods.
-
 object SimplifyLabels extends Pass with PassDebug {
   def name = "Simplify Lables"
-  override def debugThisPass = false 
+  override def debugThisPass = false
 
   
   implicit class CrossProdInfix[X](xs: Set[X]) {
     def cross[Y](ys: Set[Y]) = for { x <- xs; y <- ys } yield (x, y)
   }
+
+  // Convert label components into simplified DNF.
+  def dnf_lb_cmp(l: LabelComp): LabelComp =  {
+    val bot = PolicyHolder.bottom
+    val top = PolicyHolder.top
+    
+    def sortClauses(s: Set[LabelComp]): Set[LabelComp]=
+      LinkedHashSet( (s.toList sortBy { _.hashCode }):_* )
+
+    def clauses(l: LabelComp): Set[LabelComp] = {
+      val cls = new LinkedHashSet[LabelComp]
+      def clauses_(cls: Set[LabelComp])(l: LabelComp): LabelComp = 
+        l match {
+          case lbx: MeetLabelComp => lbx map clauses_(cls)
+          case lbx => cls += lbx; lbx
+        }
+  
+      clauses_(cls)(l)
+      sortClauses(cls)
+    }
+
+    // Should only be called on clauses
+    def terms(l: LabelComp): Set[LabelComp] = {
+      val termSet = new LinkedHashSet[LabelComp]
+      def terms_(l: LabelComp): LabelComp = l match {
+        case lx: MeetLabelComp => throw new Exception
+        case lx: JoinLabelComp => l map terms_
+        case lx => termSet += lx; lx
+      }
+      terms_(l); termSet
+    }
+
+    // cnf_e gets called here even though integrity components are in
+    // dnf because components have expressions which have labels and 
+    // labels are in cnf.
+    l map dnf_lb_cmp map cnf_e match {
+      case lbx: JoinLabelComp => 
+        sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
+          case (lhs:LabelComp, rhs:LabelComp) => lhs join rhs
+        }).foldLeft(top) { _ meet _ }
+      case lbx: MeetLabelComp =>
+        val simplified_clauses = new LinkedHashSet[LabelComp]
+        val lx_clauses = clauses(lbx)
+        lx_clauses foreach { cls_i =>
+          var addme = true
+          (lx_clauses - cls_i) foreach { cls_j =>
+            if(terms(cls_j) subsetOf terms(cls_i)) addme = false
+          }
+          if(addme) simplified_clauses += cls_i
+        }
+        sortClauses(simplified_clauses).foldLeft(top) { _ meet _ }
+      case lbx => lbx
+    }
+  }
+
 
   // Convert label components into simplified CNF.
   def cnf_lb_cmp(l: LabelComp): LabelComp =  {
@@ -27,38 +77,16 @@ object SimplifyLabels extends Pass with PassDebug {
     def sortClauses(s: Set[LabelComp]): Set[LabelComp]=
       LinkedHashSet( (s.toList sortBy { _.hashCode }):_* )
 
-    def simplifyMeet(l: LabelComp): LabelComp = {
-      val nonMeets = new LinkedHashSet[LabelComp]
-      def simplifyMeet_(nm: Set[LabelComp])(l: LabelComp): LabelComp =
-        l match {
-          case lx: MeetLabelComp => lx map simplifyMeet_(nm)
-          case lx => nonMeets += lx; lx
-        }
-      simplifyMeet_(nonMeets)(l)
-      (nonMeets.toList.sortBy { _.hashCode }).foldLeft(top) { _ meet _ }
-    }
-  
     def clauses(l: LabelComp): Set[LabelComp] = {
       val cls = new LinkedHashSet[LabelComp]
       def clauses_(cls: Set[LabelComp])(l: LabelComp): LabelComp = 
         l match {
           case lbx: JoinLabelComp => lbx map clauses_(cls)
-          case lbx: MeetLabelComp => cls += simplifyMeet(lbx); simplifyMeet(lbx)
           case lbx => cls += lbx; lbx
         }
   
       clauses_(cls)(l)
       sortClauses(cls)
-    }
-
-    def is_clause(l: LabelComp): Boolean = {
-      var ret = true
-      def is_clause_(l: LabelComp): LabelComp = 
-        l map is_clause_ match {
-        case lb: JoinLabelComp => ret = false; lb
-        case lb => lb
-      }
-      is_clause_(l); ret
     }
 
     // Should only be called on clauses
@@ -72,28 +100,24 @@ object SimplifyLabels extends Pass with PassDebug {
       terms_(l); termSet
     }
 
-    // Can only be applied once the labelComp is in CNF
-    def simplifySubsumptions(l: LabelComp): LabelComp = 
-      l map simplifySubsumptions match {
-        case JoinLabelComp(x, y) if is_clause(x) && is_clause(y) &&
-          (terms(x) subsetOf terms(y)) => y
-        case JoinLabelComp(y, x) if is_clause(x) && is_clause(y) &&
-          (terms(x) subsetOf terms(y)) => y
-        case lx => lx
-      }
-
-
-    simplifyMeet(simplifySubsumptions(l map cnf_lb_cmp map cnf_e map simplifyMeet match {
+    l map cnf_lb_cmp map cnf_e match {
       case lbx: MeetLabelComp => 
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
           case (lhs:LabelComp, rhs:LabelComp) => lhs meet rhs
         }).foldLeft(bot) { _ join _ }
       case lbx: JoinLabelComp =>
-        // Not strictly necessary just to convert to CNF, but 
-        // should further simplify
-        sortClauses(clauses(lbx)).foldLeft(bot) { _ join _ }
+        val simplified_clauses = new LinkedHashSet[LabelComp]
+        val lx_clauses = clauses(lbx)
+        lx_clauses foreach { cls_i =>
+          var addme = true
+          (lx_clauses - cls_i) foreach { cls_j =>
+            if(terms(cls_j) subsetOf terms(cls_i)) addme = false
+          }
+          if(addme) simplified_clauses += cls_i
+        }
+        sortClauses(simplified_clauses).foldLeft(bot) { _ join _ }
       case lbx => lbx
-    }))
+    }
   }
 
   // Convert lables into simplified CNF.
@@ -146,17 +170,42 @@ object SimplifyLabels extends Pass with PassDebug {
       sortClauses(cls)
     }
 
-    (l map cnf_lb map cnf_lb_cmp match {
+    // Should only be called on clauses
+    def terms(l: Label): Set[Label] = {
+      val termSet = new LinkedHashSet[Label]
+      def terms_(l: Label): Label = l match {
+        case lx: JoinLabel => throw new Exception
+        case lx: MeetLabel => l map terms_
+        case lx => termSet += lx; lx
+      }
+      terms_(l); termSet
+    }
+
+    l map cnf_lb match {
       case lbx: MeetLabel=> 
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
           case (lhs:Label, rhs:Label) => lhs meet rhs
         }).foldLeft(bot) { _ join _ }
       case lbx: JoinLabel =>
-        // Not strictly necessary just to convert to CNF, but 
-        // should further simplify
-        sortClauses(clauses(lbx)).foldLeft(bot) { _ join _ }
+        val simplified_clauses = new LinkedHashSet[Label]
+        val lx_clauses = clauses(lbx)
+        lx_clauses foreach { cls_i =>
+          var addme = true
+          (lx_clauses - cls_i) foreach { cls_j =>
+            if(terms(cls_j) subsetOf terms(cls_i)) addme = false
+          }
+          if(addme) simplified_clauses += cls_i
+        }
+        sortClauses(simplified_clauses).foldLeft(bot) { _ join _ }
+      case ProdLabel(conf, integ) =>
+        // Confidentiality components are in the same normal form as labels,
+        // but integrity components are in the dual of that normal form
+        // since the conf/integ components are often duals and using the dual
+        // normal form for integ makes this more clear after simplification
+        // (and the simplified labels wind up being simpler)
+        ProdLabel(cnf_lb_cmp(conf), dnf_lb_cmp(integ))
       case lbx => lbx
-    }) map cnf_lb map cnf_lb_cmp
+    }
   }
 
   def cnf_e(e: Expression) : Expression =
