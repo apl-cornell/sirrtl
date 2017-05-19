@@ -2,7 +2,7 @@ circuit HyperLabelChangePorts:
     module HyperLabelChangePorts:
         input clock : {L,H} Clock
         input rst : {L,H} UInt<1>
-        output io : { flip clbl : seq {L,L} UInt<16>, flip next_clbl : {L,L} UInt<16>, flip ilbl : seq {L,L} UInt<16>, flip next_ilbl : {L,L} UInt<16>, out : {H,H} UInt<8> }
+        output io : { flip clbl : seq {L,H} UInt<16>, flip next_clbl : {L,H} UInt<16>, flip ilbl : seq {L,H} UInt<16>, flip next_ilbl : {L,H} UInt<16>, out : {H,H} UInt<8> }
         io is invalid
 
         reg  foo : {[[io.clbl]]H,[[io.ilbl]]H} UInt<8> clock with : (reset => (rst UInt(0)))

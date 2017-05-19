@@ -100,14 +100,15 @@ abstract class ConstraintGenerator {
         }
         whenEnv(sx) = whenEnv.cur; sx
       case sx: ConditionallyPC =>
-        val pred = exprToConsBool(sx.pred)
         val oldWhen = whenEnv.cur
         // True side
-        whenEnv.cur = if(whenEnv.cur == CTrue) pred else CConj(whenEnv.cur, pred)
+        val predT = exprToConsBool(sx.pred)
+        whenEnv.cur = if(oldWhen == CTrue) predT else CConj(oldWhen, predT)
         sx.conseq map gen_cons_s(conEnv, whenEnv)
         whenEnv(sx.conseq) = whenEnv.cur
         // False side
-        whenEnv.cur = CNot(whenEnv.cur)
+        val predF = CNot(predT)
+        whenEnv.cur = if(oldWhen == CTrue) predF else CConj(oldWhen, predF)
         sx.alt map gen_cons_s(conEnv, whenEnv)
         whenEnv(sx.alt) = whenEnv.cur
         // This statement

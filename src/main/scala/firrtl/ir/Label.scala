@@ -73,10 +73,6 @@ object JoinLabel {
     case (_, b:ProdLabel) if b == bot => l
     case (t:ProdLabel, _) if t == top => top
     case (_, t:ProdLabel) if t == top => top
-    case (x, MeetLabelComp(xx, y)) if xx == x => x
-    case (MeetLabelComp(xx, y), x) if xx == x => x
-    case (x, MeetLabelComp(y, xx)) if xx == x => x
-    case (MeetLabelComp(y, xx), x) if xx == x => x
     case (JoinLabel(lxx, rxx), rx) if lxx == rx || rxx == rx => JoinLabel(lxx, rxx)
     case (lx, JoinLabel(lxx, rxx)) if lxx == lx || rxx == lx => JoinLabel(lxx, rxx)
     case (ProdLabel(lc, li), ProdLabel(rc, ri)) =>
@@ -112,10 +108,6 @@ object MeetLabel {
     case (_, b:ProdLabel) if b == bot => bot
     case (t:ProdLabel, _) if t == top => r
     case (_, t:ProdLabel) if t == top => l
-    case (x, JoinLabelComp(xx, y)) if xx == x => x
-    case (JoinLabelComp(xx, y), x) if xx == x => x
-    case (x, JoinLabelComp(y, xx)) if xx == x => x
-    case (JoinLabelComp(y, xx), x) if xx == x => x
     case (MeetLabel(lxx, rxx), rx) if lxx == rx || rxx == rx => MeetLabel(lxx, rxx)
     case (lx, MeetLabel(lxx, rxx)) if lxx == lx || rxx == lx => MeetLabel(lxx, rxx)
     case (ProdLabel(lc, li), ProdLabel(rc, ri)) =>

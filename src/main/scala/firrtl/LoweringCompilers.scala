@@ -82,10 +82,10 @@ class LabelChecking extends CoreTransform {
     passes.DeterminePC,
     passes.SimplifyLabels,
     passes.InferLabels,
-    // passes.PullNexts,
-    // passes.NextCycleTransform,
-    // passes.SeqPortGenNext,
-    // passes.EliminateUnusedConnections,
+    passes.PullNexts,
+    passes.NextCycleTransform,
+    passes.SeqPortGenNext,
+    passes.EliminateUnusedConnections,
     passes.SimplifyLabels,
     passes.LabelCheck
   )
