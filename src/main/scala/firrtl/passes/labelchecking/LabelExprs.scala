@@ -43,9 +43,38 @@ object LabelExprs extends Pass with PassDebug {
     label_is_known_(l); b
   }
 
-  def checkDeclared(l: Label, i: Info, n: String) = 
-    if(!label_is_known(l) && throwErrors)
-      errors.append(new UndeclaredException(i, n))
+  def checkDeclared(l: Label, i: Info, n: String) = {
+    var b = true
+    var scope = collection.immutable.List[Label](UnknownLabel)
+    var badParent: Label = UnknownLabel
+
+    def checkDeclared_(l: Label): Label = l match {
+      case lx: BundleLabel => 
+        scope = lx :: scope
+        val ret = lx map checkDeclared_ map checkDeclaredComp
+        scope = scope.tail
+        ret
+      case lx => lx map checkDeclared_ map checkDeclaredComp
+    }
+    
+    def checkDeclaredComp(lc: LabelComp): LabelComp =
+      lc map checkDeclaredComp match {
+        case UnknownLabelComp => b = false; badParent = scope.head; UnknownLabelComp
+        case lx => lx
+      }
+    checkDeclared_(l);
+    
+    val parentString = badParent match {
+      case UnknownLabel => ""
+      case _ => s", with bad internal record ${badParent.serialize}"
+    }
+
+    if(!b && throwErrors)
+      errors.append(new UndeclaredException(i, n + parentString))
+
+    // if(!label_is_known(l) && throwErrors)
+    //   errors.append(new UndeclaredException(i, n))
+  }
     
   def checkKnown(l: Label, i: Info, n: String) = 
     if(!label_is_known(l) && throwErrors)

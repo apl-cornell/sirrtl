@@ -27,6 +27,8 @@ object LabelMPorts extends Pass with PassDebug {
     if(!label_is_known(l))
       errors.append(new UndeclaredException(i, n))
 
+  def label_or_var(l: Label, id: String) = if(label_is_known(l)) l else VarLabel(id)
+
   def apply_index(l: Label, idx: Expression): Label = {
     def apply_index_c(idx: Expression)(lc: LabelComp): LabelComp = 
       lc map apply_index_c(idx) match {
@@ -40,8 +42,9 @@ object LabelMPorts extends Pass with PassDebug {
 
   def label_mports_s(labels: LabelMap)(s: Statement): Statement = s match {
     case sx: CDefMemory => 
-      checkDeclared(sx.lbl, sx.info, sx.name)
-      labels(sx.name) = sx.lbl
+      // checkDeclared(sx.lbl, sx.info, sx.name)
+      var lbl = label_or_var(sx.lbl, sx.name)
+      labels(sx.name) = lbl
       sx
     case sx: CDefMPort =>
       val lb = labels getOrElse(sx.mem, UnknownLabel)
