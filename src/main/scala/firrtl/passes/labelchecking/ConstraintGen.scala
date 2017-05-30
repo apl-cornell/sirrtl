@@ -136,10 +136,43 @@ abstract class ConstraintGenerator {
   type DeclSet = LinkedHashSet[String]
   type TypeDeclSet = LinkedHashMap[AggregateType, String]
 
+  // Used to weaken equality within TypeDeclSet 
+  case class WeakField(name: String, tpe: Type) extends FirrtlNode with HasName {
+    def serialize: String =  name + " : " + tpe.serialize
+  }
+  case class WeakBundle(fields: Seq[WeakField]) extends AggregateType {
+    def serialize: String = "{ " + (fields map (_.serialize) mkString ", ") + "}"
+    def mapType(f: Type => Type): Type =
+      WeakBundle(fields map (x => x.copy(tpe = f(x.tpe))))
+  }
+
+  def weakenType(tpe: Type): Type = tpe map weakenType match {
+    case tx: BundleType => WeakBundle(tx.fields.map(weakenField(_)))
+    case tx => tx
+  }
+  def weakenField(field: Field) = WeakField(field.name, weakenType(field.tpe))
+  def weakenBundle(bundle: BundleType) = weakenType(bundle).asInstanceOf[WeakBundle]
+
   def collect_type_decls(typeDecs: TypeDeclSet)(name: String, t: Type): Unit =  t match {
     case tx : BundleType =>
       val n = name.replace("$", "").toUpperCase
+      // println()
+      // println()
+      // println(s"n: ${n}")
+      // println(s"tx :${tx.serialize}")
+      val txx = weakenBundle(tx)
+      // println(s"txx :${txx.serialize}")
+      if(!typeDecs.contains(txx)) {
+        // println("added")
+        txx.fields.foreach {f => collect_type_decls(typeDecs)(n + "_" + f.name, f.tpe) }
+        typeDecs(txx) = n
+      } else typeDecs(txx)
+    case tx : WeakBundle =>
+      val n = name.replace("$", "").toUpperCase
+      // println(s"n: ${n}")
+      // println(s"tx (weak) :${tx.serialize}")
       if(!typeDecs.contains(tx)) {
+        // println("added")
         tx.fields.foreach {f => collect_type_decls(typeDecs)(n + "_" + f.name, f.tpe) }
         typeDecs(tx) = n
       } else typeDecs(tx)
@@ -198,6 +231,7 @@ abstract class ConstraintGenerator {
   }
 
   def declarations(m: DefModule) : LinkedHashSet[String] = {
+    // println(s"declaring module ${m.name}")
     val declSet = new LinkedHashSet[String]()
     val typeDecs = new LinkedHashMap[AggregateType, String]()
     m map decls_p(declSet, typeDecs) map decls_s(declSet, typeDecs)
@@ -214,7 +248,8 @@ object BVConstraintGen extends ConstraintGenerator {
   def emitDatatype(typeDecls: TypeDeclSet, t: Type): String = t match {
     case tx : UIntType => s"(_ BitVec ${bitWidth(tx)})"
     case tx : SIntType => s"(_ BitVec ${bitWidth(tx)})"
-    case tx : BundleType => typeDecls(tx)
+    case tx : BundleType => typeDecls(weakenBundle(tx))
+    case tx : WeakBundle => typeDecls(tx)
     case VectorType(tpe, _) => 
       // TODO actually represent this as an array
       emitDatatype(typeDecls, tpe)
@@ -225,6 +260,7 @@ object BVConstraintGen extends ConstraintGenerator {
     case tx : UIntType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case tx : SIntType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case tx : BundleType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
+    case tx : WeakBundle => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case VectorType(tpe, _) => 
       // TODO actually represent this as an array
       emitDecl(typeDecls, name, tpe)
@@ -242,6 +278,12 @@ object BVConstraintGen extends ConstraintGenerator {
     case tx : BundleType => 
       val name = typeDecs(tx)
       val field_decls = tx.fields.map { case Field(n,_,tpe,_,_) =>
+        s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+      } reduceLeft (_ + _)
+      s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
+    case tx: WeakBundle =>
+      val name = typeDecs(tx)
+      val field_decls = tx.fields.map { case WeakField(n, tpe) =>
         s"(field_$n ${emitDatatype(typeDecs, tpe)})"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
@@ -305,7 +347,14 @@ object BVConstraintGen extends ConstraintGenerator {
   def exprToCons(e: Expression, w: BigInt) = e match {
     case ex : Literal => CBVLit(ex.value, w)
     case _ =>
-      val diff = w - bitWidth(e.tpe)
+      var diff = BigInt(0)
+      try {
+        diff = w - bitWidth(e.tpe)
+      } catch {
+        case (t: Throwable) =>
+        //   println(s"bad expr: ${e.serialize}")
+        //   throw t
+      }
       val c = exprToCons(e)
       if(diff > 0) CBinOp("concat", CBVLit(0, diff), c) 
       else if(diff < 0) CBVExtract(w-1, 0, c)

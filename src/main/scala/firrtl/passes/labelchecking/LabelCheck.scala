@@ -167,19 +167,19 @@ object LabelCheck extends Pass with PassDebug {
             val lhsx = f.lbl
             val rhsx = field_label(rhs, f.name)
             val inf = s" (field: ${f.name})"
-            emit_conn_check(deps, whenC, pc, lhsx, rhsx, info, inf)
+            check_connection(deps, whenC, lhsx, rhsx, pc, info)
           }
         case((lhsb: BundleLabel, _)) => 
           lhsb.fields.foreach { f =>
             val lhsx = f.lbl
             val inf = s" (field: ${f.name})"
-            emit_conn_check(deps, whenC, pc, lhsx, rhs, info, inf)
+            check_connection(deps, whenC, lhsx, rhs, pc, info)
           }
         case((_, rhsb: BundleLabel)) => 
           rhsb.fields.foreach { f =>
             val rhsx = f.lbl
             val inf = s" (field: ${f.name})"
-            emit_conn_check(deps, whenC, pc, lhs, rhsx, info, inf)
+            check_connection(deps, whenC, lhs, rhsx, pc, info)
           }
         case _ =>
           emit_conn_check(deps, whenC, pc, lhs, rhs, info)
@@ -193,7 +193,12 @@ object LabelCheck extends Pass with PassDebug {
       emit(s"""(echo \"Checking Connection (Conf): ${info}${extraInfo}\")\n""" )
       emit(s"(assert ${whenC.serialize})\n")
       // emit_deps(deps) XXX This is broken
+      try {
       emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
+      } catch {
+        case (t: Exception) =>
+          throw new Exception(s"${info}: ${t.getMessage}")
+      }
       emit("(check-sat)\n")
       emit("(pop)\n")
 

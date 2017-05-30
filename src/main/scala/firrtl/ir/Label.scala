@@ -33,7 +33,7 @@ object C {
   def apply(l: Label): LabelComp = l match {
     case ProdLabel(conf, _) => conf
     case _ =>
-      throw new Exception("tried to conf project non-product")
+      throw new Exception(s"tried to conf project non-product: ${l.serialize}")
       UnknownLabelComp
   }
 }
@@ -42,7 +42,7 @@ object I {
   def apply(l: Label): LabelComp = l match {
     case ProdLabel(_, integ) => integ
     case _ =>
-      throw new Exception("tried to integ project non-product")
+      throw new Exception(s"tried to integ project non-product ${l.serialize}")
       UnknownLabelComp
   }
 }

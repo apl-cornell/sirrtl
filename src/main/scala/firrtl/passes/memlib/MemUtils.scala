@@ -32,7 +32,7 @@ object toBits {
     case t: BundleType => seqCat(t.fields map (f =>
       hiercat(WSubField(e, f.name, f.tpe, e.lbl, UNKNOWNGENDER))))
     case t: GroundType => DoPrim(AsUInt, Seq(e), Seq.empty, UnknownType, UnknownLabel) 
-    case t => error("Unknown type encountered in toBits!")
+    case t => error(s"Unknown type encountered in toBits! [${e.serialize} : ${e.tpe.serialize}]")
   }
 }
 
@@ -85,7 +85,7 @@ object bitWidth {
     case t: VectorType => t.size * bitWidth(t.tpe)
     case t: BundleType => t.fields.map(f => bitWidth(f.tpe)).foldLeft(BigInt(0))(_+_)
     case GroundType(IntWidth(width)) => width
-    case t => error("Unknown type encountered in bitWidth!")
+    case t => error(s"Unknown type encountered in bitWidth! [${dt.serialize}]")
   }
 }
 
