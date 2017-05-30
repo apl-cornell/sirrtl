@@ -123,6 +123,21 @@ object LabelExprs extends Pass with PassDebug {
       case ex: Endorse => ex
     }
 
+  def instance_io_rename(instName: String)(label: Label): Label = {
+    def instance_io_rename_e(instName: String)(e: Expression): Expression =
+      e map instance_io_rename_e(instName) match {
+        case ex: Reference if ex.name == "io" => 
+          val iref = Reference(instName, UnknownType, UnknownLabel)
+          SubField(iref, "io", ex.tpe, ex.lbl)
+        case ex => ex
+      }
+
+    def instance_io_rename_lc(instName: String)(lc: LabelComp): LabelComp =
+      lc map instance_io_rename_e(instName) map instance_io_rename_lc(instName)
+
+    label map instance_io_rename_lc(instName) map instance_io_rename(instName)
+  }
+
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 
     s map label_exprs_s(labels) match {
       case sx: WDefInstance =>
@@ -130,7 +145,7 @@ object LabelExprs extends Pass with PassDebug {
         // in InferTypes and that both type and label propagation have already 
         // been performed for definition of the instantiated module since 
         // forward instantiation is not permitted. 
-        val lb = to_bundle(sx.tpe, UnknownLabel)
+        val lb = instance_io_rename(sx.name)(to_bundle(sx.tpe, UnknownLabel))
         checkDeclared(lb, sx.info, sx.name)
         labels(sx.name) = lb
         (sx copy (lbl = lb)) map label_exprs_e(labels)

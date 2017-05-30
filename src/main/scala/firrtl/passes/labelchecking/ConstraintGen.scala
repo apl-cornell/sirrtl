@@ -156,23 +156,14 @@ abstract class ConstraintGenerator {
   def collect_type_decls(typeDecs: TypeDeclSet)(name: String, t: Type): Unit =  t match {
     case tx : BundleType =>
       val n = name.replace("$", "").toUpperCase
-      // println()
-      // println()
-      // println(s"n: ${n}")
-      // println(s"tx :${tx.serialize}")
       val txx = weakenBundle(tx)
-      // println(s"txx :${txx.serialize}")
       if(!typeDecs.contains(txx)) {
-        // println("added")
         txx.fields.foreach {f => collect_type_decls(typeDecs)(n + "_" + f.name, f.tpe) }
         typeDecs(txx) = n
       } else typeDecs(txx)
     case tx : WeakBundle =>
       val n = name.replace("$", "").toUpperCase
-      // println(s"n: ${n}")
-      // println(s"tx (weak) :${tx.serialize}")
       if(!typeDecs.contains(tx)) {
-        // println("added")
         tx.fields.foreach {f => collect_type_decls(typeDecs)(n + "_" + f.name, f.tpe) }
         typeDecs(tx) = n
       } else typeDecs(tx)
@@ -231,7 +222,6 @@ abstract class ConstraintGenerator {
   }
 
   def declarations(m: DefModule) : LinkedHashSet[String] = {
-    // println(s"declaring module ${m.name}")
     val declSet = new LinkedHashSet[String]()
     val typeDecs = new LinkedHashMap[AggregateType, String]()
     m map decls_p(declSet, typeDecs) map decls_s(declSet, typeDecs)

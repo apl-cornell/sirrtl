@@ -83,22 +83,44 @@ object InferLabels extends Pass with PassDebug {
   def gen_constr_s(conSet: ConstrSet)(s: Statement): Statement =
     s map gen_constr_s(conSet) match {
       case sx: ConnectPC => 
-        canon_labels(sx.expr) foreach { v => conSet += ((v, sx.loc.lbl)) }
-        canon_labels(sx.pc)   foreach { v => conSet += ((v, sx.loc.lbl)) }
+        constrain_flow(conSet)(sx.expr.lbl, sx.loc.lbl)
+        constrain_flow(conSet)(sx.pc, sx.loc.lbl)
         sx
       case sx: PartialConnectPC =>
-        canon_labels(sx.expr) foreach { v => conSet += ((v, sx.loc.lbl)) }
-        canon_labels(sx.pc)   foreach { v => conSet += ((v, sx.loc.lbl)) }
+        constrain_flow(conSet)(sx.expr.lbl, sx.loc.lbl)
+        constrain_flow(conSet)(sx.pc, sx.loc.lbl)
         sx
       case sx: DefNodePC =>
-        canon_labels(sx.value) foreach { v => conSet += ((v, sx.lbl)) }
-        // The label of the value is joined by the PC before we get here.
-        // canon_labels(sx.pc)    foreach { v => conSet += ((v, sx.lbl)) }
+        constrain_flow(conSet)(sx.value.lbl, sx.lbl)
         sx
       case sx => sx
     }
 
-  // Returns the set of canonical-form labels in the label of expr e. Labels 
+  def constrain_flow(conSet: ConstrSet)(to: Label, from: Label): Unit =
+  {
+    (to, from) match {
+      case ((tob: BundleLabel, fromb: BundleLabel)) =>
+        tob.fields.foreach { f =>
+          val tox = f.lbl
+          val fromx = field_label(fromb, f.name)
+          constrain_flow(conSet)(tox, fromx)
+        }
+      case ((tob: BundleLabel, _)) =>
+        tob.fields.foreach { f =>
+          val tox = f.lbl
+          constrain_flow(conSet)(tox, from)
+        }
+      case ((_, fromb: BundleLabel)) =>
+        fromb.fields.foreach { f =>
+          val fromx = f.lbl
+          constrain_flow(conSet)(to, fromx)
+        }
+      case _ =>
+        canon_labels(from) foreach { v => conSet += ((v, to)) }
+    }
+  }
+
+  // Returns the set of canonical-form labels in the label. Labels 
   // resulting from a join cannot appear in the LHS of a constraint in 
   // canonical form.
   // This whole inference algorithm also assumes that meets do not appear in 
@@ -106,11 +128,6 @@ object InferLabels extends Pass with PassDebug {
   // this inference algorithm). See CH 5 of Andrew Myers' thesis for more
   // details.
   type lset = collection.mutable.HashSet[Label]
-  def canon_labels(e: Expression): Set[Label] = {
-    val ret = new lset
-    (e map canon_labels_l(ret)); ret
-  }
-
   def canon_labels(l: Label): Set[Label] = {
     val ret = new lset
     canon_labels_l(ret)(l); ret
@@ -121,7 +138,7 @@ object InferLabels extends Pass with PassDebug {
     case lx: JoinLabel => lx map canon_labels_l(s)
     case lx: ProdLabel => s += lx; lx
     case lx: VarLabel => s += lx; lx
-    case lx: BundleLabel  => s += lx; lx 
+    // case lx: BundleLabel  => s += lx; lx 
   }
   
   //-----------------------------------------------------------------------------

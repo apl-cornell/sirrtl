@@ -169,19 +169,19 @@ object LabelCheck extends Pass with PassDebug {
             val inf = s" (field: ${f.name})"
             check_connection(deps, whenC, lhsx, rhsx, pc, info)
           }
-        case((lhsb: BundleLabel, _)) => 
+        case((lhsb: BundleLabel, rhsx: ProdLabel)) => 
           lhsb.fields.foreach { f =>
             val lhsx = f.lbl
             val inf = s" (field: ${f.name})"
             check_connection(deps, whenC, lhsx, rhs, pc, info)
           }
-        case((_, rhsb: BundleLabel)) => 
+        case((lhsx: ProdLabel, rhsb: BundleLabel)) => 
           rhsb.fields.foreach { f =>
             val rhsx = f.lbl
             val inf = s" (field: ${f.name})"
             check_connection(deps, whenC, lhs, rhsx, pc, info)
           }
-        case _ =>
+        case (_: ProdLabel, _: ProdLabel) =>
           emit_conn_check(deps, whenC, pc, lhs, rhs, info)
       }
     }
