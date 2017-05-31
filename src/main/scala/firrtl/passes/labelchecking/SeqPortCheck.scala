@@ -86,8 +86,8 @@ object SeqPortCheck extends LabelPass with LabelPassDebug {
     collect_seq_out(m) foreach { e =>
         val a = CAtom(conGen.refToIdent(e))
         if(!conEnv.contains(a)) errors.append(new NoSeqOutConException(a))
-        else if(!seq_loc.contains(conEnv(a)))
-            errors.append(new BadSeqOutConException(a, conEnv(a)))
+        else if(!seq_loc.contains(conEnv(a)._1))
+            errors.append(new BadSeqOutConException(a, conEnv(a)._1))
     }
   }
   

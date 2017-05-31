@@ -23,14 +23,16 @@ object LabelCheck extends Pass with PassDebug {
    
     // For debugging only
     def emitConEnv(conEnv: ConnectionEnv) = conEnv.foreach {
-      case(loc, cons) => emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
+      case(loc, (cons, info)) => 
+        emit(info.serialize); emit("\n")
+        emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
     }
 
     //-------------------------------------------------------------------------
     // Collect constraints which may affect the value of a dependent type
     //-------------------------------------------------------------------------
     // A set of (location, value) pairs in the constraint domain
-    type ConSet = collection.mutable.HashSet[(Constraint,Constraint)]
+    type ConSet = collection.mutable.LinkedHashSet[(Constraint,(Constraint, Info))]
     def collect_deps_e(conEnv: ConnectionEnv, conSet: ConSet)(e: Expression) : Expression = {
       val ex: Expression = e map collect_deps_e(conEnv, conSet) 
       val c = consGenerator.exprToCons(ex)
@@ -51,7 +53,9 @@ object LabelCheck extends Pass with PassDebug {
     }
 
     def emit_deps(conSet: ConSet) : Unit = conSet.foreach {
-      case(loc, cons) => emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
+      case(loc, (cons, info)) => 
+        emit(info.serialize); emit("\n")
+        emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
     }
    
     //-----------------------------------------------------------------------------
@@ -131,7 +135,7 @@ object LabelCheck extends Pass with PassDebug {
           emit("(push)\n")
           emit(s"""(echo \"Checking Declassification: ${info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
-          emit_deps(deps)
+          // emit_deps(deps)
           // Prove that the integrity label is not changing.
           emit("(push)\n")
           // Need to introduce a new scope. Otherwise this often lets you prove 
@@ -150,7 +154,7 @@ object LabelCheck extends Pass with PassDebug {
           emit("(push)\n")
           emit(s"""(echo \"Checking Endorsement: ${info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
-          emit_deps(deps)
+          // emit_deps(deps)
           // Prove that the confidentiality label is not changing.
           emit(s"(assert (not (= ${ser(C(expr.lbl))} ${ser(C(lbl))})))")
           emit("(check-sat)\n")

@@ -11,8 +11,8 @@ import collection.mutable.LinkedHashMap
 
 // A mapping from locations in the constraint domain to their values in the 
 // constraint domain.
-class ConnectionEnv extends collection.mutable.HashMap[Constraint,Constraint]
-  { override def default(c:Constraint) = c }
+class ConnectionEnv extends collection.mutable.LinkedHashMap[Constraint,(Constraint, Info)]
+  { override def default(c:Constraint) = ((c, NoInfo)) }
 
 
 // A mapping from statements to a constraint which is known to be true upon 
@@ -52,12 +52,12 @@ abstract class ConstraintGenerator {
   //---------------------------------------------------------------------------
   // Generate a connection mapping. This is a set in which each assignable 
   // location is uniquely mapped to a single value in the constraint domain
-  def connect(conEnv: ConnectionEnv, whenEnv: WhenEnv, loc: Constraint, cprime: Constraint) {
+  def connect(conEnv: ConnectionEnv, whenEnv: WhenEnv, loc: Constraint, cprime: Constraint, info: Info) {
     if(whenEnv.cur == CTrue || !conEnv.contains(loc)) {
       // This is just to simplify generated constraints
-      conEnv(loc) = cprime
+      conEnv(loc) = ((cprime, info))
     } else {
-      conEnv(loc) = CIfTE(whenEnv.cur, cprime, conEnv(loc))
+      conEnv(loc) = ((CIfTE(whenEnv.cur, cprime, conEnv(loc)._1), info))
     }
   }
 
@@ -66,7 +66,7 @@ abstract class ConstraintGenerator {
        case ((loct: VectorType, expt: VectorType)) =>
          // TODO actually support vector connections
          val w = bitWidth(lhs.tpe)
-         connect(conEnv, whenEnv, exprToCons(lhs), exprToCons(rhs, w))
+         connect(conEnv, whenEnv, exprToCons(lhs), exprToCons(rhs, w), info)
        case ((loct: BundleType, expt: BundleType))  =>
          loct.fields.foreach { f => if (has_field(expt, f.name)) {
            val locx = WSubField(lhs, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
@@ -78,7 +78,7 @@ abstract class ConstraintGenerator {
        case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${info}")
        case ((_: GroundType, _:GroundType)) =>
          val w = bitWidth(lhs.tpe)
-         connect(conEnv, whenEnv, exprToCons(lhs), exprToCons(rhs, w))
+         connect(conEnv, whenEnv, exprToCons(lhs), exprToCons(rhs, w), info)
        case _ => throw new Exception(s"bad types connected: ${lhs.tpe.serialize}, ${rhs.tpe.serialize}")
     }
 
@@ -305,7 +305,7 @@ object BVConstraintGen extends ConstraintGenerator {
 
     mem.readers foreach { pname =>
       conEnv += CImpl( CBVWrappedBV(en(pname), 1), 
-        CEq(CASelect(arr, addr(pname)), data(pname))) 
+        CEq(CASelect(arr, addr(pname)), data(pname)))
     }
     mem.writers foreach { pname =>
       val cond = CConj(CBVWrappedBV(en(pname), 1),

@@ -20,6 +20,6 @@ abstract class LabelPassBased {
 trait LabelPassDebug extends PassDebug {
   override def color = Console.GREEN
   def dprintConEnv(conEnv: ConnectionEnv) = conEnv.foreach {
-    case(loc, cons) => dprint(s"(${loc.serialize} -> ${cons.serialize})\n")
+    case(loc, (cons, info)) => dprint(s"(${loc.serialize} -> ${cons.serialize}) ${info.serialize}\n")
   }
 }
