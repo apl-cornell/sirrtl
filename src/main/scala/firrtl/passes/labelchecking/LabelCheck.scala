@@ -24,7 +24,7 @@ object LabelCheck extends Pass with PassDebug {
     // For debugging only
     def emitConEnv(conEnv: ConnectionEnv) = conEnv.foreach {
       case(loc, (cons, info)) => 
-        emit(info.serialize); emit("\n")
+        emit(s";${info.serialize}\n")
         emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
     }
 
@@ -54,7 +54,7 @@ object LabelCheck extends Pass with PassDebug {
 
     def emit_deps(conSet: ConSet) : Unit = conSet.foreach {
       case(loc, (cons, info)) => 
-        emit(info.serialize); emit("\n")
+        emit(s";${info.serialize}\n")
         emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
     }
    
