@@ -61,43 +61,39 @@ abstract class ConstraintGenerator {
     }
   }
 
+  def connect_outer(lhs: Expression, rhs: Expression, conEnv: ConnectionEnv, whenEnv: WhenEnv, info: Info): Unit = 
+    (lhs.tpe, rhs.tpe) match {
+       case ((loct: VectorType, expt: VectorType)) =>
+         // TODO actually support vector connections
+         val w = bitWidth(lhs.tpe)
+         connect(conEnv, whenEnv, exprToCons(lhs), exprToCons(rhs, w))
+       case ((loct: BundleType, expt: BundleType))  =>
+         loct.fields.foreach { f => if (has_field(expt, f.name)) {
+           val locx = WSubField(lhs, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+           val expx = WSubField(rhs, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
+           val w = bitWidth(locx.tpe)
+           connect_outer(locx, expx, conEnv, whenEnv, info)
+         }}
+       case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${info}")
+       case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${info}")
+       case ((_: GroundType, _:GroundType)) =>
+         val w = bitWidth(lhs.tpe)
+         connect(conEnv, whenEnv, exprToCons(lhs), exprToCons(rhs, w))
+       case _ => throw new Exception(s"bad types connected: ${lhs.tpe.serialize}, ${rhs.tpe.serialize}")
+    }
+
   // The purpose of this function is to mutate conEnv and whenEnv (by populating 
   // them) Note: this is the identity function on the statement argument. 
   def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = s match {
       case sx: DefNodePC =>
-        connect(conEnv, whenEnv, CAtom(sx.name), exprToCons(sx.value))
+        val nref = WRef(sx.name, sx.value.tpe, sx.lbl, NodeKind, FEMALE)
+        connect_outer(nref, sx.value, conEnv, whenEnv, sx.info)
         whenEnv(sx) = whenEnv.cur; sx
       case sx: ConnectPC =>
-        (sx.loc.tpe, sx.expr.tpe) match {
-          case ((loct: BundleType, expt: BundleType))  =>
-            loct.fields.foreach { f => if(has_field(expt, f.name)) {
-              val locx = WSubField(sx.loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
-              val expx = WSubField(sx.expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
-              val w = bitWidth(locx.tpe)
-              connect(conEnv, whenEnv, exprToCons(locx), exprToCons(expx))
-            }}
-          case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${sx.info}")
-          case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${sx.info}")
-          case _ =>
-            val w = bitWidth(sx.loc.tpe)
-            connect(conEnv, whenEnv, exprToCons(sx.loc), exprToCons(sx.expr, w))
-        }
+        connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
         whenEnv(sx) = whenEnv.cur; sx
       case sx: PartialConnectPC =>
-        (sx.loc.tpe, sx.expr.tpe) match {
-          case ((loct: BundleType, expt: BundleType))  =>
-            loct.fields.foreach { f => if (has_field(expt, f.name)) {
-              val locx = WSubField(sx.loc,  f.name, f.tpe, f.lbl, UNKNOWNGENDER)
-              val expx = WSubField(sx.expr, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
-              val w = bitWidth(locx.tpe)
-              connect(conEnv, whenEnv, exprToCons(locx), exprToCons(expx))
-            }}
-          case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${sx.info}")
-          case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${sx.info}")
-          case _ =>
-            val w = bitWidth(sx.loc.tpe)
-            connect(conEnv, whenEnv, exprToCons(sx.loc), exprToCons(sx.expr, w))
-        }
+        connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
         whenEnv(sx) = whenEnv.cur; sx
       case sx: ConditionallyPC =>
         val oldWhen = whenEnv.cur
