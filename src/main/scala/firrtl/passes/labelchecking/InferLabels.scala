@@ -96,24 +96,24 @@ object InferLabels extends Pass with PassDebug {
       case sx => sx
     }
 
-  def constrain_flow(conSet: ConstrSet)(to: Label, from: Label): Unit =
+  def constrain_flow(conSet: ConstrSet)(from: Label, to: Label): Unit =
   {
-    (to, from) match {
-      case ((tob: BundleLabel, fromb: BundleLabel)) =>
-        tob.fields.foreach { f =>
-          val tox = f.lbl
-          val fromx = field_label(fromb, f.name)
-          constrain_flow(conSet)(tox, fromx)
-        }
-      case ((tob: BundleLabel, _)) =>
-        tob.fields.foreach { f =>
-          val tox = f.lbl
-          constrain_flow(conSet)(tox, from)
-        }
-      case ((_, fromb: BundleLabel)) =>
+    (from, to) match {
+      case ((fromb: BundleLabel, tob: BundleLabel)) =>
         fromb.fields.foreach { f =>
           val fromx = f.lbl
-          constrain_flow(conSet)(to, fromx)
+          val tox = field_label(tob, f.name)
+          constrain_flow(conSet)(fromx, tox)
+        }
+      case ((fromb: BundleLabel, _)) =>
+        fromb.fields.foreach { f =>
+          val fromx = f.lbl
+          constrain_flow(conSet)(fromx, to)
+        }
+      case ((_, tob: BundleLabel)) =>
+        tob.fields.foreach { f =>
+          val tox = f.lbl
+          constrain_flow(conSet)(from, tox)
         }
       case _ =>
         canon_labels(from) foreach { v => conSet += ((v, to)) }
