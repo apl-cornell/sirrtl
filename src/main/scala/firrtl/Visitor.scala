@@ -159,7 +159,10 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
       else
         VecHLevel(visitExp(ctx.exp(0)))
     } else Option(ctx.exp) match {
-        case None => Level(ctx.id.getText)
+        case None => Option(ctx.labelComp) match {
+          case Some(cctx) => JoinLabelComp(visitLabelComp(cctx(0)), visitLabelComp(cctx(1)))
+          case None => Level(ctx.id.getText)
+        }
         case Some(ectx) if ectx.size == 0 => Level(ctx.id.getText)
         case Some(ectx) => FunLabel(ctx.id.getText, ectx.map(visitExp):_*)
     }

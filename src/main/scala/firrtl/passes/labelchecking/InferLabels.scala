@@ -116,7 +116,11 @@ object InferLabels extends Pass with PassDebug {
           constrain_flow(conSet)(from, tox)
         }
       case _ =>
-        canon_labels(from) foreach { v => conSet += ((v, to)) }
+        canon_labels(from) foreach { v => v match {
+            case (_:VarLabel) => conSet += ((v, to)) 
+            case _ =>
+          }
+        }
     }
   }
 
@@ -216,12 +220,12 @@ object InferLabels extends Pass with PassDebug {
   // Meets/Joins that formerly contained VarLabels should now only 
   // have resolved labels so re-apply the builder to get a simple label
   def prop_env_l(env: LabelVarEnv)(l: Label): Label = 
-    l map prop_env_l(env) match {
+    simplifyLabel(l map prop_env_l(env) match {
       case lx: VarLabel => env(lx)
       case JoinLabel(l, r) => l join r
       case MeetLabel(l, r) => l meet r
       case lx => lx
-    }
+    })
 
   //-----------------------------------------------------------------------------
   // Run
