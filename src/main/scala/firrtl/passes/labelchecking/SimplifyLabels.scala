@@ -51,7 +51,7 @@ object SimplifyLabels extends Pass with PassDebug {
     l map dnf_lb_cmp map cnf_e match {
       case lbx: JoinLabelComp => 
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
-          case (lhs:LabelComp, rhs:LabelComp) => lhs join rhs
+          case (lhs:LabelComp, rhs:LabelComp) => cnf_lb_cmp(lhs join rhs)
         }).foldLeft(top) { _ meet _ }
       case lbx: MeetLabelComp =>
         val simplified_clauses = new LinkedHashSet[LabelComp]
@@ -103,7 +103,7 @@ object SimplifyLabels extends Pass with PassDebug {
     l map cnf_lb_cmp map cnf_e match {
       case lbx: MeetLabelComp => 
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
-          case (lhs:LabelComp, rhs:LabelComp) => lhs meet rhs
+          case (lhs:LabelComp, rhs:LabelComp) => dnf_lb_cmp(lhs meet rhs)
         }).foldLeft(bot) { _ join _ }
       case lbx: JoinLabelComp =>
         val simplified_clauses = new LinkedHashSet[LabelComp]

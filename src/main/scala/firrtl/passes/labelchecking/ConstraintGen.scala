@@ -282,6 +282,9 @@ object BVConstraintGen extends ConstraintGenerator {
     case WRef(name,_,_,_,_) => name
     case WSubField(exp,name,_,_,_) => 
       s"(field_$name ${refToIdent(exp)})"
+    case ex: Mux =>
+      // Why does this even happen? Vecs of Muxes??
+      exprToCons(ex).serialize 
   }
 
   def genMemCons(conEnv: MemDataCons, mem: DefMemory): Unit = {
