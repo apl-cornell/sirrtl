@@ -138,7 +138,7 @@ object RemoveCHIRRTL extends Pass {
       case ex: Reference => refs get ex.name match {
         case None => ex
         case Some(p) => 
-          SubField(p.exp, p.mask, createMask(ex.tpe), bot)
+          SubField(p.exp, p.mask, createMask(ex.tpe), p.exp.lbl)
       }
       case ex => ex
     }
