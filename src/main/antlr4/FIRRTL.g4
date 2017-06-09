@@ -70,8 +70,12 @@ labelComp
   |  '(' id exp+ ')'  // Dependent type function
   |  '[[' exp ']]H'   // Hypercube label interpretation of expression
   |  '[[' exp ']]V'   // Vector of hypercube labels
-  |  labelComp 'join' labelComp
+  |  labelComp join labelComp
+  |  labelComp meet labelComp
   ;
+
+join : 'join' ;
+meet : 'meet' ;
 
 field
   : 'flip'? id ':' 'seq'? label? type

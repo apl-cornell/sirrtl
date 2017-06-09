@@ -4,6 +4,7 @@ package firrtl
 
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNode
+import org.antlr.v4.runtime.misc.Interval
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 import firrtl.antlr._
@@ -158,15 +159,16 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
         HLevel(visitExp(ctx.exp(0)))
       else
         VecHLevel(visitExp(ctx.exp(0)))
-    } else Option(ctx.exp) match {
-        case None => Option(ctx.labelComp) match {
-          case Some(cctx) => JoinLabelComp(visitLabelComp(cctx(0)), visitLabelComp(cctx(1)))
-          case None => Level(ctx.id.getText)
-        }
-        case Some(ectx) if ectx.size == 0 => Level(ctx.id.getText)
-        case Some(ectx) => FunLabel(ctx.id.getText, ectx.map(visitExp):_*)
+    } else if(ctx.join != null) {
+      JoinLabelComp(visitLabelComp(ctx.labelComp(0)), visitLabelComp(ctx.labelComp(1)))
+    } else if(ctx.meet != null) {
+      MeetLabelComp(visitLabelComp(ctx.labelComp(0)), visitLabelComp(ctx.labelComp(1)))
+    } else {
+      if(ctx.exp.size > 0)  FunLabel(ctx.id.getText, ctx.exp.map(visitExp):_*)
+      else Level(ctx.id.getText)
     }
   }
+  
 
   private def visitField[FirrtlNode](ctx: FIRRTLParser.FieldContext): Field = {
     val flip = if (ctx.getChild(0).getText == "flip") Flip else Default
