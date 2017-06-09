@@ -377,6 +377,15 @@ object Utils extends LazyLogging {
     case Flip => swap(f1)
   }
 
+  // Only works for assignable locations
+  def setLabel(e: Expression, l: Label) = e match {
+    case ex: WRef => ex.copy(lbl = l)
+    case ex: WSubField => ex.copy(lbl = l)
+    case ex: WSubIndex => ex.copy(lbl = l)
+    case ex: WSubAccess => ex.copy(lbl = l)
+    case ex => ex
+  }
+
 // =========== ACCESSORS =========
   def kind(e: Expression): Kind = e match {
     case ex: WRef => ex.kind

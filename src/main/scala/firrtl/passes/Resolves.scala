@@ -7,7 +7,7 @@ import firrtl.ir._
 import firrtl.Mappers._
 
 object ResolveKinds extends ResolveKindsT
-trait ResolveKindsT extends Pass {
+trait ResolveKindsT extends Pass with PassDebug {
   def name = "Resolve Kinds"
   type KindMap = collection.mutable.LinkedHashMap[String, Kind]
 
@@ -33,11 +33,13 @@ trait ResolveKindsT extends Pass {
   def resolve_expr(kinds: KindMap)(e: Expression): Expression = 
     e map resolve_lbl(kinds) match {
     case ex: WRef => ex copy (kind = kinds(ex.name))
-    case _ => e map resolve_expr(kinds)
+    case _ => e map resolve_expr(kinds) map resolve_lbl(kinds)
   }
 
-  def resolve_stmt(kinds: KindMap)(s: Statement): Statement =
+  def resolve_stmt(kinds: KindMap)(s: Statement): Statement = {
+    dprint(s.info.serialize)
     s map resolve_stmt(kinds) map resolve_expr(kinds) map resolve_lbl(kinds)
+  }
 
   def resolve_kinds(m: DefModule): DefModule = {
     val kinds = new KindMap
@@ -46,8 +48,13 @@ trait ResolveKindsT extends Pass {
        map resolve_stmt(kinds))
   }
  
-  def run(c: Circuit): Circuit =
-    c copy (modules = c.modules map resolve_kinds)
+  def run(c: Circuit): Circuit = {
+    bannerprintb(name)
+    val cprime = c copy (modules = c.modules map resolve_kinds)
+    bannerprintb(s"after $name")
+    dprint(cprime.serialize)
+    cprime
+  }
 }
 
 object ResolveGenders extends Pass {

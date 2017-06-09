@@ -84,6 +84,7 @@ class LabelChecking extends CoreTransform {
     passes.ForwardProp,
     passes.SimplifyLabels,
     passes.InferLabels,
+    passes.DepsResolveKinds,
     passes.PullNexts,
     passes.NextCycleTransform,
     passes.SeqPortGenNext,

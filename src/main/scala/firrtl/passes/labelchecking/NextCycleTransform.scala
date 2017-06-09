@@ -45,7 +45,7 @@ object NextCycleTransform extends Pass with PassDebug {
   // This function is only called on expressions appearing in dependant types.
   // Replace sequential dependands with the next-cycle version of the 
   // dependand. It swaps regardless of gender
-  def swap_with_next_de(e: Expression) : Expression = 
+  def swap_with_next_de(e: Expression) : Expression =
     e map swap_with_next_de match {
       case ex: WRef if ex.kind == RegKind => next_exp(ex)
       case ex: WSubField if PullNexts.is_simple_p_subf(ex) &&
@@ -60,15 +60,21 @@ object NextCycleTransform extends Pass with PassDebug {
       case ex: WRef if ex.kind == RegKind && ex.gender == FEMALE => 
         val next_l = swap_with_next_l(ex.lbl)
         next_exp(ex.copy(lbl = next_l))
-      case ex: WSubField if kind(ex) == PortKind && ex.gender == FEMALE
+      case ex: WSubField if kind(ex) == PortKind && gender(ex) == FEMALE
         && field_seq(ex.exp.tpe, ex.name) =>
         val next_l = swap_with_next_l(ex.lbl)
         ex.copy(lbl = next_l)
+      case ex if kind(ex) == RegKind && gender(ex) == FEMALE =>
+        val next_l = swap_with_next_l(ex.lbl)
+        setLabel(ex, next_l)
       case ex => ex
     }
 
-  def swap_with_next_s(s: Statement) : Statement =
+  def swap_with_next_s(s: Statement) : Statement = {
+    dprint(s.info.serialize)
     s map swap_with_next_s map swap_with_next_e
+  }
+
 
   def swap_with_next(m: DefModule) : DefModule =
     m map swap_with_next_s map flatten_s

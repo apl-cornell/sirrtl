@@ -3,6 +3,7 @@ package firrtl.passes
 import firrtl._
 import firrtl.ir._
 import firrtl.Mappers._
+import firrtl.Utils._
 
 // This should convert all expressions within labels to the WIR, but leave 
 // actual expressions (that reside directly in statements) as they are.
@@ -13,22 +14,24 @@ object DepsToWorkingIR extends ToWorkingIRT {
     lc map toExp map toLblComp
 }
 
-object DepsResolveKinds extends ResolveKindsT with PassDebug {
+object DepsResolveKinds extends ResolveKindsT {
   override def name = "Resolve Kinds of Dep Expressions"
-  override def debugThisPass = false 
+  override def debugThisPass = false
 
   def printExprs(l: LabelComp): LabelComp = {
+    
     def pex(e: Expression): Expression = {
-      println(e.toString)
+      dprint(e.serialize)
+      dprint(s"kind: ${kind(e)}")
       e
     }
     l map printExprs map pex
   }
 
-  override def resolve_lbl(kinds: KindMap)(l: Label): Label = 
-    l map resolve_lbl_cmp(kinds) map resolve_lbl(kinds)
+  override def resolve_lbl(kinds: KindMap)(l: Label): Label =
+    l map resolve_lbl(kinds) map resolve_lbl_cmp(kinds)
   def resolve_lbl_cmp(kinds: KindMap)(l: LabelComp): LabelComp = {
-    l map resolve_expr(kinds) map resolve_lbl_cmp(kinds) 
+    printExprs(l map resolve_expr(kinds) map resolve_lbl_cmp(kinds))
   }
 }
 

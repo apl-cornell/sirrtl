@@ -31,6 +31,7 @@ object PullNexts extends Pass with PassDebug {
   def next_exp(e: Expression) = e match {
     case ex : WRef => ex copy (name = next_ident(ex.name))
     case ex : WSubField => ex copy (name = "next_" + ex.name)
+    case ex => ex
   }
 
   def is_simple_p_subf(e: WSubField) : Boolean = e.exp match {
