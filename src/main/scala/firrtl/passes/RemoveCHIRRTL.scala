@@ -70,8 +70,8 @@ object RemoveCHIRRTL extends Pass {
       val taddr = UIntType(IntWidth(1 max ceilLog2(sx.size)))
       val tdata = sx.tpe
       def set_poison(vec: Seq[MPort]) = vec flatMap (r => Seq(
-        IsInvalid(sx.info, SubField(SubField(Reference(sx.name, ut, sx.lbl), r.name, ut, sx.lbl), "addr", taddr, sx.lbl)),
-        IsInvalid(sx.info, SubField(SubField(Reference(sx.name, ut, sx.lbl), r.name, ut, sx.lbl), "clk", ClockType, sx.lbl))
+        IsInvalid(sx.info, SubField(SubField(Reference(sx.name, ut, bot), r.name, ut, bot), "addr", taddr, bot)),
+        IsInvalid(sx.info, SubField(SubField(Reference(sx.name, ut, bot), r.name, ut, bot), "clk", ClockType, bot))
       ))
       def set_enable(vec: Seq[MPort], en: String) = vec map (r =>
         Connect(sx.info, SubField(SubField(Reference(sx.name, ut, sx.lbl), r.name, ut, bot), en, BoolType, bot), zero)
@@ -127,7 +127,9 @@ object RemoveCHIRRTL extends Pass {
         case MInfer => // do nothing if it's not being used
       }
       Block(
-        (addrs map (x => Connect(sx.info, SubField(SubField(Reference(sx.mem, ut, sx.lbl), sx.name, ut, sx.lbl), x, ut, sx.lbl), sx.exps.head))) ++
+        // actual address label enforcement is done with the array indexing 
+        // rule at the site where the read actually happens
+        (addrs map (x => Connect(sx.info, SubField(SubField(Reference(sx.mem, ut, top), sx.name, ut, top), x, ut, top), sx.exps.head))) ++
         (clks map (x => Connect(sx.info, SubField(SubField(Reference(sx.mem, ut, sx.lbl), sx.name, ut, sx.lbl), x, ut, sx.lbl), sx.exps(1)))) ++
         (ens map (x => Connect(sx.info,SubField(SubField(Reference(sx.mem,ut,sx.lbl), sx.name, ut, sx.lbl), x, ut, sx.lbl), one))))
     case sx => sx map collect_refs(mports, smems, types, refs, raddrs)

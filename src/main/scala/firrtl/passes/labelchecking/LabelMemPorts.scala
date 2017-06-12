@@ -52,7 +52,7 @@ object LabelMPorts extends Pass with PassDebug {
       // If the label of the memory contains vector labels recursively apply 
       // the address expression of the memory port as the index to the vector.
       val idx = sx.exps.head
-      val lbx = apply_index(lb, idx)
+      val lbx = apply_index(lb, idx) join idx.lbl
 
       sx copy (lbl = apply_index(lb, idx))
     case sx => sx map label_mports_s(labels)
