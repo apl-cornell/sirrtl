@@ -34,11 +34,22 @@ object InferLabels extends Pass with PassDebug {
   }
 
   // Constraints of the form L1 flowsto L2
-  class ConstrSet extends collection.mutable.HashSet[(Label, Label)] {
+  class ConstrSet extends collection.mutable.LinkedHashSet[(Label, Label)] {
     override def toString: String = {
       var s = ""
       this.foreach { case(l1: Label, l2: Label) =>
         s = s + s"${l1.serialize} flowsto ${l2.serialize}\n"
+      }
+      s
+    }
+  }
+
+  class AdjList extends collection.mutable.LinkedHashMap[VarLabel,Set[VarLabel]] {
+    override def default(l: VarLabel) = Set()
+    override def toString: String = {
+      var s = ""
+      this.foreach { case(v: VarLabel, adj: Set[VarLabel]) =>
+         s = s + s"${v.serialize} ${adj.toString}\n"
       }
       s
     }
@@ -61,10 +72,13 @@ object InferLabels extends Pass with PassDebug {
     dprint("generating constraints")
     val conSet = gen_constr(m)
     dprint(s"generated constraints (${m.name}):")
-    // dprint(conSet.toString)
-    resolve_constraints(env, conSet)
+    dprint(conSet.toString)
+    val pred = compute_pred(conSet)
+    dprint(s"computed predecessors:")
+    dprint(pred.toString)
+    resolve_constraints(env, conSet, pred)
     dprint(s"env after resolving constraints (${m.name}):")
-    // dprint(env.toString)
+    dprint(env.toString)
     prop_env_m(env)(m)
   }
 
@@ -139,61 +153,36 @@ object InferLabels extends Pass with PassDebug {
 
   def canon_labels_l(s: lset)(l: Label): Label =  l match {
     case lx: MeetLabel => throw new Exception
+    case lx: BundleLabel  => throw new Exception
     case lx: JoinLabel => lx map canon_labels_l(s)
     case lx: ProdLabel => s += lx; lx
     case lx: VarLabel => s += lx; lx
-    // case lx: BundleLabel  => s += lx; lx 
   }
   
   //-----------------------------------------------------------------------------
-  // Constraint Resoluton
+  // Compute adjacency lists:
   //-----------------------------------------------------------------------------
-  def resolve_constraints(env: LabelVarEnv, conSet: ConstrSet): Unit = {
-    type ConstrList = collection.mutable.ListBuffer[(Label, Label)]
-
-    // The value is the set of var labels that depend on the valuation of the 
-    // key VarLabel. By keeping this subscriber list, we can update the 
-    // subscribers whenever the labels they depend on change. This should make 
-    // the result of constraint evaluation independent of the order in which 
-    // constraints are evaluated
-    val varSubs = new collection.mutable.HashMap[VarLabel, Set[VarLabel]] {
-      override def default(l:VarLabel) = Set()
-    }
-   
-    conSet foreach { case (l1: Label, l2: Label) =>
-      dprint(s"resolving ${l1.lbl.serialize} flowsto ${l2.lbl.serialize}")
-      dprint(s"before ${env.toString}")
+  def compute_succ(conSet: ConstrSet): AdjList = {
+    val ret = new AdjList
+    conSet foreach { case(l1: Label, l2: Label) =>
       l1 match {
         case lx: VarLabel =>
-          vars_in(l2) foreach { v => varSubs(v) = varSubs(v) + lx }
-          val lx_ = simplifyLabel(env(lx) meet resolve_label(env)(l2))
-         
-          def update_subs(l: VarLabel, upd: Label): Unit =
-            varSubs(l) foreach { v => 
-              val lx = simplifyLabel(env(v) meet upd)
-              if(lx != env(v)) {
-                dprint(s"updating ${v.serialize} to ${lx.serialize}")
-                env(v) = lx
-                update_subs(v, lx)
-              }
-            }
-
-          if(lx_ != env(lx)) {
-            env(lx) = lx_
-            dprint(s"updating ${lx.serialize} to ${lx_.serialize}")
-            update_subs(lx, env(lx))
-          }
+          ret(lx) = ret(lx) ++ vars_in(l2)
         case _ =>
       }
-      dprint(s"after ${env.toString}\n\n")
     }
+    ret
   }
 
-  def resolve_label(env: LabelVarEnv)(l: Label): Label = 
-    l map resolve_label(env) match {
-      case lx: VarLabel => env(lx)
-      case lx => lx
+  def compute_pred(conSet: ConstrSet): AdjList = {
+    val ret = new AdjList
+    conSet foreach { case(l1: Label, l2: Label) =>
+      vars_in(l2) foreach { v =>
+        ret(v) = ret(v) ++ vars_in(l1)
+      }
     }
+    ret
+  }
 
   def vars_in(l: Label): Set[VarLabel] = {
     val s = new collection.mutable.HashSet[VarLabel]
@@ -203,6 +192,39 @@ object InferLabels extends Pass with PassDebug {
     }
     vars_in_(l); s
   }
+
+  //-----------------------------------------------------------------------------
+  // Constraint Resoluton
+  //-----------------------------------------------------------------------------
+  def resolve_constraints(env: LabelVarEnv, conSet: ConstrSet, pred: AdjList): Unit = {
+    type ConstrList = collection.mutable.ListBuffer[(Label, Label)]
+
+    while(!conSet.isEmpty) {
+      val cons = conSet.last; conSet -= cons;
+      cons match { case (l1: Label, l2: Label) =>
+        dprint(s"resolving ${l1.lbl.serialize} flowsto ${l2.lbl.serialize}")
+        dprint(s"before ${env.toString}")
+        l1 match {
+          case lx: VarLabel =>
+            val lx_ = simplifyLabel(env(lx) meet resolve_label(env)(l2))
+            if(lx_ != env(lx)) {
+              env(lx) = lx_
+              dprint(s"updating ${lx.serialize} to ${lx_.serialize}")
+              pred(lx) foreach { v => conSet += ((v, lx_)) }
+            }
+          case _ =>
+        }
+        dprint(s"after ${env.toString}\n\n")
+      }
+    }
+
+  }
+
+  def resolve_label(env: LabelVarEnv)(l: Label): Label = 
+    l map resolve_label(env) match {
+      case lx: VarLabel => env(lx)
+      case lx => lx
+    }
 
 
   //-----------------------------------------------------------------------------

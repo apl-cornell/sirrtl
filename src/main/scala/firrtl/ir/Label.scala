@@ -51,6 +51,7 @@ case object UnknownLabel extends ProdLabel(UnknownLabelComp, UnknownLabelComp)
 
 case class VarLabel(id: String) extends Label {
   def serialize = s"var: $id"
+  override def toString = serialize
   def mapLabelComp(f: LabelComp => LabelComp): Label = this
   def mapLabel(f: Label => Label): Label = this
 }
