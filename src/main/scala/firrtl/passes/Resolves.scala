@@ -32,7 +32,9 @@ trait ResolveKindsT extends Pass with PassDebug {
 
   def resolve_expr(kinds: KindMap)(e: Expression): Expression = 
     e map resolve_lbl(kinds) match {
-    case ex: WRef => ex copy (kind = kinds(ex.name))
+    case ex: WRef => 
+      if(kinds.contains(ex.name)) ex copy (kind = kinds(ex.name))
+      else ex
     case _ => e map resolve_expr(kinds) map resolve_lbl(kinds)
   }
 
