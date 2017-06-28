@@ -28,11 +28,45 @@ object LabelCheck extends Pass with PassDebug {
         emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
     }
 
+    def debugConEnv(conEnv: ConnectionEnv) = conEnv.foreach {
+      case(loc, (cons, info)) => 
+        emit(s";${info.serialize}\n")
+        emit(s";${loc.toString} =>\n    ;${cons.toString}\n")
+    }
+
     //-------------------------------------------------------------------------
     // Collect constraints which may affect the value of a dependent type
     //-------------------------------------------------------------------------
     // A set of (location, value) pairs in the constraint domain
     type ConSet = collection.mutable.LinkedHashSet[(Constraint,(Constraint, Info))]
+
+    def atoms_in_con(c: Constraint): Set[CAtom] = {
+      def atoms_in_con_(s: Set[CAtom])(c: Constraint): Constraint = 
+        c mapCons atoms_in_con_(s) match {
+          case cx: CAtom => s += cx; cx
+          case cx => cx
+      }
+      val s = new collection.mutable.LinkedHashSet[CAtom]()
+      atoms_in_con_(s)(c)
+      s
+    }
+
+    def include_reachable(conEnv: ConnectionEnv, conSet: ConSet): ConSet = {
+      def include_reachable_(conEnv: ConnectionEnv, valu: Constraint): Unit = {
+        atoms_in_con(valu) foreach {
+          atom => if(conEnv.contains(atom)) {
+            val (aval, inf) = conEnv(atom)
+            conSet += ((atom, (aval, inf)))
+            include_reachable_(conEnv, aval)
+          }
+        }
+      }
+      conSet foreach { case ((loc, (valu, info))) =>
+        include_reachable_(conEnv, valu)
+      }
+      conSet
+    }
+
     def collect_deps_e(conEnv: ConnectionEnv, conSet: ConSet)(e: Expression) : Expression = {
       val ex: Expression = e map collect_deps_e(conEnv, conSet) 
       val c = consGenerator.exprToCons(ex)
@@ -46,10 +80,12 @@ object LabelCheck extends Pass with PassDebug {
     def collect_deps_lc(conEnv: ConnectionEnv, conSet: ConSet)(l: LabelComp) : LabelComp = 
       l map collect_deps_lc(conEnv, conSet) map collect_deps_e(conEnv, conSet)
 
+    // Compute set of exprs on which this label depends, then take transitive 
+    // closure over nodes that reach them.
     def collect_deps(conEnv: ConnectionEnv)(l: Label) : ConSet = {
       val s = new ConSet
       collect_deps_l(conEnv, s)(l)
-      s
+      include_reachable(conEnv, s)
     }
 
     def emit_deps(conSet: ConSet) : Unit = conSet.foreach {
@@ -57,21 +93,10 @@ object LabelCheck extends Pass with PassDebug {
         emit(s";${info.serialize}\n")
         emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
     }
-   
+    
     //-----------------------------------------------------------------------------
     // Collect constraints that define values in the whenEnv constraint
     //-----------------------------------------------------------------------------
-    def atoms_in_con(c: Constraint): Set[CAtom] = {
-      def atoms_in_con_(s: Set[CAtom])(c: Constraint): Constraint = 
-        c mapCons atoms_in_con_(s) match {
-          case cx: CAtom => s += cx; cx
-          case cx => cx
-      }
-      val s = Set[CAtom]()
-      atoms_in_con_(Set[CAtom]())(c)
-      s
-    }
-
     def collect_deps_c(conEnv: ConnectionEnv)(c: Constraint): ConSet = {
       def collect_deps_c_(conEnv: ConnectionEnv, conSet: ConSet)(c: Constraint) : Constraint = {
         val cx: Constraint = c mapCons collect_deps_c_(conEnv, conSet)
@@ -80,7 +105,7 @@ object LabelCheck extends Pass with PassDebug {
       }
       val s = new ConSet
       collect_deps_c_(conEnv, s)(c)
-      s
+      include_reachable(conEnv, s)
     }
 
     //------------------------------------------------------------------------- 
@@ -196,7 +221,7 @@ object LabelCheck extends Pass with PassDebug {
       emit("(push)\n")
       emit(s"""(echo \"Checking Connection (Conf): ${info}${extraInfo}\")\n""" )
       emit(s"(assert ${whenC.serialize})\n")
-      // emit_deps(deps) XXX This is broken
+      // emit_deps(deps)
       try {
       emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
       } catch {
@@ -261,6 +286,7 @@ object LabelCheck extends Pass with PassDebug {
       //
       emit("; Connection Env\n")
       emitConEnv(conEnv)
+      // debugConEnv(conEnv)
       emit("\n")
       emit("; End Connection Env\n\n")
       
