@@ -13,12 +13,13 @@ class HypercubePolicy extends Policy {
   // A hypercube config is a pair (D,K) where D is the number of dimensions and 
   // K is the number of bits per dimension. lvlwidth = k*d for all configs.
   // TODO parse these from a file rather than hardcoding it.
-  def lvlwidth = 16
+  def lvlwidth = 4 //16
   def cubeConfigs =
     Set[(Int,Int)](
-      (4,4),
-      (8,2),
-      (2,8)
+      (2,2)
+      // (4,4),
+      // (8,2),
+      // (2,8)
     )
   val cwidth = log2(cubeConfigs.size)
     
@@ -27,7 +28,7 @@ class HypercubePolicy extends Policy {
   }
 
   // TODO parse this thing from a file, exception on wrong width.
-  def lvlConsts: Map[String, Int] = Map(
+  val lvlConsts44: Map[String, Int] = Map(
     "L"  -> 0x0000,
     "D1" -> 0x0001,
     "D2" -> 0x0010,
@@ -40,6 +41,16 @@ class HypercubePolicy extends Policy {
     "Hyp" -> 0xEEEE,
     "S"  -> 0xDDDD
   )
+  
+  val lvlConsts22: Map[String, Int] = Map(
+    "L"  -> 0x0,
+    "D1" -> 0x1,
+    "D2" -> 0x4,
+    "H"  -> 0xF,
+    "M"  -> 0xF
+    )
+
+  val lvlConsts = lvlConsts22
 
   //---------------------------------------------------------------------------
   // Lattice Operations
@@ -55,7 +66,7 @@ class HypercubePolicy extends Policy {
   // TODO generate these from a description of the possible configurations  
   def attacker: Label = {
     val botlbl = ProdLabel(bottom, top)
-    val A = HLevel(UIntLiteral(0xEEEE, IntWidth(lvlwidth), botlbl))
+    val A = HLevel(UIntLiteral(0xA, IntWidth(lvlwidth), botlbl))
     ProdLabel(A, A)
   }
 
@@ -240,10 +251,7 @@ class HypercubePolicy extends Policy {
    |  (ite (= x (_ bv2 2)) D2
    |                       H ))))
    |
-   |(define-fun condcmp ((cond (_ BitVec 1)) (t (_ BitVec 16)) (f (_ BitVec 16))) (_ BitVec 16)
-   |  (ite (= cond (_ bv0 1)) t f))
-   |
-   |(define-fun mpriv ((cond (_ BitVec 2)) (alt (_ BitVec 16))) (_ BitVec 16)
+   |(define-fun mpriv ((cond (_ BitVec 2)) (alt (_ BitVec 4))) (_ BitVec 4)
    |  (ite (= cond (_ bv3 2)) M alt))
    |
    |""".stripMargin
