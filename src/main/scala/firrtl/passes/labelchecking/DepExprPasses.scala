@@ -31,7 +31,7 @@ object DepsResolveKinds extends ResolveKindsT {
   override def resolve_lbl(kinds: KindMap)(l: Label): Label =
     l map resolve_lbl(kinds) map resolve_lbl_cmp(kinds)
   def resolve_lbl_cmp(kinds: KindMap)(l: LabelComp): LabelComp = {
-    printExprs(l map resolve_expr(kinds) map resolve_lbl_cmp(kinds))
+    l map resolve_expr(kinds) map resolve_lbl_cmp(kinds)
   }
 }
 

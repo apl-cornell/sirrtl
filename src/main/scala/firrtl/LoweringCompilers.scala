@@ -75,6 +75,7 @@ class LabelChecking extends CoreTransform {
   def inputForm = HighForm
   def outputForm = HighForm
   def passSeq =  Seq(
+    passes.PropNodes,
     passes.LabelExprs,
     passes.DepsToWorkingIR, 
     passes.DepsResolveKinds, 
