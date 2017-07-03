@@ -232,7 +232,7 @@ class HypercubePolicy extends Policy {
   def configDecl: String = {
     "; var for determining which config you are in\n" +
     s"(declare-const config (_ BitVec $cwidth))\n" +
-    "(assert (= config #b00))\n"
+    "(assert (= config #b0))\n"
   }
 
   def declLvlConsts : String =
@@ -246,7 +246,7 @@ class HypercubePolicy extends Policy {
   // parsed from a file. 
   def depTypeFuns: String = {
 """; a simple function for testing
-   |(define-fun Dom ((x (_ BitVec 2))) (_ BitVec 16)
+   |(define-fun Dom ((x (_ BitVec 2))) (_ BitVec 4)
    |  (ite (= x (_ bv0 2)) L 
    |  (ite (= x (_ bv1 2)) D1
    |  (ite (= x (_ bv2 2)) D2
