@@ -121,32 +121,36 @@ object LabelCheck extends Pass with PassDebug {
           val lhs: Label = sx.loc.lbl
           val rhs: Label = sx.expr.lbl
           val whenC: Constraint = whenEnv(sx)
-          val deps = collect_deps(conEnv)(lhs) ++
-            collect_deps(conEnv)(rhs) ++
-            collect_deps_c(conEnv)(whenC)
+          val deps = new ConSet
+          // val deps = collect_deps(conEnv)(lhs) ++
+          //   collect_deps(conEnv)(rhs) ++
+          //   collect_deps_c(conEnv)(whenC)
           check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: PartialConnectPC =>
           val lhs: Label = sx.loc.lbl
           val rhs: Label = sx.expr.lbl
           val whenC: Constraint = whenEnv(sx)
-          val deps = collect_deps(conEnv)(lhs) ++
-            collect_deps(conEnv)(rhs) ++
-            collect_deps_c(conEnv)(whenC)
+          val deps = new ConSet
+          // val deps = collect_deps(conEnv)(lhs) ++
+          //   collect_deps(conEnv)(rhs) ++
+          //   collect_deps_c(conEnv)(whenC)
           check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: DefNodePC =>
           val lhs: Label = sx.lbl
           val rhs: Label = sx.value.lbl
           val whenC = whenEnv(sx)
-          val deps = collect_deps(conEnv)(lhs) ++
-            collect_deps(conEnv)(rhs) ++
-            collect_deps_c(conEnv)(whenC)
+          val deps = new ConSet
+          // val deps = collect_deps(conEnv)(lhs) ++
+          //   collect_deps(conEnv)(rhs) ++
+          //   collect_deps_c(conEnv)(whenC)
           check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx: ConditionallyPC =>
           val whenC = whenEnv(sx)
-          val deps = collect_deps_c(conEnv)(whenC)
+          val deps = new ConSet
+          // val deps = collect_deps_c(conEnv)(whenC)
           sx map check_declass_e(deps, whenC, sx.pc, sx.info)
         case sx => sx
       }
