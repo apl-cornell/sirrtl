@@ -47,13 +47,19 @@ object LabelExprs extends Pass with PassDebug {
     var b = true
     var scope = collection.immutable.List[Label](UnknownLabel)
     var badParent: Label = UnknownLabel
+    var badField: String = ""
 
     def checkDeclared_(l: Label): Label = l match {
       case lx: BundleLabel => 
         scope = lx :: scope
-        val ret = lx map checkDeclared_ map checkDeclaredComp
+        lx.fields foreach { f =>
+          badField = f.name
+          checkDeclared_(f.lbl) map checkDeclared_ map checkDeclaredComp
+        }
+
+        // val ret = lx map checkDeclared_ map checkDeclaredComp
         scope = scope.tail
-        ret
+        lx
       case lx => lx map checkDeclared_ map checkDeclaredComp
     }
     
@@ -66,7 +72,7 @@ object LabelExprs extends Pass with PassDebug {
     
     val parentString = badParent match {
       case UnknownLabel => ""
-      case _ => s", with bad internal record ${badParent.serialize}"
+      case _ => s", with bad field $badField in internal record ${badParent.serialize}"
     }
 
     if(!b && throwErrors)
