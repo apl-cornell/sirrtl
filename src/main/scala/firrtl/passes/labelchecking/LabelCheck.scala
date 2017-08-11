@@ -112,31 +112,52 @@ object LabelCheck extends Pass with PassDebug {
     // Check labels in statements
     //-------------------------------------------------------------------------
 
+    def is_mask_connection(e: Expression): Boolean = {
+      var ret = false
+      def is_mask_connection_(e: Expression): Expression =
+        e map is_mask_connection_ match {
+        case ex: WSubField => 
+          if(ex.name == "mask" && kind(ex) == MemKind) {
+            ret = true
+          }
+          ex
+        case ex => ex
+      }
+      is_mask_connection_(e)
+      ret
+    }
+
     // This probably won't work for connections directly involving arbitrarily 
     // nested bundles
     def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = {
       def ser(l:LabelComp) = consGenerator.serialize(l)
       s map label_check(conEnv, whenEnv) match {
-        case sx: ConnectPC =>
-          val lhs: Label = sx.loc.lbl
-          val rhs: Label = sx.expr.lbl
-          val whenC: Constraint = whenEnv(sx)
-          val deps = new ConSet
-          // val deps = collect_deps(conEnv)(lhs) ++
-          //   collect_deps(conEnv)(rhs) ++
-          //   collect_deps_c(conEnv)(whenC)
-          check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
-          sx map check_declass_e(deps, whenC, sx.pc, sx.info)
-        case sx: PartialConnectPC =>
-          val lhs: Label = sx.loc.lbl
-          val rhs: Label = sx.expr.lbl
-          val whenC: Constraint = whenEnv(sx)
-          val deps = new ConSet
-          // val deps = collect_deps(conEnv)(lhs) ++
-          //   collect_deps(conEnv)(rhs) ++
-          //   collect_deps_c(conEnv)(whenC)
-          check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
-          sx map check_declass_e(deps, whenC, sx.pc, sx.info)
+        case sx: ConnectPC => if(!is_mask_connection(sx.loc)) {
+            val lhs: Label = sx.loc.lbl
+            val rhs: Label = sx.expr.lbl
+            val whenC: Constraint = whenEnv(sx)
+            val deps = new ConSet
+            // val deps = collect_deps(conEnv)(lhs) ++
+            //   collect_deps(conEnv)(rhs) ++
+            //   collect_deps_c(conEnv)(whenC)
+            check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
+            sx map check_declass_e(deps, whenC, sx.pc, sx.info)
+          } else {
+            sx
+          }
+        case sx: PartialConnectPC => if(!is_mask_connection(sx.loc)) {
+            val lhs: Label = sx.loc.lbl
+            val rhs: Label = sx.expr.lbl
+            val whenC: Constraint = whenEnv(sx)
+            val deps = new ConSet
+            // val deps = collect_deps(conEnv)(lhs) ++
+            //   collect_deps(conEnv)(rhs) ++
+            //   collect_deps_c(conEnv)(whenC)
+            check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
+            sx map check_declass_e(deps, whenC, sx.pc, sx.info)
+          } else {
+            sx
+          }
         case sx: DefNodePC =>
           val lhs: Label = sx.lbl
           val rhs: Label = sx.value.lbl

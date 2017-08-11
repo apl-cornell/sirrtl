@@ -82,6 +82,21 @@ abstract class ConstraintGenerator {
        case _ => throw new Exception(s"bad types connected: ${lhs.tpe.serialize}, ${rhs.tpe.serialize}")
     }
 
+  def is_mask_connection(e: Expression): Boolean = {
+    var ret = false
+    def is_mask_connection_(e: Expression): Expression =
+      e map is_mask_connection_ match {
+      case ex: WSubField => 
+        if(ex.name == "mask" && kind(ex) == MemKind) {
+          ret = true
+        }
+        ex
+      case ex => ex
+    }
+    is_mask_connection_(e)
+    ret
+  }
+
   // The purpose of this function is to mutate conEnv and whenEnv (by populating 
   // them) Note: this is the identity function on the statement argument. 
   def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = s match {
@@ -89,12 +104,18 @@ abstract class ConstraintGenerator {
         val nref = WRef(sx.name, sx.value.tpe, sx.lbl, NodeKind, FEMALE)
         connect_outer(nref, sx.value, conEnv, whenEnv, sx.info)
         whenEnv(sx) = whenEnv.cur; sx
-      case sx: ConnectPC =>
-        connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
-        whenEnv(sx) = whenEnv.cur; sx
+      case sx: ConnectPC => 
+        if(!is_mask_connection(sx.loc)) {
+          connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
+          whenEnv(sx) = whenEnv.cur
+        }
+        sx
       case sx: PartialConnectPC =>
-        connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
-        whenEnv(sx) = whenEnv.cur; sx
+        if(!is_mask_connection(sx.loc)) {
+          connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
+          whenEnv(sx) = whenEnv.cur
+        }
+        sx
       case sx: ConditionallyPC =>
         val oldWhen = whenEnv.cur
         // True side
