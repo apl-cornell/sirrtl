@@ -65,6 +65,13 @@ trait InferTypesT extends Pass {
         val t = remove_unknowns(MemPortUtils.memType(sx))
         types(sx.name) = t
         sx copy (dataType = remove_unknowns(sx.dataType))
+      case sx: CDefMemory =>
+        types(sx.name) = sx.tpe
+        sx
+      case sx: CDefMPort =>
+        val t = types getOrElse(sx.mem, UnknownType)
+        types(sx.name) = t
+        sx copy (tpe = t)
       case sx =>
         sx map infer_types_s(types) map infer_types_e(types) map infer_types_l(types)
     }

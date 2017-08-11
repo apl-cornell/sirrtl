@@ -182,11 +182,27 @@ object LabelExprs extends Pass with PassDebug {
         //   lbl = lb)
         // labels(sxx.name) = lb
         // sxx
-      case sx: DefMemory =>
+      case sx: DefMemory => throw new Exception
+        // val lb = labelOrVar(to_bundle(sx.dataType, sx.lbl), sx.name)
+        // labels(sx.name) = lb
+        // sx copy (lbl = lb)
+        
         // Don't do inference for memories for now.
-        checkDeclared(sx.lbl, sx.info, sx.name)
-        labels(sx.name) = sx.lbl
-        sx
+        // checkDeclared(sx.lbl, sx.info, sx.name)
+        // labels(sx.name) = sx.lbl
+        // sx
+      case sx: CDefMemory =>
+        val lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
+        println(s"labeling: ${sx.name}")
+        println(lb.serialize)
+        labels(sx.name) = lb
+        sx copy (lbl = lb)
+      case sx: CDefMPort =>
+        val lb = labels(sx.mem)
+        println(s"labeling: ${sx.name}")
+        println(lb.serialize)
+        labels(sx.name) = lb
+        sx copy (lbl = lb)
       case sx => sx map label_exprs_e(labels)
   }
 

@@ -22,6 +22,8 @@ trait ResolveKindsT extends Pass with PassDebug {
       case sx: DefRegister => kinds(sx.name) = RegKind
       case sx: WDefInstance => kinds(sx.name) = InstanceKind
       case sx: DefMemory => kinds(sx.name) = MemKind
+      case sx: CDefMemory => kinds(sx.name) = MemKind
+      case sx: CDefMPort => kinds(sx.name) = MemKind
       case _ =>
     } 
     s map find_stmt(kinds)

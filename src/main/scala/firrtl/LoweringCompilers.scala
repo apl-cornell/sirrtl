@@ -19,6 +19,51 @@ sealed abstract class CoreTransform extends PassBasedTransform
   * circuit has only IR nodes, not WIR.
   * TODO(izraelevitz): Create RenameMap from RemoveCHIRRTL
   */
+
+class ChirrtlToAlmostHigh extends CoreTransform {
+  def inputForm = ChirrtlForm
+  def outputForm = HighForm
+  def passSeq = Seq(
+    passes.CheckChirrtl,
+    passes.CInferTypes,
+    passes.CInferMDir) ++
+    chirrtlLabels() ++
+    // Seq(passes.RemoveCHIRRTL) ++
+    deLabel()
+}
+
+class Resolve extends CoreTransform {
+  def inputForm = HighForm
+  def outputForm = HighForm
+  def passSeq = Seq(
+    passes.ResolveKinds,
+    passes.InferTypes,
+    passes.ResolveGenders,
+    passes.InferWidths,
+    passes.CheckWidths) ++ 
+    deLabel()
+}
+
+
+class RemoveResolveAndCheck extends CoreTransform {
+  def inputForm = HighForm
+  def outputForm = HighForm
+  def passSeq = Seq(
+    passes.RemoveCHIRRTL,
+    passes.CheckHighForm,
+    passes.ResolveKinds,
+    passes.InferTypes,
+    passes.CheckTypes,
+    passes.Uniquify,
+    passes.ResolveKinds,
+    passes.InferTypes,
+    passes.ResolveGenders,
+    passes.CheckGenders,
+    passes.InferWidths,
+    passes.CheckWidths) ++ 
+    deLabel()
+}
+ 
 class ChirrtlToHighFirrtl extends CoreTransform {
   def inputForm = ChirrtlForm
   def outputForm = HighForm
@@ -88,8 +133,8 @@ class LabelChecking extends CoreTransform {
     passes.ForwardProp,
     passes.SimplifyLabels,
     passes.InferLabels,
-    passes.PullNexts,
-    passes.LabelCheck
+    passes.PullNexts //,
+    // passes.LabelCheck
   )
 }
 
@@ -186,7 +231,7 @@ class LabeledFirrtlCompiler extends Compiler {
   def emitter = new FirrtlEmitter
   def transforms: Seq[Transform] =
     getLoweringTransforms(ChirrtlForm, HighForm) ++
-      Seq(new IRToWorkingIR, new ResolveAndCheck, new LabelChecking)
+      Seq(new IRToWorkingIR, new Resolve, new LabelChecking)
 }
 
 /** Emits middle Firrtl input circuit */
