@@ -64,7 +64,6 @@ abstract class ConstraintGenerator {
   def connect_outer(lhs: Expression, rhs: Expression, conEnv: ConnectionEnv, whenEnv: WhenEnv, info: Info): Unit = 
     (lhs.tpe, rhs.tpe) match {
        case ((loct: VectorType, expt: VectorType)) =>
-         // TODO actually support vector connections
          val w = bitWidth(lhs.tpe)
          connect(conEnv, whenEnv, exprToCons(lhs), exprToCons(rhs, w), info)
        case ((loct: BundleType, expt: BundleType))  =>
@@ -132,6 +131,21 @@ abstract class ConstraintGenerator {
         whenEnv.cur = oldWhen
         whenEnv(sx) = whenEnv.cur
         sx
+      case sx: CDefMPort =>
+        // TODO differentiate between read/write ports??
+        val pname = sx.name
+        val mname = sx.mem
+        val idx = sx.exps.head
+
+        val pcons = CAtom(sx.name)
+        val mcons = CASelect(sx.mem, exprToCons(sx.exps.head))
+
+        conEnv(pcons) = ((mcons, sx.info))
+        sx
+        // val pref = WRef(sx.name, sx.tpe, sx.lbl, MemKind, BIGENDER)
+        // val mref = WRef(sx.mem, sx.tpe, sx.lbl, MemKind, BIGENDER)
+        // val midxref = WSubIndex(mref, 
+        // connect_outer(nref, sx.
       case sx => 
         sx map gen_cons_s(conEnv, whenEnv)
         whenEnv(sx) = whenEnv.cur
@@ -140,7 +154,7 @@ abstract class ConstraintGenerator {
 
   def gen_mem_cons_s(memCons: MemDataCons)(s: Statement): Statement =
     s map gen_mem_cons_s(memCons) match {
-      case sx: DefMemory => genMemCons(memCons, sx); sx
+      case sx: DefMemory => throw new Exception; genMemCons(memCons, sx); sx
       case sx => sx
     }
 
@@ -185,7 +199,6 @@ abstract class ConstraintGenerator {
         typeDecs(tx) = n
       } else typeDecs(tx)
     case VectorType(tpe, _) =>
-      // TODO make an array
       collect_type_decls(typeDecs)(name, tpe)
     case tx =>
   }
@@ -213,7 +226,17 @@ abstract class ConstraintGenerator {
     case sx: DefNodePC =>
       collect_type_decls(typeDecs)(sx.name, sx.value.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.value.tpe); sx
+    case sx: CDefMemory =>
+      val declType = VectorType(sx.tpe, sx.size)
+      collect_type_decls(typeDecs)(sx.name, declType)
+      declSet += emitDecl(typeDecs, sx.name, declType)
+      sx
+    case sx: CDefMPort =>
+      collect_type_decls(typeDecs)(sx.name, sx.tpe)
+      declSet += emitDecl(typeDecs, sx.name, sx.tpe)
+      sx
     case sx: DefMemory =>
+      throw new Exception
       // TODO address, en, possibly need separate labels from data
       val addrTpe = UIntType(IntWidth(log2Up(sx.depth)))
       val portBundleT = memPortBundle(sx)
@@ -257,9 +280,10 @@ object BVConstraintGen extends ConstraintGenerator {
     case tx : SIntType => s"(_ BitVec ${bitWidth(tx)})"
     case tx : BundleType => typeDecls(weakenBundle(tx))
     case tx : WeakBundle => typeDecls(tx)
-    case VectorType(tpe, _) => 
-      // TODO actually represent this as an array
-      emitDatatype(typeDecls, tpe)
+    case tx : VectorType => 
+      val indextpe = emitDatatype(typeDecls, UIntType(IntWidth(log2Up(tx.size))))
+      val datatpe = emitDatatype(typeDecls, tx.tpe)
+      s"(Array $indextpe $datatpe)"
     case ClockType => s"(_ BitVec 1)"
   }
 
@@ -268,9 +292,7 @@ object BVConstraintGen extends ConstraintGenerator {
     case tx : SIntType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case tx : BundleType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case tx : WeakBundle => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
-    case VectorType(tpe, _) => 
-      // TODO actually represent this as an array
-      emitDecl(typeDecls, name, tpe)
+    case tx : VectorType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case ClockType => s"(declare-const $name (_ BitVec 1))\n"
   }
 
@@ -294,15 +316,17 @@ object BVConstraintGen extends ConstraintGenerator {
         s"(field_$n ${emitDatatype(typeDecs, tpe)})"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
-    case tx : VectorType => ""
+    case tx : VectorType => throw new Exception
   }
 
   def refToIdent(e: Expression) =  e match {
-    case ex: WSubIndex => refToIdent(ex.exp)
-    case ex: WSubAccess => refToIdent(ex.exp)
+    case ex: WSubIndex => 
+      val idx = CBVLit(ex.value, toBInt(IntWidth(log2Up(ex.value))))
+      CASelect(refToIdent(ex.exp), idx).serialize
+    case ex: WSubAccess => 
+      CASelect(refToIdent(ex.exp), exprToCons(ex.index)).serialize
     case WRef(name,_,_,_,_) => name
-    case WSubField(exp,name,_,_,_) => 
-      s"(field_$name ${refToIdent(exp)})"
+    case WSubField(exp,name,_,_,_) => s"(field_$name ${refToIdent(exp)})"
     case ex: Mux =>
       // Why does this even happen? Vecs of Muxes??
       exprToCons(ex).serialize 
@@ -342,8 +366,11 @@ object BVConstraintGen extends ConstraintGenerator {
   def exprToCons(e: Expression): Constraint = e match {
     case ex : Literal => CBVLit(ex.value, toBInt(ex.width))
     case ex : DoPrim => primOpToBVOp(ex)
-    case ex : WSubIndex => CAtom(refToIdent(ex.exp))
-    case ex : WSubAccess => CAtom(refToIdent(ex.exp))
+    case ex : WSubIndex => 
+      val idx = CBVLit(ex.value, toBInt(IntWidth(log2Up(ex.value))))
+      CASelect(refToIdent(ex.exp), idx)
+    case ex : WSubAccess => 
+      CASelect(refToIdent(ex.exp), exprToCons(ex.index))
     case ex : WRef => CAtom(refToIdent(ex))
     case ex : WSubField => CAtom(refToIdent(ex))
     case ex : Mux => 
@@ -374,17 +401,6 @@ object BVConstraintGen extends ConstraintGenerator {
   def exprToConsBool(e: Expression) =
     CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
 
-  def transformMemData(e: Expression): Expression =
-    e map transformMemData match {
-      case ex: WRef => //if ex.kind == MemKind =>
-        // Somehow despite the dependands resolving to MemKinds as expected in 
-        // that pass, they seem to all have NodeKind by the time they get 
-        // here... For now just assume this is only used with memories and not 
-        // other kinds of vectors
-        ex.copy(name = ex.name + "_data")
-      case ex => ex
-    }
-
   override def serialize(l: LabelComp) = l match {
     case FunLabel(fname, args) => //s"($fname ${refToIdent(arg)})"
       s"($fname ${args map { refToIdent(_) } mkString(" ")})"
@@ -399,7 +415,7 @@ object BVConstraintGen extends ConstraintGenerator {
     case IndexedVecHLevel(arr, idx) => PolicyHolder.policy match {
       case p: HypercubePolicy => 
         val idx_cons = exprToCons(idx).serialize
-        val arr_cons = exprToCons(transformMemData(arr)).serialize
+        val arr_cons = exprToCons(arr).serialize
         s"(select $arr_cons $idx_cons)"
       case _ => throw new Exception("Tried to serialize Hypercube label without Hypercube Policy")
     }

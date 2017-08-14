@@ -127,8 +127,6 @@ object LabelCheck extends Pass with PassDebug {
       ret
     }
 
-    // This probably won't work for connections directly involving arbitrarily 
-    // nested bundles
     def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = {
       def ser(l:LabelComp) = consGenerator.serialize(l)
       s map label_check(conEnv, whenEnv) match {

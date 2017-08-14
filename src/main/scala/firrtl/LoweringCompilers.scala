@@ -8,11 +8,6 @@ object deLabel {
     if(!Driver.doLabelChecking) Seq(passes.DeLabel,passes.RipDowngrades) else Seq()
 }
 
-object chirrtlLabels {
-  def apply(): Seq[passes.Pass] =
-    if(Driver.doLabelChecking) Seq(passes.LabelMPorts) else Seq()
-}
-
 sealed abstract class CoreTransform extends PassBasedTransform
 
 /** This transforms "CHIRRTL", the chisel3 IR, to "Firrtl". Note the resulting
@@ -27,8 +22,6 @@ class ChirrtlToAlmostHigh extends CoreTransform {
     passes.CheckChirrtl,
     passes.CInferTypes,
     passes.CInferMDir) ++
-    chirrtlLabels() ++
-    // Seq(passes.RemoveCHIRRTL) ++
     deLabel()
 }
 
@@ -70,9 +63,8 @@ class ChirrtlToHighFirrtl extends CoreTransform {
   def passSeq = Seq(
     passes.CheckChirrtl,
     passes.CInferTypes,
-    passes.CInferMDir) ++
-    chirrtlLabels() ++
-    Seq(passes.RemoveCHIRRTL) ++
+    passes.CInferMDir,
+    passes.RemoveCHIRRTL) ++
     deLabel()
 }
 
@@ -106,7 +98,7 @@ class ResolveAndCheck extends CoreTransform {
     deLabel()
 }
 
-// For defaulting to doing nothing when label checking is not desured in the 
+// For defaulting to doing nothing when label checking is not desired in the 
 // call to getLoweringTransforms. This can't be an anonymous class in that 
 // file because CoreTransform is sealed.
 
@@ -122,6 +114,7 @@ class LabelChecking extends CoreTransform {
   def passSeq =  Seq(
     passes.PropNodes,
     passes.LabelExprs,
+    passes.LabelMPorts,
     passes.DepsToWorkingIR, 
     passes.DepsResolveKinds, 
     passes.DepsInferTypes,
@@ -133,8 +126,8 @@ class LabelChecking extends CoreTransform {
     passes.ForwardProp,
     passes.SimplifyLabels,
     passes.InferLabels,
-    passes.PullNexts //,
-    // passes.LabelCheck
+    passes.PullNexts,
+    passes.LabelCheck
   )
 }
 

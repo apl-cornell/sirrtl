@@ -144,6 +144,17 @@ object LabelExprs extends Pass with PassDebug {
     label map instance_io_rename_lc(instName) map instance_io_rename(instName)
   }
 
+  def apply_index(l: Label, idx: Expression): Label = {
+    def apply_index_c(idx: Expression)(lc: LabelComp): LabelComp = 
+      lc map apply_index_c(idx) match {
+        case lcx: VecHLevel => IndexedVecHLevel(lcx.arr, idx)
+        case lcx => lcx
+      }
+    def apply_index_(idx: Expression)(l: Label): Label = 
+      l map apply_index_(idx) map apply_index_c(idx)
+    apply_index_(idx)(l)
+  }
+
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 
     s map label_exprs_s(labels) match {
       case sx: WDefInstance =>
@@ -183,26 +194,19 @@ object LabelExprs extends Pass with PassDebug {
         // labels(sxx.name) = lb
         // sxx
       case sx: DefMemory => throw new Exception
-        // val lb = labelOrVar(to_bundle(sx.dataType, sx.lbl), sx.name)
-        // labels(sx.name) = lb
-        // sx copy (lbl = lb)
-        
-        // Don't do inference for memories for now.
-        // checkDeclared(sx.lbl, sx.info, sx.name)
-        // labels(sx.name) = sx.lbl
-        // sx
       case sx: CDefMemory =>
         val lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
-        println(s"labeling: ${sx.name}")
-        println(lb.serialize)
         labels(sx.name) = lb
         sx copy (lbl = lb)
       case sx: CDefMPort =>
         val lb = labels(sx.mem)
-        println(s"labeling: ${sx.name}")
-        println(lb.serialize)
-        labels(sx.name) = lb
-        sx copy (lbl = lb)
+        checkDeclared(lb, sx.info, sx.mem)
+        // If the label of the memory contains vector labels apply 
+        // the address expression of the memory port as the index to the vector.
+        val idx = sx.exps.head
+        val lbx = apply_index(lb, idx)
+        labels(sx.name) = lbx
+        sx copy (lbl = lbx)
       case sx => sx map label_exprs_e(labels)
   }
 
