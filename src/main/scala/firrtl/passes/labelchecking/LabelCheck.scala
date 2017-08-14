@@ -282,8 +282,7 @@ object LabelCheck extends Pass with PassDebug {
       //-----------------------------------------------------------------------
       val conEnv = new ConnectionEnv 
       val whenEnv = new WhenEnv
-      val memEnv = new scala.collection.mutable.LinkedHashSet[Constraint]
-      consGenerator.gen_cons(conEnv, whenEnv, memEnv)(m)
+      consGenerator.gen_cons(conEnv, whenEnv)(m)
 
       //-----------------------------------------------------------------------
       // Run Label Passes
@@ -312,13 +311,6 @@ object LabelCheck extends Pass with PassDebug {
       // debugConEnv(conEnv)
       emit("\n")
       emit("; End Connection Env\n\n")
-      
-      emit("; Memory Data Model\n")
-      memEnv foreach { c => emit(
-        s"(assert ${c.serialize})\n")
-      }
-      emit("\n")
-      emit("; End Memory Data Model\n\n")
       
       //-----------------------------------------------------------------------
       // Check Assignments

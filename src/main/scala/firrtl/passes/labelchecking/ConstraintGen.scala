@@ -26,7 +26,6 @@ class WhenEnv extends collection.mutable.HashMap[Statement,Constraint] {
 }
 
 abstract class ConstraintGenerator {
-  type MemDataCons = collection.mutable.LinkedHashSet[Constraint]
   // Identifier used for reference expression in Z3 constraints
   def refToIdent(e: Expression): String
   // Representation of expression in Z3
@@ -38,11 +37,8 @@ abstract class ConstraintGenerator {
   def serialize(l: LabelComp) = l.serialize
   // Declaration string
   def emitDecl(typeDecs: TypeDeclSet, name: String, t: Type): String
-  def emitMemDataDecl(typeDecs: TypeDeclSet, mem:DefMemory): String
   // Type declaration string
   def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String
-  // Generate underlying memory data constraints
-  def genMemCons(conEnv: MemDataCons, mem:DefMemory): Unit
 
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
   val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
@@ -81,51 +77,34 @@ abstract class ConstraintGenerator {
        case _ => throw new Exception(s"bad types connected: ${lhs.tpe.serialize}, ${rhs.tpe.serialize}")
     }
 
-  def is_mask_connection(e: Expression): Boolean = {
-    var ret = false
-    def is_mask_connection_(e: Expression): Expression =
-      e map is_mask_connection_ match {
-      case ex: WSubField => 
-        if(ex.name == "mask" && kind(ex) == MemKind) {
-          ret = true
-        }
-        ex
-      case ex => ex
-    }
-    is_mask_connection_(e)
-    ret
-  }
+  type MemMap = scala.collection.mutable.HashMap[String, CDefMemory]
 
   // The purpose of this function is to mutate conEnv and whenEnv (by populating 
   // them) Note: this is the identity function on the statement argument. 
-  def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = s match {
+  def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv, memMap: MemMap)(s: Statement): Statement = s match {
       case sx: DefNodePC =>
         val nref = WRef(sx.name, sx.value.tpe, sx.lbl, NodeKind, FEMALE)
         connect_outer(nref, sx.value, conEnv, whenEnv, sx.info)
         whenEnv(sx) = whenEnv.cur; sx
       case sx: ConnectPC => 
-        if(!is_mask_connection(sx.loc)) {
-          connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
-          whenEnv(sx) = whenEnv.cur
-        }
+        connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
+        whenEnv(sx) = whenEnv.cur
         sx
       case sx: PartialConnectPC =>
-        if(!is_mask_connection(sx.loc)) {
-          connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
-          whenEnv(sx) = whenEnv.cur
-        }
+        connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
+        whenEnv(sx) = whenEnv.cur
         sx
       case sx: ConditionallyPC =>
         val oldWhen = whenEnv.cur
         // True side
         val predT = exprToConsBool(sx.pred)
         whenEnv.cur = if(oldWhen == CTrue) predT else CConj(oldWhen, predT)
-        sx.conseq map gen_cons_s(conEnv, whenEnv)
+        sx.conseq map gen_cons_s(conEnv, whenEnv, memMap)
         whenEnv(sx.conseq) = whenEnv.cur
         // False side
         val predF = CNot(predT)
         whenEnv.cur = if(oldWhen == CTrue) predF else CConj(oldWhen, predF)
-        sx.alt map gen_cons_s(conEnv, whenEnv)
+        sx.alt map gen_cons_s(conEnv, whenEnv, memMap)
         whenEnv(sx.alt) = whenEnv.cur
         // This statement
         whenEnv.cur = oldWhen
@@ -133,33 +112,28 @@ abstract class ConstraintGenerator {
         sx
       case sx: CDefMPort =>
         // TODO differentiate between read/write ports??
-        val pname = sx.name
-        val mname = sx.mem
-        val idx = sx.exps.head
-
         val pcons = CAtom(sx.name)
-        val mcons = CASelect(sx.mem, exprToCons(sx.exps.head))
-
+        val w = log2Up(memMap(sx.mem).size)
+        val mcons = CASelect(sx.mem, exprToCons(sx.exps.head, w))
         conEnv(pcons) = ((mcons, sx.info))
         sx
-        // val pref = WRef(sx.name, sx.tpe, sx.lbl, MemKind, BIGENDER)
-        // val mref = WRef(sx.mem, sx.tpe, sx.lbl, MemKind, BIGENDER)
-        // val midxref = WSubIndex(mref, 
-        // connect_outer(nref, sx.
       case sx => 
-        sx map gen_cons_s(conEnv, whenEnv)
+        sx map gen_cons_s(conEnv, whenEnv, memMap)
         whenEnv(sx) = whenEnv.cur
         sx
   }
 
-  def gen_mem_cons_s(memCons: MemDataCons)(s: Statement): Statement =
-    s map gen_mem_cons_s(memCons) match {
-      case sx: DefMemory => throw new Exception; genMemCons(memCons, sx); sx
+  def gen_mem_map_s(memMap: MemMap)(s: Statement): Statement =
+    s map gen_mem_map_s(memMap) match {
+      case sx : CDefMemory => memMap(sx.name) = sx; sx
       case sx => sx
     }
 
-  def gen_cons(conEnv: ConnectionEnv, whenEnv: WhenEnv, memCons: MemDataCons)(m: DefModule) =
-    m map gen_cons_s(conEnv, whenEnv) map gen_mem_cons_s(memCons)
+  def gen_cons(conEnv: ConnectionEnv, whenEnv: WhenEnv)(m: DefModule) = {
+    val memMap = new MemMap
+    m map gen_mem_map_s(memMap)
+    m map gen_cons_s(conEnv, whenEnv, memMap)
+  }
 
   //--------------------------------------------------------------------------- 
   // Collect all declarations and declare them in Z3
@@ -203,16 +177,6 @@ abstract class ConstraintGenerator {
     case tx =>
   }
 
-  def memPortBundle(mem: DefMemory): BundleType = {
-    val addrTpe = UIntType(IntWidth(log2Up(mem.depth)))
-    BundleType(Seq(
-      Field("addr", Default, addrTpe, bot, false),
-      Field("clk", Default, ClockType, bot, false),
-      Field("en", Default, UIntType(IntWidth(1)), bot, false),
-      Field("mask", Default, UIntType(IntWidth(1)), bot, false),
-      Field("data", Default, mem.dataType, mem.lbl, true)))
-  }
-
   def decls_s(declSet: DeclSet, typeDecs: TypeDeclSet)(s: Statement): Statement = s match {
     case sx: DefRegister =>
       collect_type_decls(typeDecs)(sx.name, sx.tpe)
@@ -235,20 +199,7 @@ abstract class ConstraintGenerator {
       collect_type_decls(typeDecs)(sx.name, sx.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.tpe)
       sx
-    case sx: DefMemory =>
-      throw new Exception
-      // TODO address, en, possibly need separate labels from data
-      val addrTpe = UIntType(IntWidth(log2Up(sx.depth)))
-      val portBundleT = memPortBundle(sx)
-      val portBundleL = LabelExprs.to_bundle(portBundleT, UnknownLabel)
-      val declType = BundleType(
-        (sx.readers ++ sx.writers ++ sx.readwriters) map { pname =>
-          Field(pname, Default, portBundleT, portBundleL, false)
-        })
-      collect_type_decls(typeDecs)(sx.name, declType)
-      declSet += emitDecl(typeDecs, sx.name, declType)
-      declSet += emitMemDataDecl(typeDecs, sx)
-      sx
+    case sx: DefMemory => throw new Exception; sx
     case sx: WDefInstance =>
       collect_type_decls(typeDecs)(sx.name, sx.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.tpe); sx
@@ -281,7 +232,7 @@ object BVConstraintGen extends ConstraintGenerator {
     case tx : BundleType => typeDecls(weakenBundle(tx))
     case tx : WeakBundle => typeDecls(tx)
     case tx : VectorType => 
-      val indextpe = emitDatatype(typeDecls, UIntType(IntWidth(log2Up(tx.size))))
+      val indextpe = emitDatatype(typeDecls, UIntType(vec_size(tx)))
       val datatpe = emitDatatype(typeDecls, tx.tpe)
       s"(Array $indextpe $datatpe)"
     case ClockType => s"(_ BitVec 1)"
@@ -295,13 +246,6 @@ object BVConstraintGen extends ConstraintGenerator {
     case tx : VectorType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case ClockType => s"(declare-const $name (_ BitVec 1))\n"
   }
-
-  def emitMemDataDecl(td: TypeDeclSet, mem:DefMemory): String = {
-    val indextpe = emitDatatype(td, UIntType(IntWidth(log2Up(mem.depth))))
-    val datatpe = emitDatatype(td, mem.dataType)
-    s"(declare-const ${mem.name}_data (Array $indextpe $datatpe))\n"
-  }
-
 
   def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String = t match {
     case tx : BundleType => 
@@ -321,10 +265,11 @@ object BVConstraintGen extends ConstraintGenerator {
 
   def refToIdent(e: Expression) =  e match {
     case ex: WSubIndex => 
-      val idx = CBVLit(ex.value, toBInt(IntWidth(log2Up(ex.value))))
+      val idx = CBVLit(ex.value, toBInt(vec_size(ex.exp.tpe)))
       CASelect(refToIdent(ex.exp), idx).serialize
     case ex: WSubAccess => 
-      CASelect(refToIdent(ex.exp), exprToCons(ex.index)).serialize
+      val idx = exprToCons(ex.index, toBInt(vec_size(ex.exp.tpe)))
+      CASelect(refToIdent(ex.exp), idx).serialize
     case WRef(name,_,_,_,_) => name
     case WSubField(exp,name,_,_,_) => s"(field_$name ${refToIdent(exp)})"
     case ex: Mux =>
@@ -332,45 +277,14 @@ object BVConstraintGen extends ConstraintGenerator {
       exprToCons(ex).serialize 
   }
 
-  def genMemCons(conEnv: MemDataCons, mem: DefMemory): Unit = {
-    val addrTpe = UIntType(IntWidth(log2Up(mem.depth)))
-    val u1 = UIntType(IntWidth(1))
-    val mt = memPortBundle(mem)
-    val ul = UnknownLabel; val ug = UNKNOWNGENDER 
-    val memr = WRef(mem.name, mt, ul, MemKind, ug)
-    def addr(pname:String) = exprToCons(
-      WSubField(WSubField(memr, pname, mt, ul, ug),
-        "addr", addrTpe, ul, ug))
-    def data(pname:String) = exprToCons(
-      WSubField(WSubField(memr, pname, mt, ul, ug),
-        "data", mem.dataType, ul, ug))
-    def en(pname:String) = exprToCons(
-      WSubField(WSubField(memr, pname, mt, ul, ug), "en", u1, ul, ug))
-    def mask(pname:String) = exprToCons(
-      WSubField(WSubField(memr, pname, mt, ul, ug), "mask", u1, ul, ug))
-
-    val arr = mem.name + "_data"
-
-    mem.readers foreach { pname =>
-      conEnv += CImpl( CBVWrappedBV(en(pname), 1), 
-        CEq(CASelect(arr, addr(pname)), data(pname)))
-    }
-    mem.writers foreach { pname =>
-      val cond = CConj(CBVWrappedBV(en(pname), 1),
-        CBVWrappedBV(mask(pname), 1))
-      conEnv += CImpl(cond, CAStore(arr, addr(pname), data(pname)))
-    }
-    // Not supporting readwriters
-  }
-
   def exprToCons(e: Expression): Constraint = e match {
     case ex : Literal => CBVLit(ex.value, toBInt(ex.width))
     case ex : DoPrim => primOpToBVOp(ex)
     case ex : WSubIndex => 
-      val idx = CBVLit(ex.value, toBInt(IntWidth(log2Up(ex.value))))
+      val idx = CBVLit(ex.value, toBInt(vec_size(ex.exp.tpe)))
       CASelect(refToIdent(ex.exp), idx)
     case ex : WSubAccess => 
-      CASelect(refToIdent(ex.exp), exprToCons(ex.index))
+      CASelect(refToIdent(ex.exp), exprToCons(ex.index, toBInt(vec_size(ex.exp.tpe))))
     case ex : WRef => CAtom(refToIdent(ex))
     case ex : WSubField => CAtom(refToIdent(ex))
     case ex : Mux => 
@@ -389,8 +303,8 @@ object BVConstraintGen extends ConstraintGenerator {
         diff = w - bitWidth(e.tpe)
       } catch {
         case (t: Throwable) =>
-        //   println(s"bad expr: ${e.serialize}")
-        //   throw t
+          println(s"bad expr: ${e.serialize}")
+          throw t
       }
       val c = exprToCons(e)
       if(diff > 0) CBinOp("concat", CBVLit(0, diff), c) 
@@ -531,6 +445,10 @@ object BVConstraintGen extends ConstraintGenerator {
     case "bpshl" => unimpl(e.op.serialize, bitWidth(e.tpe))
     case "bpshr" => unimpl(e.op.serialize, bitWidth(e.tpe))
     case "bpset" => unimpl(e.op.serialize, bitWidth(e.tpe))
+  }
+
+  def vec_size(t: Type) = t match {
+    case tx: VectorType => IntWidth(log2Up(tx.size))
   }
 
 }
