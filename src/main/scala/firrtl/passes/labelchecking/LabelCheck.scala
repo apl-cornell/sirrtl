@@ -180,10 +180,10 @@ object LabelCheck extends Pass with PassDebug {
       def ser(l:LabelComp) = consGenerator.serialize(l)
       e map check_declass_e(deps, whenC, pc, info) match {
         case Declassify(expr, lbl) =>
+          /*
           emit("(push)\n")
           emit(s"""(echo \"Checking Declassification: ${info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
-          // emit_deps(deps)
           // Prove that the integrity label is not changing.
           emit("(push)\n")
           // Need to introduce a new scope. Otherwise this often lets you prove 
@@ -197,8 +197,10 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"(assert (leqi ${ser(I(atk))} ${ser(I(pc))} ))\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
+          */
           e
         case Endorse(expr, lbl) =>
+          /*
           emit("(push)\n")
           emit(s"""(echo \"Checking Endorsement: ${info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
@@ -207,6 +209,7 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"(assert (not (= ${ser(C(expr.lbl))} ${ser(C(lbl))})))")
           emit("(check-sat)\n")
           emit("(pop)\n")
+          */
           e
         case ex => ex
       }

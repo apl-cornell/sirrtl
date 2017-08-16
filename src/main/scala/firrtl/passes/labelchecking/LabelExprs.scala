@@ -132,6 +132,7 @@ object LabelExprs extends Pass with PassDebug {
   def instance_io_rename(instName: String)(label: Label): Label = {
     def instance_io_rename_e(instName: String)(e: Expression): Expression =
       e map instance_io_rename_e(instName) match {
+        // Note that this assumes that Dep Exprs have not been moved to WIR
         case ex: Reference if ex.name == "io" => 
           val iref = Reference(instName, UnknownType, UnknownLabel)
           SubField(iref, "io", ex.tpe, ex.lbl)
@@ -153,6 +154,20 @@ object LabelExprs extends Pass with PassDebug {
     def apply_index_(idx: Expression)(l: Label): Label = 
       l map apply_index_(idx) map apply_index_c(idx)
     apply_index_(idx)(l)
+  }
+
+  def rename_mem_in_lb(mem: String, port: String)(l: Label): Label = {
+    def rename_mem_lc(mem: String, port: String)(lc: LabelComp): LabelComp =
+      lc map rename_mem_lc(mem, port) map rename_mem_e(mem, port)
+    def rename_mem_e(mem: String, port: String)(e: Expression): Expression = {
+      val ex = e map rename_mem_in_lb(mem, port) map rename_mem_e(mem, port) match {
+        // Note that this assumes that Dep Exprs have not been moved to WIR
+        case ex: Reference if(ex.name == mem) => ex copy (name = port)
+        case ex => ex
+      }
+      ex
+    }
+    l map rename_mem_in_lb(mem, port) map rename_mem_lc(mem, port)
   }
 
   def label_exprs_s(labels: LabelMap)(s: Statement): Statement = 
@@ -205,8 +220,11 @@ object LabelExprs extends Pass with PassDebug {
         // the address expression of the memory port as the index to the vector.
         val idx = sx.exps.head
         val lbx = apply_index(lb, idx)
-        labels(sx.name) = lbx
-        sx copy (lbl = lbx)
+        // Replace references to the original memory in the labels with 
+        // references to this port
+        val lbxx = rename_mem_in_lb(sx.mem, sx.name)(lbx)
+        labels(sx.name) = lbxx
+        sx copy (lbl = lbxx)
       case sx => sx map label_exprs_e(labels)
   }
 

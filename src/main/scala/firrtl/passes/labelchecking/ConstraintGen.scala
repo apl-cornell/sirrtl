@@ -303,8 +303,8 @@ object BVConstraintGen extends ConstraintGenerator {
         diff = w - bitWidth(e.tpe)
       } catch {
         case (t: Throwable) =>
-          println(s"bad expr: ${e.serialize}")
-          throw t
+        //   println(s"bad expr: ${e.serialize}")
+        //   throw t
       }
       val c = exprToCons(e)
       if(diff > 0) CBinOp("concat", CBVLit(0, diff), c) 
