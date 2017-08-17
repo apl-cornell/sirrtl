@@ -192,6 +192,7 @@ exp
   | 'next(' exp ')' // next-cycle value of exp
   | 'declassify(' exp  label ')'
   | 'endorse(' exp  label ')'
+  | '_'
   ;
 
 id

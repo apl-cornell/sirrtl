@@ -63,6 +63,16 @@ abstract class Expression extends FirrtlNode {
   def mapWidth(f: Width => Width): Expression
 }
 
+case object FnBinding extends Expression {
+  def tpe = UnknownType
+  def lbl = UnknownLabel
+  def serialize: String = "_"
+  def mapExpr(f: Expression => Expression): Expression = this
+  def mapLabel(f: Label => Label): Expression = this
+  def mapType(f: Type => Type): Expression = this
+  def mapWidth(f: Width => Width): Expression = this
+}
+
 case class Declassify(expr: Expression, lbl: Label) extends Expression {
   def tpe = expr.tpe
   def serialize: String = expr.serialize

@@ -1,5 +1,3 @@
-// See LICENSE for license details.
-
 package firrtl
 
 import org.antlr.v4.runtime.ParserRuleContext
@@ -337,9 +335,10 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
   // - Add mux
   // - Add validif
   private def visitExp[FirrtlNode](ctx: FIRRTLParser.ExpContext): Expression =
-    if (ctx.getChildCount == 1)
-      Reference(ctx.getText, UnknownType, UnknownLabel)
-    else
+    if (ctx.getChildCount == 1) ctx.getText match {
+      case "_" => { FnBinding }
+      case _ => { Reference(ctx.getText, UnknownType, UnknownLabel) }
+    } else
       ctx.getChild(0).getText match {
         case "declassify(" =>
           Declassify(visitExp(ctx.exp(0)), visitLabel(Some(ctx.label)))

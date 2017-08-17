@@ -106,6 +106,22 @@ object LabelExprs extends Pass with PassDebug {
     if(label_is_known(l)) l else to_bundle__(to_bundle_(t), l)
   }
 
+  def apply_index_vec(idx: Expression)(lbl: Label) : Label = {
+    def apply_index_vec_lc(idx: Expression)(lc: LabelComp) : LabelComp =
+      lc map apply_index_vec_lc(idx) map apply_index_vec_e(idx)
+
+    // Assume that there is only one indexed array and we don't have nested 
+    // vectors with not-fully-applied dependent type functions
+    def apply_index_vec_e(idx: Expression)(e: Expression) : Expression = 
+      e map apply_index_vec_e(idx)  match {
+        case FnBinding => idx
+        case ex => ex
+      }
+
+    lbl map apply_index_vec(idx) map apply_index_vec_lc(idx)
+  }
+
+
   def label_exprs_e(labels: LabelMap)(e: Expression) : Expression =
     if(label_is_known(e.lbl)) e match {
       case ex: Declassify => ex map label_exprs_e(labels)
@@ -117,8 +133,11 @@ object LabelExprs extends Pass with PassDebug {
       case ex: Next => ex copy (lbl = ex.exp.lbl)
       case ex: WSubField =>
         ex copy (lbl = field_label(ex.exp.lbl, ex.name))
-      case ex: WSubIndex => ex copy (lbl = ex.exp.lbl)
-      case ex: WSubAccess => ex copy (lbl = JoinLabel(ex.exp.lbl, ex.index.lbl))
+      case ex: WSubIndex => 
+        ex copy (lbl = apply_index_vec(uint(ex.value))(ex.exp.lbl))
+      case ex: WSubAccess => 
+        val app_ex_lbl = apply_index_vec(ex.index)(ex.exp.lbl)
+        ex copy (lbl = JoinLabel(app_ex_lbl, ex.index.lbl))
       case ex: DoPrim => ex copy (lbl = JoinLabel((ex.args map{ _.lbl }):_* ))
       case ex: Mux => ex copy (lbl = JoinLabel(ex.cond.lbl,
         ex.tval.lbl, ex.fval.lbl))
@@ -145,7 +164,10 @@ object LabelExprs extends Pass with PassDebug {
     label map instance_io_rename_lc(instName) map instance_io_rename(instName)
   }
 
-  def apply_index(l: Label, idx: Expression): Label = {
+  // This function applies memory port address wire expression to VecHLevels
+  // which are used for describing memories with labels that are other
+  // memories indexed by the port's address wire. 
+  def apply_index_vech(l: Label, idx: Expression): Label = {
     def apply_index_c(idx: Expression)(lc: LabelComp): LabelComp = 
       lc map apply_index_c(idx) match {
         case lcx: VecHLevel => IndexedVecHLevel(lcx.arr, idx)
@@ -219,7 +241,7 @@ object LabelExprs extends Pass with PassDebug {
         // If the label of the memory contains vector labels apply 
         // the address expression of the memory port as the index to the vector.
         val idx = sx.exps.head
-        val lbx = apply_index(lb, idx)
+        val lbx = apply_index_vech(lb, idx)
         // Replace references to the original memory in the labels with 
         // references to this port
         val lbxx = rename_mem_in_lb(sx.mem, sx.name)(lbx)
