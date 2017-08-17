@@ -106,21 +106,26 @@ object LabelExprs extends Pass with PassDebug {
     if(label_is_known(l)) l else to_bundle__(to_bundle_(t), l)
   }
 
-  def apply_index_vec(idx: Expression)(lbl: Label) : Label = {
-    def apply_index_vec_lc(idx: Expression)(lc: LabelComp) : LabelComp =
-      lc map apply_index_vec_lc(idx) map apply_index_vec_e(idx)
+  def apply_index_vec(idx: Expression, vec: Expression)(lbl: Label) : Label = {
+    def apply_index_vec_lc(idx: Expression, vec: Expression)(lc: LabelComp) : LabelComp =
+      lc map apply_index_vec_lc(idx, vec) map apply_index_vec_e(idx, vec)
 
-    // Assume that there is only one indexed array and we don't have nested 
-    // vectors with not-fully-applied dependent type functions
-    def apply_index_vec_e(idx: Expression)(e: Expression) : Expression = 
-      e map apply_index_vec_e(idx)  match {
-        case FnBinding => idx
+    // Note that (e: Expression) is an expression appearing in a dependent 
+    // type, that these expressions have not yet been converted to WIR, and 
+    // that the expressions of interest are SubAccesses indexed by "_".
+    // "similar" is a sufficiently weak equivalence relation defined in 
+    // Utils.scala
+    def apply_index_vec_e(idx: Expression, vec: Expression)(e: Expression) : Expression = 
+      e map apply_index_vec_e(idx, vec) match {
+        case ex : SubAccess if( similar(ex.expr, vec) ) => ex.index match {
+          case FnBinding => ex copy (index= idx )
+          case _ => ex
+        }
         case ex => ex
       }
 
-    lbl map apply_index_vec(idx) map apply_index_vec_lc(idx)
+    lbl map apply_index_vec(idx, vec) map apply_index_vec_lc(idx, vec)
   }
-
 
   def label_exprs_e(labels: LabelMap)(e: Expression) : Expression =
     if(label_is_known(e.lbl)) e match {
@@ -134,9 +139,9 @@ object LabelExprs extends Pass with PassDebug {
       case ex: WSubField =>
         ex copy (lbl = field_label(ex.exp.lbl, ex.name))
       case ex: WSubIndex => 
-        ex copy (lbl = apply_index_vec(uint(ex.value))(ex.exp.lbl))
+        ex copy (lbl = apply_index_vec(uint(ex.value), ex.exp)(ex.exp.lbl))
       case ex: WSubAccess => 
-        val app_ex_lbl = apply_index_vec(ex.index)(ex.exp.lbl)
+        val app_ex_lbl = apply_index_vec(ex.index, ex.exp)(ex.exp.lbl)
         ex copy (lbl = JoinLabel(app_ex_lbl, ex.index.lbl))
       case ex: DoPrim => ex copy (lbl = JoinLabel((ex.args map{ _.lbl }):_* ))
       case ex: Mux => ex copy (lbl = JoinLabel(ex.cond.lbl,

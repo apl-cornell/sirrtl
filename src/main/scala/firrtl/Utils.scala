@@ -16,6 +16,81 @@ class FIRRTLException(str: String) extends Exception(str)
 
 object Utils extends LazyLogging {
 
+  def similar(e1: Expression, e2: Expression): Boolean = e1 match {
+    case FnBinding => e2 == FnBinding
+    case Declassify(expr1, _) => e2 match {
+      case Declassify(expr2, _) => similar(expr1, expr2)
+      case _ => false
+    }
+    case Endorse(expr1, _) => e2 match {
+      case Endorse(expr2, _) => similar(expr1, expr2)
+      case _ => false
+    }
+
+    case Reference(n1, _, _) => e2 match {
+      case Reference(n2, _, _) => n1 == n2
+      case r2: WRef => r2.name == n1
+      case _ => false
+    }
+    case SubField(expr1, n1, _, _) => e2 match {
+      case SubField(expr2, n2, _, _) => similar(expr1, expr2) && n1 == n2
+      case sf2: WSubField => similar(expr1, sf2.exp) && n1 == sf2.name
+      case _ => false
+    }
+    case SubIndex(expr1, v1, _, _) => e2 match {
+      case SubIndex(expr2, v2, _, _) => similar(expr1, expr2) && v1 == v2
+      case sf2: WSubIndex=> similar(expr1, sf2.exp) && v1 == sf2.value
+      case _ => false
+    }
+    case SubAccess(expr1, id1, _, _) => e2 match {
+      case SubAccess(expr2, id2, _, _) => similar(expr1, expr2) && similar(id1, id2)
+      case sf2: WSubAccess=> similar(expr1, sf2.exp) && similar(id1, sf2.index)
+      case _ => false
+    }
+    case WRef(n1, _, _, _, _) => e2 match {
+      case WRef(n2, _, _, _, _) => n1 == n2
+      case Reference(n2, _, _) => n1 == n2
+      case _ => false
+    }
+    case WSubField(ex1, n1, _, _, _) => e2 match {
+      case WSubField(ex2, n2, _, _, _) => similar(ex1, ex2) && n1 == n2
+      case SubField(ex2, n2, _, _) => similar(ex1, ex2) && n1 == n2
+      case _ => false
+    }
+    case WSubIndex(ex1, v1, _, _, _) => e2 match {
+      case WSubIndex(ex2, v2, _, _, _) => similar(ex1, ex2) && v1 == v2
+      case SubIndex(ex2, v2, _, _) => similar (ex1, ex2) && v1 == v2
+      case _ => false
+    }
+    case WSubAccess(ex1, id1, _, _, _) => e2 match {
+      case WSubAccess(ex2, id2, _, _, _) => similar(ex1, ex2) && similar(id1, id2)
+      case SubAccess(ex2, id2, _, _) => similar(ex1, ex2) && similar(id1, id2)
+      case _ => false
+    }
+    case Mux(c1, t1, f1, _, _) => e2 match {
+      case Mux(c2, t2, f2, _, _) => similar(c1, c2) && similar(t2, t2) && similar(f1, f2)
+      case _ => false
+    }
+    case ValidIf(c1, v1, _, _) => e2 match {
+      case ValidIf(c2, v2, _, _) => similar(c1, c2) && similar(v1, v2)
+      case _ => false
+    }
+    case Next(ex1, _, _, _) => e2 match {
+      case Next(ex2, _, _, _) => similar(ex1, ex2)
+      case _ => false
+    }
+    case l1: Literal => e2 match {
+      case l2: Literal => l1.width == l2.width && l1.value == l2.value
+      case _ => false
+    }
+    case DoPrim(op1, args1, consts1, _, _) => e2 match {
+      case DoPrim(op2, args2, consts2, _, _) => op1 == op2 &&
+        ((args1 zip args2) map { case (arg1, arg2) => similar(arg1, arg2) } reduceLeft(_&&_)) &&
+        ((consts1 zip consts2) map { case (c1, c2) => c1 == c2 } reduceLeft(_&&_))
+      case _ => false
+    }
+  }
+
 
   def log2(x: Int): Int =
     scala.math.ceil(scala.math.log(x) / scala.math.log(2)).toInt
