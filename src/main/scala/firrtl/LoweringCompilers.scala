@@ -5,7 +5,7 @@ package firrtl
 // If labelchecking is not enabled, remove labels at the end of every transform
 object deLabel {
   def apply(): Seq[passes.Pass] =
-    if(!Driver.doLabelChecking) Seq(passes.DeLabel,passes.RipDowngrades) else Seq()
+    if(!Driver.doLabelChecking) Seq(passes.DeLabel,passes.RipDowngrades,passes.RipNexts) else Seq()
 }
 
 sealed abstract class CoreTransform extends PassBasedTransform
