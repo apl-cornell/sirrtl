@@ -222,7 +222,10 @@ object LabelCheck extends Pass with PassDebug {
             val lhsx = f.lbl
             val rhsx = field_label(rhs, f.name)
             val inf = s" (field: ${f.name})"
-            check_connection(deps, whenC, lhsx, rhsx, pc, info)
+            rhsx match {
+              case UnknownLabel =>
+              case _ => check_connection(deps, whenC, lhsx, rhsx, pc, info)
+            }
           }
         case((lhsb: BundleLabel, rhsx: ProdLabel)) => 
           lhsb.fields.foreach { f =>

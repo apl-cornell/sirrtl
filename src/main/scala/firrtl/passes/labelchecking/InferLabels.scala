@@ -8,7 +8,7 @@ import scala.collection.mutable.Set
 
 object InferLabels extends Pass with PassDebug {
   def name = "Label Inference"
-  override def debugThisPass = false
+  override def debugThisPass = true
 
   // TODO: I had to comment out these debug prints since it seems like for real 
   // rocket code evaluting the interpolated strings takes non-trivial time. I 

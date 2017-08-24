@@ -72,6 +72,7 @@ labelComp
   |  '[[' exp ']]V'   // Vector of hypercube labels
   |  labelComp join labelComp
   |  labelComp meet labelComp
+  | 'IFL(' exp ')(' labelComp ')(' labelComp ')'
   ;
 
 join : 'join' ;

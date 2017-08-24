@@ -157,6 +157,8 @@ class Visitor(infoMode: InfoMode) extends FIRRTLBaseVisitor[FirrtlNode] {
         HLevel(visitExp(ctx.exp(0)))
       else
         VecHLevel(visitExp(ctx.exp(0)))
+    } else if(ctx.getChild(0).getText == "IFL(") {
+      IfLabelComp(visitExp(ctx.exp(0)), visitLabelComp(ctx.labelComp(0)), visitLabelComp(ctx.labelComp(1)))
     } else if(ctx.join != null) {
       JoinLabelComp(visitLabelComp(ctx.labelComp(0)), visitLabelComp(ctx.labelComp(1)))
     } else if(ctx.meet != null) {

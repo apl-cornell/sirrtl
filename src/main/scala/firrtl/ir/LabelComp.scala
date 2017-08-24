@@ -145,3 +145,11 @@ case class IndexedVecHLevel(arr: Expression, index: Expression) extends LabelCom
     this.copy(arr = f(arr), index = f(index))
   override def hashCode = serialize.hashCode
 }
+
+case class IfLabelComp(cond: Expression, tComp: LabelComp, fComp: LabelComp) extends LabelComp {
+  def serialize = s"IFL(${cond.serialize})($tComp)($fComp)"
+  def mapLabelComp(f: LabelComp => LabelComp): LabelComp =
+    this.copy( tComp = f(tComp), fComp = f(fComp))
+  def mapExpr(f: Expression => Expression): LabelComp = this.copy(cond = f(cond))
+  override def hashCode = serialize.hashCode
+}
