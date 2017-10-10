@@ -275,6 +275,8 @@ object BVConstraintGen extends ConstraintGenerator {
     case ex: Mux =>
       // Why does this even happen? Vecs of Muxes??
       exprToCons(ex).serialize 
+    case Declassify(exx, _) => refToIdent(exx)
+    case Endorse(exx, _) => refToIdent(exx)
   }
 
   def exprToCons(e: Expression): Constraint = e match {

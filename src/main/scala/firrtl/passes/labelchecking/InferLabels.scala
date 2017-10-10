@@ -8,12 +8,12 @@ import scala.collection.mutable.Set
 
 object InferLabels extends Pass with PassDebug {
   def name = "Label Inference"
-  override def debugThisPass = true
+  override def debugThisPass = false
 
   // TODO: I had to comment out these debug prints since it seems like for real 
   // rocket code evaluting the interpolated strings takes non-trivial time. I 
   // wish I had C-style macros for this, but maybe I can get what I want by 
-  // making the argument of dprina a call-by-name argument
+  // making the argument of dprint a call-by-name argument
   
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
   val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
