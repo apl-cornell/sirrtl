@@ -16,8 +16,8 @@ class HypercubePolicy extends Policy {
   def lvlwidth = 4 //16
   def cubeConfigs =
     Set[(Int,Int)](
-      (4,1),
-      (2,2)
+      (2,2),
+      (4,1)
       // (4,4),
       // (8,2),
       // (2,8)
