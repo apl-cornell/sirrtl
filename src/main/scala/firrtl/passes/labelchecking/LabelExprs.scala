@@ -139,10 +139,13 @@ object LabelExprs extends Pass with PassDebug {
       case ex: WSubField =>
         ex copy (lbl = field_label(ex.exp.lbl, ex.name))
       case ex: WSubIndex => 
-        ex copy (lbl = apply_index_vec(uint(ex.value), ex.exp)(ex.exp.lbl))
+        val lbl_ = apply_index_vec(uint(ex.value), ex.exp)(ex.exp.lbl)
+        val lbl__  = apply_index_vech(lbl_, uint(ex.value))
+        ex copy (lbl = lbl__)
       case ex: WSubAccess => 
         val app_ex_lbl = apply_index_vec(ex.index, ex.exp)(ex.exp.lbl)
-        ex copy (lbl = JoinLabel(app_ex_lbl, ex.index.lbl))
+        val lbl__ = apply_index_vech(app_ex_lbl, ex.index)
+        ex copy (lbl = JoinLabel(lbl__, ex.index.lbl))
       case ex: DoPrim => ex copy (lbl = JoinLabel((ex.args map{ _.lbl }):_* ))
       case ex: Mux => ex copy (lbl = JoinLabel(ex.cond.lbl,
         ex.tval.lbl, ex.fval.lbl))
