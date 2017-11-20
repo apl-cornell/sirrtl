@@ -126,6 +126,7 @@ class LabelChecking extends CoreTransform {
     passes.ForwardProp,
     passes.SimplifyLabels,
     passes.InferLabels,
+    passes.ApplyVecLabels,
     passes.PullNexts,
     passes.LabelCheck
   )
