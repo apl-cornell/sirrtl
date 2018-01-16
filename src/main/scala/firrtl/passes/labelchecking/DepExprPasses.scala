@@ -29,10 +29,9 @@ object DepsResolveKinds extends ResolveKindsT {
   }
 
   override def resolve_lbl(kinds: KindMap)(l: Label): Label =
-    l map resolve_lbl(kinds) map resolve_lbl_cmp(kinds)
-  def resolve_lbl_cmp(kinds: KindMap)(l: LabelComp): LabelComp = {
-    l map resolve_expr(kinds) map resolve_lbl_cmp(kinds)
-  }
+    l map resolve_lbl_cmp(kinds) // map resolve_lbl(kinds)
+  def resolve_lbl_cmp(kinds: KindMap)(l: LabelComp): LabelComp = 
+    l map resolve_expr(kinds) // map resolve_lbl_cmp(kinds)
 }
 
 object DepsInferTypes extends InferTypesT {
