@@ -208,19 +208,11 @@ object SimplifyLabels extends Pass with PassDebug {
     }
   }
 
-  // AF: cnf_e and cnf_el differ because we need to consider expressions in 
-  // labels but not the labels of expressions in label. Only recursing through 
-  // the subset of the structure that is actually used achieves considerable 
-  // performance improvement. (Note that cnf_e is used in labelcomps but cnf_el 
-  // is used in statemenents)
   def cnf_e(e: Expression) : Expression =
-    e map cnf_e
-
-  def cnf_el(e: Expression) : Expression =
-    cnf_e(e) map cnf_lb
+    e map cnf_e map cnf_lb
 
   def cnf_s(s: Statement) : Statement =
-    s map cnf_s map cnf_el map cnf_lb
+    s map cnf_s map cnf_e map cnf_lb
 
   def cnf_p(p: Port) =
     p copy (lbl = cnf_lb(p.lbl))

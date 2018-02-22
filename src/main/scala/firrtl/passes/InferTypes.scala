@@ -33,7 +33,7 @@ trait InferTypesT extends Pass {
     }
 
   def infer_types_el(types: TypeMap)(e: Expression): Expression =
-    infer_types_e(types)(e) map infer_types_l(types)
+    infer_types_e(types)(e) map infer_types_el(types) map infer_types_l(types)
 
   def run(c: Circuit): Circuit = {
     val namespace = Namespace()
