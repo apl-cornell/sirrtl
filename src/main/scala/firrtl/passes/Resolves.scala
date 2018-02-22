@@ -10,7 +10,6 @@ object ResolveKinds extends ResolveKindsT
 trait ResolveKindsT extends Pass with PassDebug {
   def name = "Resolve Kinds"
   type KindMap = collection.mutable.LinkedHashMap[String, Kind]
-  override def debugThisPass = false
 
   def find_port(kinds: KindMap)(p: Port): Port = {
     kinds(p.name) = PortKind ; p
@@ -31,24 +30,20 @@ trait ResolveKindsT extends Pass with PassDebug {
   }
 
   def resolve_lbl(kinds: KindMap)(l: Label): Label = l
+    //l map resolve_expr(kinds) map resolve_lbl(kinds)
 
-  def resolve_expr(kinds: KindMap)(e: Expression): Expression = e match {
+  def resolve_expr(kinds: KindMap)(e: Expression): Expression = 
+    e map resolve_lbl(kinds) match {
     case ex: WRef => 
       if(kinds.contains(ex.name)) ex copy (kind = kinds(ex.name))
       else ex
-    case _ => e map resolve_expr(kinds)
-  }
-  
-  def resolve_expr_lbl(kinds: KindMap)(e: Expression): Expression =
-    e map resolve_lbl(kinds) match {
-    case ex: WRef =>
-      if(kinds.contains(ex.name)) ex copy (kind = kinds(ex.name))
-      else ex
-    case ex => ex map resolve_expr_lbl(kinds)
+    case _ => e map resolve_expr(kinds) map resolve_lbl(kinds)
   }
 
-  def resolve_stmt(kinds: KindMap)(s: Statement): Statement =
-    s map resolve_stmt(kinds) map resolve_expr_lbl(kinds)
+  def resolve_stmt(kinds: KindMap)(s: Statement): Statement = {
+    dprint(s.info.serialize)
+    s map resolve_stmt(kinds) map resolve_expr(kinds) map resolve_lbl(kinds)
+  }
 
   def resolve_kinds(m: DefModule): DefModule = {
     val kinds = new KindMap

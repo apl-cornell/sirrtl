@@ -48,24 +48,21 @@ class Errors {
 
 // These should be distributed into separate files
 object ToWorkingIR extends ToWorkingIRT
-trait ToWorkingIRT extends Pass with PassDebug {
+trait ToWorkingIRT extends Pass {
   def name = "Working IR"
 
   //def toLbl(l: Label): Label = l map toExp map toLbl
   def toLbl(l: Label): Label = l
 
-  def toExp(e: Expression): Expression = e map toExp match {
+  def toExp(e: Expression): Expression = e map toExp map toLbl match {
     case ex: Reference => WRef(ex.name, ex.tpe, ex.lbl, NodeKind, UNKNOWNGENDER)
     case ex: SubField => WSubField(ex.expr, ex.name, ex.tpe, ex.lbl, UNKNOWNGENDER)
     case ex: SubIndex => WSubIndex(ex.expr, ex.value, ex.tpe, ex.lbl, UNKNOWNGENDER)
     case ex: SubAccess => WSubAccess(ex.expr, ex.index, ex.tpe, ex.lbl, UNKNOWNGENDER)
     case ex => ex // This might look like a case to use case _ => e, DO NOT!
   }
-  
-  def toExpL(e: Expression): Expression =
-    toExp(e) map toExpL map toLbl
 
-  def toStmt(s: Statement): Statement = s map toExpL map toLbl match {
+  def toStmt(s: Statement): Statement = s map toExp map toLbl match {
     case sx: DefInstance => WDefInstance(sx.info, sx.name, sx.module, UnknownType, UnknownLabel)
     case sx => sx map toStmt
   }

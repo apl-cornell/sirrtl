@@ -17,7 +17,7 @@ trait InferTypesT extends Pass {
   def infer_types_l(types: TypeMap)(l: Label): Label = l
   
   def infer_types_e(types: TypeMap)(e: Expression): Expression =
-    e map infer_types_e(types) match {
+    e map infer_types_e(types) map infer_types_l(types) match {
       case e: WRef => e copy (tpe = types(e.name))
       case e: Next => e copy (tpe = e.exp.tpe)
       case e: WSubField => e copy (tpe = field_type(e.exp.tpe, e.name))
@@ -31,9 +31,6 @@ trait InferTypesT extends Pass {
       case ex: Declassify => ex
       case ex: Endorse => ex
     }
-
-  def infer_types_el(types: TypeMap)(e: Expression): Expression =
-    infer_types_e(types)(e) map infer_types_el(types) map infer_types_l(types)
 
   def run(c: Circuit): Circuit = {
     val namespace = Namespace()
@@ -57,14 +54,14 @@ trait InferTypesT extends Pass {
         types(sx.name) = t
         sx copy (tpe = t) map infer_types_l(types)
       case sx: DefNode =>
-        val sxx = (sx map infer_types_el(types)).asInstanceOf[DefNode]
+        val sxx = (sx map infer_types_e(types)).asInstanceOf[DefNode]
         val t = remove_unknowns(sxx.value.tpe)
         types(sx.name) = t
-        sxx map infer_types_el(types) map infer_types_l(types)
+        sxx map infer_types_e(types) map infer_types_l(types)
       case sx: DefRegister =>
         val t = remove_unknowns(sx.tpe)
         types(sx.name) = t
-        sx copy (tpe = t) map infer_types_el(types) map infer_types_l(types)
+        sx copy (tpe = t) map infer_types_e(types) map infer_types_l(types)
       case sx: DefMemory =>
         val t = remove_unknowns(MemPortUtils.memType(sx))
         types(sx.name) = t
@@ -77,7 +74,7 @@ trait InferTypesT extends Pass {
         types(sx.name) = t
         sx copy (tpe = t)
       case sx =>
-        sx map infer_types_s(types) map infer_types_el(types) map infer_types_l(types)
+        sx map infer_types_s(types) map infer_types_e(types) map infer_types_l(types)
     }
 
     def infer_types_p(types: TypeMap)(p: Port): Port = {
