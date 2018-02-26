@@ -176,11 +176,9 @@ object LabelCheck extends Pass with PassDebug {
     }
 
     def check_declass_e(deps: ConSet, whenC: Constraint, pc: Label, info: Info)(e: Expression): Expression = {
-      val atk = PolicyHolder.attacker
       def ser(l:LabelComp) = consGenerator.serialize(l)
       e map check_declass_e(deps, whenC, pc, info) match {
         case Declassify(expr, lbl) =>
-          /*
           emit("(push)\n")
           emit(s"""(echo \"Checking Declassification: ${info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
@@ -191,25 +189,24 @@ object LabelCheck extends Pass with PassDebug {
           emit(s"(assert (not (= ${ser(I(expr.lbl))} ${ser(I(lbl))})))")
           emit("(check-sat)\n")
           emit("(pop)\n")
-          // Prove that the attacker cannot affect the PC value where 
-          // the declassification takes place.
-          // Since it's a proof by contradiction it's (not(not(leqi...)))
-          emit(s"(assert (leqi ${ser(I(atk))} ${ser(I(pc))} ))\n")
+          emit(s"(assert (not (leqc ${ser(C(expr.lbl))} ${ser(C(lbl) join I(expr.lbl) join I(pc))})))\n")
           emit("(check-sat)\n")
           emit("(pop)\n")
-          */
           e
         case Endorse(expr, lbl) =>
-          /*
           emit("(push)\n")
           emit(s"""(echo \"Checking Endorsement: ${info}\")\n""" )
           emit(s"(assert ${whenC.serialize})\n")
-          // emit_deps(deps)
-          // Prove that the confidentiality label is not changing.
+          // Prove that the integrity label is not changing.
+          emit("(push)\n")
+          // Need to introduce a new scope. Otherwise this often lets you prove 
+          // false!
           emit(s"(assert (not (= ${ser(C(expr.lbl))} ${ser(C(lbl))})))")
           emit("(check-sat)\n")
           emit("(pop)\n")
-          */
+          emit(s"(assert (not (leqi ${ser(I(expr.lbl))} ${ser(I(lbl) meet C(expr.lbl) meet C(pc))})))\n")
+          emit("(check-sat)\n")
+          emit("(pop)\n")
           e
         case ex => ex
       }
