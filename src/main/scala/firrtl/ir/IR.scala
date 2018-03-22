@@ -75,7 +75,8 @@ case object FnBinding extends Expression {
 
 case class Declassify(expr: Expression, lbl: Label) extends Expression {
   def tpe = expr.tpe
-  def serialize: String = expr.serialize
+  def serialize: String =
+    s"declassify(${expr.serialize}, ${expr.lbl.serialize} to ${lbl.serialize})"
   def mapExpr(f: Expression => Expression): Expression = this.copy(expr = f(expr))
   def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapType(f: Type => Type): Expression = this
@@ -84,7 +85,8 @@ case class Declassify(expr: Expression, lbl: Label) extends Expression {
 
 case class Endorse(expr: Expression, lbl: Label) extends Expression {
   def tpe = expr.tpe
-  def serialize: String = expr.serialize
+  def serialize: String =
+    s"endorse(${expr.serialize}, ${expr.lbl.serialize} to ${lbl.serialize})"
   def mapExpr(f: Expression => Expression): Expression = this.copy(expr = f(expr))
   def mapLabel(f: Label => Label): Expression = this.copy(lbl = f(lbl))
   def mapType(f: Type => Type): Expression = this
