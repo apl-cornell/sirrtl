@@ -40,6 +40,7 @@ abstract class ConstraintGenerator {
   // Type declaration string
   def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String
 
+
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
   val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
   
@@ -263,7 +264,11 @@ object BVConstraintGen extends ConstraintGenerator {
     case tx : VectorType => throw new Exception
   }
 
-  def refToIdent(e: Expression) =  e match {
+  // h4x to get around bad compile times for transforms on dependent labels 
+  // appearing in bundle types
+  def toWIR(e: Expression) = ToWorkingIR.toExp(e)
+
+  def refToIdent(e: Expression) =  toWIR(e) match {
     case ex: WSubIndex => 
       val idx = CBVLit(ex.value, toBInt(vec_size(ex.exp.tpe)))
       CASelect(refToIdent(ex.exp), idx).serialize
@@ -279,7 +284,7 @@ object BVConstraintGen extends ConstraintGenerator {
     case Endorse(exx, _) => refToIdent(exx)
   }
 
-  def exprToCons(e: Expression): Constraint = e match {
+  def exprToCons(e: Expression): Constraint = toWIR(e) match {
     case ex : Literal => CBVLit(ex.value, toBInt(ex.width))
     case ex : DoPrim => primOpToBVOp(ex)
     case ex : WSubIndex => 
@@ -297,7 +302,7 @@ object BVConstraintGen extends ConstraintGenerator {
     case Endorse(exx,_) => exprToCons(exx)
   }
 
-  def exprToCons(e: Expression, w: BigInt) = e match {
+  def exprToCons(e: Expression, w: BigInt) = toWIR(e) match {
     case ex : Literal => CBVLit(ex.value, w)
     case _ =>
       var diff = BigInt(0)
@@ -314,8 +319,10 @@ object BVConstraintGen extends ConstraintGenerator {
       else c
   }
 
-  def exprToConsBool(e: Expression) =
-    CBVWrappedBV(exprToCons(e), bitWidth(e.tpe))
+  def exprToConsBool(e: Expression) = {
+    val ePrime = toWIR(e)
+    CBVWrappedBV(exprToCons(ePrime), bitWidth(ePrime.tpe))
+  }
 
   override def serialize(l: LabelComp) = l match {
     case FunLabel(fname, args) => //s"($fname ${refToIdent(arg)})"

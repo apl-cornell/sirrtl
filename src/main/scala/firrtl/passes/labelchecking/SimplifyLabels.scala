@@ -48,7 +48,7 @@ object SimplifyLabels extends Pass with PassDebug {
     // cnf_e gets called here even though integrity components are in
     // dnf because components have expressions which have labels and 
     // labels are in cnf.
-    l map dnf_lb_cmp map cnf_e match {
+    l map dnf_lb_cmp match {
       case lbx: JoinLabelComp => 
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
           case (lhs:LabelComp, rhs:LabelComp) => cnf_lb_cmp(lhs join rhs)
@@ -100,7 +100,7 @@ object SimplifyLabels extends Pass with PassDebug {
       terms_(l); termSet
     }
 
-    l map cnf_lb_cmp map cnf_e match {
+    l map cnf_lb_cmp match {
       case lbx: MeetLabelComp => 
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
           case (lhs:LabelComp, rhs:LabelComp) => dnf_lb_cmp(lhs meet rhs)
@@ -181,11 +181,11 @@ object SimplifyLabels extends Pass with PassDebug {
       terms_(l); termSet
     }
 
-    l map cnf_lb match {
+    l  match {
       case lbx: MeetLabel=> 
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
           case (lhs:Label, rhs:Label) => lhs meet rhs
-        }).foldLeft(bot) { _ join _ }
+        }).foldLeft(bot) { _ join _ } map cnf_lb
       case lbx: JoinLabel =>
         val simplified_clauses = new LinkedHashSet[Label]
         val lx_clauses = clauses(lbx)
@@ -196,7 +196,7 @@ object SimplifyLabels extends Pass with PassDebug {
           }
           if(addme) simplified_clauses += cls_i
         }
-        sortClauses(simplified_clauses).foldLeft(bot) { _ join _ }
+        sortClauses(simplified_clauses).foldLeft(bot) { _ join _ } map cnf_lb
       case ProdLabel(conf, integ) =>
         // Confidentiality components are in the same normal form as labels,
         // but integrity components are in the dual of that normal form

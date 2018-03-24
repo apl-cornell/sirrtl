@@ -76,9 +76,10 @@ object ForwardProp extends Pass with PassDebug {
     e map prop_env_e(env) map prop_env_l(env)
 
   def prop_env_l(env: LabelVarMap)(l: Label): Label = 
-    l map prop_env_l(env) match {
+    l match {
       case lx: VarLabel if env.contains(lx) => env(lx)
-      case lx => lx
+      case lx: BundleLabel => lx
+      case lx => lx map prop_env_l(env)
     }
 
   def forward_prop(m: DefModule): DefModule = {
