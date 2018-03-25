@@ -22,7 +22,7 @@ object DepsToWorkingIR extends Pass with PassDebug {
   }
   def toLblComp(lc: LabelComp): LabelComp = lc map toExp map toLblComp
 
-  def toExp(e: Expression): Expression = e map toExp match {
+  def toExp(e: Expression): Expression = e map toExp map toLbl match {
     case ex: Reference => WRef(ex.name, ex.tpe, ex.lbl, NodeKind, UNKNOWNGENDER)
     case ex: SubField => WSubField(ex.expr, ex.name, ex.tpe, ex.lbl, UNKNOWNGENDER)
     case ex: SubIndex => WSubIndex(ex.expr, ex.value, ex.tpe, ex.lbl, UNKNOWNGENDER)
@@ -30,10 +30,7 @@ object DepsToWorkingIR extends Pass with PassDebug {
     case ex => ex // This might look like a case to use case _ => e, DO NOT!
   }
 
-  def toExpL(e: Expression): Expression =
-    toExp(e) map toExpL map toLbl
-
-  def toStmt(s: Statement): Statement = s map toExpL map toLbl match {
+  def toStmt(s: Statement): Statement = s map toExp map toLbl match {
     case sx: DefInstance => WDefInstance(sx.info, sx.name, sx.module, UnknownType, UnknownLabel)
     case sx => sx map toStmt
   }

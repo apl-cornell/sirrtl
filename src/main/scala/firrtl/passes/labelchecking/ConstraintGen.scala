@@ -273,8 +273,22 @@ object BVConstraintGen extends ConstraintGenerator {
       val idx = CBVLit(ex.value, toBInt(vec_size(ex.exp.tpe)))
       CASelect(refToIdent(ex.exp), idx).serialize
     case ex: WSubAccess => 
-      val idx = exprToCons(ex.index, toBInt(vec_size(ex.exp.tpe)))
-      CASelect(refToIdent(ex.exp), idx).serialize
+      // try {
+      //   toBInt(vec_size(ex.exp.tpe))
+      // } catch {
+      //   case (t: Throwable) =>
+      //   println(s"sub_access causing excp: ${ex.serialize}")
+      //   println(s"sub_access.exp causing excp: ${ex.exp.serialize}")
+      //   t
+      // }
+      try {
+        val idx = exprToCons(ex.index, toBInt(vec_size(ex.exp.tpe)))
+        CASelect(refToIdent(ex.exp), idx).serialize
+      } catch { 
+        case (t: Exception) =>
+          val idx = exprToCons(ex.index)
+          CASelect(refToIdent(ex.exp), idx).serialize
+      }
     case WRef(name,_,_,_,_) => name
     case WSubField(exp,name,_,_,_) => s"(field_$name ${refToIdent(exp)})"
     case ex: Mux =>

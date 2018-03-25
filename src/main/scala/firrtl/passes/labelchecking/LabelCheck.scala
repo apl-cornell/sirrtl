@@ -252,7 +252,8 @@ object LabelCheck extends Pass with PassDebug {
       emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
       } catch {
         case (t: Exception) =>
-          throw new Exception(s"${info}: ${t.getMessage}")
+          println(s"Exception at source line ${info}")
+          throw t
       }
       emit("(check-sat)\n")
       emit("(pop)\n")
