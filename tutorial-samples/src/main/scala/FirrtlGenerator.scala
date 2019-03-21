@@ -14,7 +14,17 @@ object FirrtlGenerator extends App {
     System.exit(1);
   }
 
-  val testName = args(0);
-  val outputfile = new File("output/" + testName + ".fir");
-  chisel3.Driver.dumpFirrtl(chisel3.Driver.elaborate(() => examples.getOrElse(testName, () => new Adder(32))()), Option(outputfile));
+  var i = 0;
+  for (i <- 0 to args.length-1)
+  {
+    val testName = args(i);
+    val outputfile = new File("output/" + testName + ".fir");
+    val modMaybe = examples.get(testName);
+    modMaybe match {
+      case Some(mod) =>
+        chisel3.Driver.dumpFirrtl(chisel3.Driver.elaborate(() => mod()), Option(outputfile));
+      case None =>
+        println("Module " + testName + " not found!");
+    }
+  }
 }
