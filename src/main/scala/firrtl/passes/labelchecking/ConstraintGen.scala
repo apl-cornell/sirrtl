@@ -251,14 +251,18 @@ object BVConstraintGen extends ConstraintGenerator {
   def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String = t match {
     case tx : BundleType => 
       val name = typeDecs(tx)
-      val field_decls = tx.fields.map { case Field(n,_,tpe,_,_) =>
-        s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+      val field_decls = tx.fields.map { case Field(n,_,tpe,_,isSeq) =>
+        val fieldDecl = s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+        val nextDecl = if(isSeq) s"(field_${PullNexts.next_ident(n,tpe)} ${emitDatatype(typeDecs, tpe)})" else ""
+        s"$fieldDecl $nextDecl"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
     case tx: WeakBundle =>
       val name = typeDecs(tx)
       val field_decls = tx.fields.map { case WeakField(n, tpe) =>
-        s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+        val fieldDecl = s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+        val nextDecl = s"(field_${PullNexts.next_ident(n,tpe)} ${emitDatatype(typeDecs, tpe)})"
+          s"$fieldDecl $nextDecl"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
     case tx : VectorType => throw new Exception
