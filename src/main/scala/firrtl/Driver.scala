@@ -5,6 +5,9 @@ package firrtl
 import scala.collection._
 import scala.io.Source
 import java.io.{File, FileNotFoundException}
+import java.text.SimpleDateFormat
+import java.util.Calendar
+
 import net.jcazevedo.moultingyaml._
 import logger.Logger
 import Parser.{IgnoreInfo, InfoMode}
@@ -205,7 +208,9 @@ object Driver {
   }
 
   def main(args: Array[String]): Unit = {
-    println("You are using secure-firrtlaa")
+    val today = Calendar.getInstance().getTime()
+    val dateString = new SimpleDateFormat("yyyy-MM-dd-hh-mm").format(today)
+    println("You are using secure-firrtl-" + dateString)
     execute(args)
   }
 }

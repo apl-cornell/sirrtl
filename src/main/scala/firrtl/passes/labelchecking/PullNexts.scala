@@ -26,19 +26,21 @@ object PullNexts extends Pass with PassDebug {
     s"$info: Next port unavailable: next(${exp.serialize}). Is the next_[.] port needed for ${exp.serialize} declared?")
   val errors = new Errors()
   
-  def next_ident(n: String, t: Type): String = t match {
-    case tx: WSubField => "next_" + n
-    case _ => "$" + n
-  }
+  def next_ident(n: String): String =  "$" + n
 
-  def next_exp(e: Expression) = e match {
-    case ex : WRef => ex copy (name = next_ident(ex.name,ex.tpe))
-    case ex : WSubField => ex copy (name = next_ident(ex.name, ex.tpe))
+  def next_exp(e: Expression): Expression = e match {
+    case ex : WRef => ex copy (name = next_ident(ex.name))
+    case ex: WSubField if is_simple_p_subf(ex) => ex copy (name = next_ident(ex.name))
+    case ex: DoPrim => ex.op match {
+      case PrimOps.Bits =>
+        val next_args = ex.args map {a => next_exp(a)}
+      DoPrim(PrimOps.Bits, next_args, ex.consts, ex.tpe, ex.lbl)
+    }
     case ex => ex
   }
 
   def is_simple_p_subf(e: WSubField) : Boolean = e.exp match {
-    case ex: WRef => ex.kind == PortKind
+    case ex: WRef => ex.kind == PortKind || ex.kind == InstanceKind
     case ex: WSubField => is_simple_p_subf(ex)
     case _ => false
   }

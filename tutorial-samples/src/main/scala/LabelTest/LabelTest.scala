@@ -9,17 +9,54 @@ class LabelTest extends Module {
     val out = Output(UInt(1.W), Label(Level("L"), Level("H")))
   });
 
+  //val output = Module(new SeqOut2)
+ // io.out := output.io.out
+  ////val I0 = Module(new IssueDef);
   // val B1 = Module(new Issue5);
-  val B2 = Module(new Issue3);
-  val B2Good = Module(new Issue3Fix);
- // val I6 = Module(new Issue6);
+ //val B2 = Module(new Issue3);
+//  val B2Good = Module(new Issue3Fix);
+  //val I6 = Module(new Issue6);
  // val I62 = Module(new Issue6_2);
  // val ST1 = Module(new ExpectedFail);
- // val ST2 = Module(new ExpectedSuccess);
- // val ST3 = Module(new ExpectedSuccess2);
-
+  val ST2 = Module(new ExpectedSuccess);
+  val ST3 = Module(new ExpectedSuccess2);
+  val ST4 = Module(new ExpectedSuccess3);
+ // val ST5 = Module(new ExpectedFail2);
 }
 
+class SeqOut extends Module {
+  class MyBundle extends Bundle {
+    val a = UInt(1.W)
+    val b = UInt(1.W)
+  }
+  val io = IO(new Bundle {
+    val out = Output(UInt(1.W), Label(Level("L"), Level("H")))
+    val out2 = Output(new MyBundle, Label(Level("L"), Level("H")))
+  })
+  val ax = Reg(init = 0.U(1.W), lbl = Label(Level("L"), Level("H")))
+  ax := ~ax
+  val bx = Reg(init = 4.U(3.W), lbl = Label(Level("L"), Level("H")))
+  io.out := bx(0,0)
+  io.out2.a := ax
+  io.out2.b := ~ax
+}
+
+class SeqOut2 extends Module {
+  val io = IO(new Bundle {
+    val out = Output(UInt(1.W), Label(Level("L"), Level("H")))
+  })
+  val a = Reg(init = 1.U(1.W), lbl = Label(Level("L"), Level("H")))
+  io.out := a
+}
+
+class IssueDef extends Module {
+  val io = IO(new Bundle {
+    val out = Output(UInt(1.W), Label(Level("L"), Level("H")))
+  });
+  val lvl = Reg(UInt(4.W), lbl =  Label(Level("L"), Level("H")))
+  lvl := ~lvl
+  val a = Reg(UInt(1.W), lbl = Label(HLevel(lvl), Level("H")));
+}
 class Issue6 extends Module {
   val io = IO(new Bundle {
     val out = Output(UInt(8.W), Label(Level("H"), Level("L")))
@@ -201,3 +238,42 @@ class Issue6_2 extends Module {
       io.out := 1.U;
     }
   }
+
+
+class ExpectedSuccess3 extends Module {
+
+  val io = IO(new Bundle {
+    val in = Input(UInt(1.W), Label(Level("L"), Level("H")))
+    val out = Output(UInt(1.W), Label(Level("H"), Level("L")))
+  });
+  class MyBundle extends Bundle {
+    val a = UInt(1.W)
+    val b = UInt(1.W)
+  }
+  val my_reg = Reg(new MyBundle())
+  my_reg.a := io.in
+  my_reg.b := my_reg.a
+
+  io.out := my_reg.b
+
+}
+
+class ExpectedFail2 extends Module {
+  val io = IO(new Bundle {
+    val in = Input(UInt(4.W), Label(Level("L"), Level("H")))
+    val out = Output(UInt(1.W), Label(Level("L"), Level("L")))
+  });
+
+  class MyBundle extends Bundle {
+    val a = UInt(4.W)
+    val b = UInt(4.W)
+  }
+  val my_reg = Reg(new MyBundle())
+  my_reg.a := io.in
+  my_reg.b := my_reg.a
+
+  val reg2 = Reg(UInt(1.W), lbl= Label(HLevel(my_reg.a), Level("H")))
+  reg2 := my_reg.b
+  io.out := reg2
+
+}

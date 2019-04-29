@@ -143,7 +143,7 @@ abstract class ConstraintGenerator {
   type TypeDeclSet = LinkedHashMap[AggregateType, String]
 
   // Used to weaken equality within TypeDeclSet 
-  case class WeakField(name: String, tpe: Type) extends FirrtlNode with HasName {
+  case class WeakField(name: String, tpe: Type, isSeq: Boolean) extends FirrtlNode with HasName {
     def serialize: String =  name + " : " + tpe.serialize
   }
   case class WeakBundle(fields: Seq[WeakField]) extends AggregateType {
@@ -156,7 +156,7 @@ abstract class ConstraintGenerator {
     case tx: BundleType => WeakBundle(tx.fields.map(weakenField(_)))
     case tx => tx
   }
-  def weakenField(field: Field) = WeakField(field.name, weakenType(field.tpe))
+  def weakenField(field: Field) = WeakField(field.name, weakenType(field.tpe), field.isSeq)
   def weakenBundle(bundle: BundleType) = weakenType(bundle).asInstanceOf[WeakBundle]
 
   def collect_type_decls(typeDecs: TypeDeclSet)(name: String, t: Type): Unit =  t match {
@@ -253,16 +253,14 @@ object BVConstraintGen extends ConstraintGenerator {
       val name = typeDecs(tx)
       val field_decls = tx.fields.map { case Field(n,_,tpe,_,isSeq) =>
         val fieldDecl = s"(field_$n ${emitDatatype(typeDecs, tpe)})"
-        val nextDecl = if(isSeq) s"(field_${PullNexts.next_ident(n,tpe)} ${emitDatatype(typeDecs, tpe)})" else ""
-        s"$fieldDecl $nextDecl"
+        s"$fieldDecl"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
     case tx: WeakBundle =>
       val name = typeDecs(tx)
-      val field_decls = tx.fields.map { case WeakField(n, tpe) =>
+      val field_decls = tx.fields.map { case WeakField(n, tpe, isSeq) =>
         val fieldDecl = s"(field_$n ${emitDatatype(typeDecs, tpe)})"
-        val nextDecl = s"(field_${PullNexts.next_ident(n,tpe)} ${emitDatatype(typeDecs, tpe)})"
-          s"$fieldDecl $nextDecl"
+        s"$fieldDecl"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
     case tx : VectorType => throw new Exception
@@ -300,6 +298,9 @@ object BVConstraintGen extends ConstraintGenerator {
       exprToCons(ex).serialize 
     case Declassify(exx, _) => refToIdent(exx)
     case Endorse(exx, _) => refToIdent(exx)
+    case ex : DoPrim => ex.op match {
+      case PrimOps.Bits => refToIdent(ex.args(0))
+    }
   }
 
   def exprToCons(e: Expression): Constraint = toWIR(e) match {

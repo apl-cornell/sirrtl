@@ -32,10 +32,12 @@ trait InferTypesT extends Pass {
       case ex: Endorse => ex
     }
 
-  def run(c: Circuit): Circuit = {
-    val namespace = Namespace()
-    val mtypes = (c.modules map (m => m.name -> module_type(m))).toMap
 
+  def run(c: Circuit): Circuit = {
+
+    val mtypes = (c.modules map (m => m.name ->  module_type(m))).toMap
+
+    val namespace = Namespace()
     def remove_unknowns_w(w: Width): Width = w match {
       case UnknownWidth => VarWidth(namespace.newName("w"))
       case wx => wx
@@ -43,6 +45,13 @@ trait InferTypesT extends Pass {
 
     def remove_unknowns(t: Type): Type =
       t map remove_unknowns map remove_unknowns_w
+
+
+    def infer_types_p(types: TypeMap)(p: Port): Port = {
+      val t = remove_unknowns(p.tpe)
+      types(p.name) = t
+      p copy (tpe = t)
+    }
 
     def infer_types_s(types: TypeMap)(s: Statement): Statement = s match {
       case sx: WDefInstance =>
@@ -55,6 +64,11 @@ trait InferTypesT extends Pass {
         sx copy (tpe = t) map infer_types_l(types)
       case sx: DefNode =>
         val sxx = (sx map infer_types_e(types)).asInstanceOf[DefNode]
+        val t = remove_unknowns(sxx.value.tpe)
+        types(sx.name) = t
+        sxx map infer_types_e(types) map infer_types_l(types)
+      case sx: DefNodePC =>
+        val sxx = (sx map infer_types_e(types)).asInstanceOf[DefNodePC]
         val t = remove_unknowns(sxx.value.tpe)
         types(sx.name) = t
         sxx map infer_types_e(types) map infer_types_l(types)
@@ -75,12 +89,6 @@ trait InferTypesT extends Pass {
         sx copy (tpe = t)
       case sx =>
         sx map infer_types_s(types) map infer_types_e(types) map infer_types_l(types)
-    }
-
-    def infer_types_p(types: TypeMap)(p: Port): Port = {
-      val t = remove_unknowns(p.tpe)
-      types(p.name) = t
-      p copy (tpe = t)
     }
 
     def infer_types(m: DefModule): DefModule = {

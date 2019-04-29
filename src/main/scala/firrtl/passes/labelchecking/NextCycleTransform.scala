@@ -15,7 +15,7 @@ object NextCycleTransform extends Pass with PassDebug {
   val bot = PolicyHolder.policy.bottom
 
   def next_exp(e: Expression) = PullNexts.next_exp(e)
-  def next_ident(n: String, t: Type) = PullNexts.next_ident(n,t)
+  def next_ident(n: String) = PullNexts.next_ident(n)
 
   def declare_next_s(s: Statement) : Statement =
     s map declare_next_s match {
@@ -24,9 +24,9 @@ object NextCycleTransform extends Pass with PassDebug {
         val ref_sx = WRef(sx.name, sx.tpe, sx.lbl, WireKind, FEMALE)
         val next_w = next_exp(
           WRef(sx.name, sx.tpe, next_l, WireKind, FEMALE))
-        val dec_next = DefWire(sx.info, next_ident(sx.name,sx.tpe), sx.tpe, next_l)
+        val dec_next = DefWire(sx.info, next_ident(sx.name), sx.tpe, next_l)
         val define_reg = Connect(sx. info, ref_sx,
-          WRef(next_ident(sx.name, sx.tpe), sx.tpe, sx.lbl, RegKind, MALE))
+          WRef(next_ident(sx.name), sx.tpe, next_l, RegKind, MALE))
         val default_next = Connect(sx.info, next_w,
           WRef(sx.name, sx.tpe, sx.lbl, RegKind, MALE))
         Block(Seq(sx, dec_next, define_reg, default_next))
@@ -48,9 +48,7 @@ object NextCycleTransform extends Pass with PassDebug {
   def swap_with_next_de(e: Expression) : Expression =
     e map swap_with_next_de match {
       case ex: WRef if ex.kind == RegKind => next_exp(ex)
-//      case ex: WRef if ex.kind == PortKind => next_exp(ex)
-      case ex: WSubField if PullNexts.is_simple_p_subf(ex) &&
-        field_seq(ex.exp.tpe, ex.name) => next_exp(ex)
+      case ex: WSubField => next_exp(ex)
       case ex => ex
     }
 
