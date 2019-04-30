@@ -9,19 +9,20 @@ class LabelTest extends Module {
     val out = Output(UInt(1.W), Label(Level("L"), Level("H")))
   });
 
-  //val output = Module(new SeqOut2)
- // io.out := output.io.out
-  ////val I0 = Module(new IssueDef);
+ // val testSeqLbl = Module(new SeqOutLbl)
+  val output = Module(new SeqOut2)
+  io.out := output.io.out
+ // val I0 = Module(new IssueDef);
   // val B1 = Module(new Issue5);
  //val B2 = Module(new Issue3);
-//  val B2Good = Module(new Issue3Fix);
+  val B2Good = Module(new Issue3Fix);
   //val I6 = Module(new Issue6);
  // val I62 = Module(new Issue6_2);
  // val ST1 = Module(new ExpectedFail);
-  val ST2 = Module(new ExpectedSuccess);
-  val ST3 = Module(new ExpectedSuccess2);
-  val ST4 = Module(new ExpectedSuccess3);
- // val ST5 = Module(new ExpectedFail2);
+//  val ST2 = Module(new ExpectedSuccess);
+ // val ST3 = Module(new ExpectedSuccess2);
+ // val ST4 = Module(new ExpectedSuccess3);
+  //val ST5 = Module(new ExpectedFail2);
 }
 
 class SeqOut extends Module {
@@ -49,6 +50,16 @@ class SeqOut2 extends Module {
   io.out := a
 }
 
+
+class SeqOutLbl extends Module {
+  val io = IO(new Bundle {
+    val out = Output(UInt(4.W), Label(Level("L"), Level("H")))
+    val v = Output(UInt(1.W), Label(Level("H"), Level("H")))
+  })
+  io.out := 0xf.U(4.W)
+  val a = Reg(UInt(1.W), lbl = Label(HLevel(io.out), Level("H")))
+  io.v := a
+}
 class IssueDef extends Module {
   val io = IO(new Bundle {
     val out = Output(UInt(1.W), Label(Level("L"), Level("H")))
@@ -268,7 +279,7 @@ class ExpectedFail2 extends Module {
     val a = UInt(4.W)
     val b = UInt(4.W)
   }
-  val my_reg = Reg(new MyBundle())
+  val my_reg = Reg(new MyBundle(), lbl= Label(Level("L"), Level("H")))
   my_reg.a := io.in
   my_reg.b := my_reg.a
 

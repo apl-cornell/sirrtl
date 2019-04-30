@@ -32,10 +32,17 @@ object SeqPortGenNext extends Pass with PassDebug {
   }
 
   def sp_gen_next_f(f: Field) : Seq[Field] = {
-    if (f.isSeq) {
-      Seq(f, f copy(name = next_ident(f.name)))
+    val ntp = f.tpe match {
+      case tp: BundleType =>
+       BundleType(tp.fields flatMap sp_gen_next_f)
+      case _ =>
+        f.tpe
+    }
+    val nf = f copy(tpe = ntp)
+    if (nf.isSeq) {
+      Seq(nf, nf copy(name = next_ident(nf.name)))
     } else {
-      Seq(f)
+      Seq(nf)
     }
   }
   def sp_gen_next_p(p: Port) : Port = {
