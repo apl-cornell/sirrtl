@@ -21,7 +21,7 @@ import annotation.tailrec
 * @note Assumes bulk connects and isInvalids have been expanded
 * @note Assumes all references are declared
 */
-object ExpandWhens extends Pass {
+object ExpandWhens extends Pass  {
   def name = "Expand Whens"
   type NodeMap = collection.mutable.HashMap[MemoizedHash[Expression], String]
   type Netlist = collection.mutable.LinkedHashMap[WrappedExpression, Expression]
@@ -30,11 +30,11 @@ object ExpandWhens extends Pass {
   type Defaults = Seq[collection.mutable.Map[WrappedExpression, Expression]]
 
   // ========== Expand When Utilz ==========
-  private def getFemaleRefs(n: String, t: Type, g: Gender): Seq[Expression] = {
+  private def getFemaleRefs(n: String, t: Type, l: Label, g: Gender): Seq[Expression] = {
     def getGender(t: Type, i: Int, g: Gender): Gender = times(g, get_flip(t, i, Default))
     // TODO this function probably needs a label if labels matter after this 
     // pass.
-    val exps = create_exps(WRef(n, t, UnknownLabel, ExpKind, g))
+    val exps = create_exps(WRef(n, t, l, ExpKind, g))
     (exps.zipWithIndex foldLeft Seq[Expression]()){
       case (expsx, (exp, j)) => exp.tpe match {
         case AnalogType(w) => expsx
@@ -81,13 +81,14 @@ object ExpandWhens extends Pass {
                       p: Expression)
                       (s: Statement): Statement = s match {
         case w: DefWire =>
-          netlist ++= (getFemaleRefs(w.name, w.tpe, BIGENDER) map (ref => we(ref) -> WVoid))
+          netlist ++= (getFemaleRefs(w.name, w.tpe, w.lbl, BIGENDER) map (ref => we(ref) -> WVoid))
           w
         case w: DefMemory =>
-          netlist ++= (getFemaleRefs(w.name, MemPortUtils.memType(w), MALE) map (ref => we(ref) -> WVoid))
+          //TODO is this label right?
+          netlist ++= (getFemaleRefs(w.name, MemPortUtils.memType(w), w.lbl, MALE) map (ref => we(ref) -> WVoid))
           w
         case r: DefRegister =>
-          netlist ++= (getFemaleRefs(r.name, r.tpe, BIGENDER) map (ref => we(ref) -> ref))
+          netlist ++= (getFemaleRefs(r.name, r.tpe, r.lbl, BIGENDER) map (ref => we(ref) -> ref))
           r
         case c: Connect =>
           netlist(c.loc) = c.expr
@@ -156,7 +157,7 @@ object ExpandWhens extends Pass {
       val netlist = new Netlist
       // Add ports to netlist
       netlist ++= (m.ports flatMap { case Port(_, name, dir, tpe, lbl) =>
-        getFemaleRefs(name, tpe, to_gender(dir)) map (ref => we(ref) -> WVoid)
+        getFemaleRefs(name, tpe, lbl, to_gender(dir)) map (ref => we(ref) -> WVoid)
       })
       (netlist, simlist, expandWhens(netlist, Seq(netlist), one)(m.body))
     }
