@@ -58,6 +58,11 @@ trait InferTypesT extends Pass {
         val t = remove_unknowns(sxx.value.tpe)
         types(sx.name) = t
         sxx map infer_types_e(types) map infer_types_l(types)
+      case sx: DefNodePC =>
+        val sxx = (sx map infer_types_e(types)).asInstanceOf[DefNodePC]
+        val t = remove_unknowns(sxx.value.tpe)
+        types(sx.name) = t
+        sxx map infer_types_e(types) map infer_types_l(types)
       case sx: DefRegister =>
         val t = remove_unknowns(sx.tpe)
         types(sx.name) = t
@@ -125,6 +130,10 @@ object CInferTypes extends Pass {
         sx
       case sx: DefNode =>
         val sxx = (sx map infer_types_e(types)).asInstanceOf[DefNode]
+        types(sxx.name) = sxx.value.tpe
+        sxx
+      case sx: DefNodePC =>
+        val sxx = (sx map infer_types_e(types)).asInstanceOf[DefNodePC]
         types(sxx.name) = sxx.value.tpe
         sxx
       case sx: DefMemory =>

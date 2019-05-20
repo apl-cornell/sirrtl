@@ -158,18 +158,17 @@ object CompilerUtils {
     } else {
       inputForm match {
         case ChirrtlForm => 
-          (if(lblCheck) Seq(new ChirrtlToAlmostHigh)
-              else Seq(new ChirrtlToHighFirrtl)) ++
+          Seq(new ChirrtlToHighFirrtl) ++
                 getLoweringTransforms(HighForm, outputForm)
         case HighForm =>
-          if(lblCheck)
-            Seq(new IRToWorkingIR, new Resolve, new LabelChecking, new LabelTeardown,
-              new RemoveResolveAndCheck, new transforms.DedupModules, new HighFirrtlToMiddleFirrtl) ++
-                getLoweringTransforms(MidForm, outputForm)
-          else
             Seq(new IRToWorkingIR, new ResolveAndCheck, new transforms.DedupModules,
               new HighFirrtlToMiddleFirrtl) ++ getLoweringTransforms(MidForm, outputForm)
-        case MidForm => Seq(new MiddleFirrtlToLowFirrtl) ++ getLoweringTransforms(LowForm, outputForm)
+        case MidForm =>
+          if (lblCheck) {
+            Seq(new LabelChecking, new MiddleFirrtlToLowFirrtl) ++ getLoweringTransforms(LowForm, outputForm)
+          } else {
+            Seq(new MiddleFirrtlToLowFirrtl) ++ getLoweringTransforms(LowForm, outputForm)
+          }
         case LowForm => error("Internal Error! This shouldn't be possible") // should be caught by if above
       }
     }

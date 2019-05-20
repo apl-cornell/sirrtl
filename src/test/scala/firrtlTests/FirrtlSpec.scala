@@ -40,6 +40,8 @@ trait FirrtlRunners extends BackendCompilationUtilities {
     val testDir = createTestDirectory(prefix)
     copyResourceToFile(s"${srcDir}/${prefix}.fir", new File(testDir, s"${prefix}.fir"))
 
+    Driver.doLabelChecking = true
+
     Driver.compile(
       s"$testDir/$prefix.fir",
       s"$testDir/$prefix.v",

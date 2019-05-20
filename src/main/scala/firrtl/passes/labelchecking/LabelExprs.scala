@@ -20,7 +20,7 @@ object LabelExprs extends Pass with PassDebug {
     s"$info: a label could not be inferred for [$name]")
   val errors = new Errors()
 
-  def throwErrors = true
+  def throwErrors = false
 
   // Assume that if the label was omitted, that the least-restrictive label was 
   // the desired one. This function should only be used for things like 
@@ -238,7 +238,13 @@ object LabelExprs extends Pass with PassDebug {
         //   lbl = lb)
         // labels(sxx.name) = lb
         // sxx
-      case sx: DefMemory => throw new Exception
+      case sx: DefMemory => if (throwErrors) {
+          throw new Exception
+      } else {
+        val lb = UnknownLabel
+        labels(sx.name) = lb
+        sx copy (lbl = lb)
+      }
       case sx: CDefMemory =>
         val lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
         labels(sx.name) = lb

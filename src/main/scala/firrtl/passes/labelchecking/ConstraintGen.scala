@@ -200,7 +200,8 @@ abstract class ConstraintGenerator {
       collect_type_decls(typeDecs)(sx.name, sx.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.tpe)
       sx
-    case sx: DefMemory => throw new Exception; sx
+      //TODO throw new Exceptino
+    case sx: DefMemory => sx
     case sx: WDefInstance =>
       collect_type_decls(typeDecs)(sx.name, sx.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.tpe); sx
@@ -237,6 +238,7 @@ object BVConstraintGen extends ConstraintGenerator {
       val datatpe = emitDatatype(typeDecls, tx.tpe)
       s"(Array $indextpe $datatpe)"
     case ClockType => s"(_ BitVec 1)"
+    case _ => ""
   }
 
   def emitDecl(typeDecls: TypeDeclSet, name: String, t: Type): String = t match {
@@ -246,22 +248,24 @@ object BVConstraintGen extends ConstraintGenerator {
     case tx : WeakBundle => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case tx : VectorType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case ClockType => s"(declare-const $name (_ BitVec 1))\n"
+    case _ => ""
   }
 
   def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String = t match {
-    case tx : BundleType => 
+    case tx : BundleType if tx.fields.length > 0  =>
       val name = typeDecs(tx)
       val field_decls = tx.fields.map { case Field(n,_,tpe,_,_) =>
         s"(field_$n ${emitDatatype(typeDecs, tpe)})"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
-    case tx: WeakBundle =>
+    case tx: WeakBundle if tx.fields.length > 0 =>
       val name = typeDecs(tx)
       val field_decls = tx.fields.map { case WeakField(n, tpe) =>
         s"(field_$n ${emitDatatype(typeDecs, tpe)})"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
     case tx : VectorType => throw new Exception
+    case _ =>  ""
   }
 
   // h4x to get around bad compile times for transforms on dependent labels 
@@ -314,6 +318,7 @@ object BVConstraintGen extends ConstraintGenerator {
       CIfTE(sel, exprToCons(ex.tval, w), exprToCons(ex.fval, w))
     case Declassify(exx,_) => exprToCons(exx)
     case Endorse(exx,_) => exprToCons(exx)
+    case _ => CTrue
   }
 
   def exprToCons(e: Expression, w: BigInt) = toWIR(e) match {

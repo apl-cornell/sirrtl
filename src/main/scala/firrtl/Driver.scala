@@ -62,7 +62,7 @@ object Driver {
   }
 
   var doLabelChecking = false
-  var constraintFileName = ""
+  var constraintFileName = "/dev/null"
 
   /**
     * print the message in red

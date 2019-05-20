@@ -4,8 +4,7 @@ package firrtl
 
 // If labelchecking is not enabled, remove labels at the end of every transform
 object deLabel {
-  def apply(): Seq[passes.Pass] =
-    if(!Driver.doLabelChecking) Seq(passes.DeLabel,passes.RipDowngrades,passes.RipNexts) else Seq()
+  def apply(): Seq[passes.Pass] = Seq(passes.DeLabel, passes.RipDowngrades, passes.RipNexts, passes.RipPCLabels)
 }
 
 sealed abstract class CoreTransform extends PassBasedTransform
@@ -21,8 +20,7 @@ class ChirrtlToAlmostHigh extends CoreTransform {
   def passSeq = Seq(
     passes.CheckChirrtl,
     passes.CInferTypes,
-    passes.CInferMDir) ++
-    deLabel()
+    passes.CInferMDir)
 }
 
 class Resolve extends CoreTransform {
@@ -33,8 +31,7 @@ class Resolve extends CoreTransform {
     passes.InferTypes,
     passes.ResolveGenders,
     passes.InferWidths,
-    passes.CheckWidths) ++ 
-    deLabel()
+    passes.CheckWidths)
 }
 
 
@@ -53,8 +50,7 @@ class RemoveResolveAndCheck extends CoreTransform {
     passes.ResolveGenders,
     passes.CheckGenders,
     passes.InferWidths,
-    passes.CheckWidths) ++ 
-    deLabel()
+    passes.CheckWidths)
 }
  
 class ChirrtlToHighFirrtl extends CoreTransform {
@@ -64,8 +60,7 @@ class ChirrtlToHighFirrtl extends CoreTransform {
     passes.CheckChirrtl,
     passes.CInferTypes,
     passes.CInferMDir,
-    passes.RemoveCHIRRTL) ++
-    deLabel()
+    passes.RemoveCHIRRTL)
 }
 
 /** Converts from the bare intermediate representation (ir.scala)
@@ -74,7 +69,7 @@ class ChirrtlToHighFirrtl extends CoreTransform {
 class IRToWorkingIR extends CoreTransform {
   def inputForm = HighForm
   def outputForm = HighForm
-  def passSeq = Seq(passes.ToWorkingIR) ++ deLabel()
+  def passSeq = Seq(passes.ToWorkingIR)
 }
 
 /** Resolves types, kinds, and genders, and checks the circuit legality.
@@ -94,8 +89,7 @@ class ResolveAndCheck extends CoreTransform {
     passes.ResolveGenders,
     passes.CheckGenders,
     passes.InferWidths,
-    passes.CheckWidths) ++ 
-    deLabel()
+    passes.CheckWidths)
 }
 
 // For defaulting to doing nothing when label checking is not desired in the 
@@ -109,8 +103,8 @@ class EmptyTransform extends CoreTransform{
 }
 
 class LabelChecking extends CoreTransform {
-  def inputForm = HighForm
-  def outputForm = HighForm
+  def inputForm = MidForm
+  def outputForm = MidForm
   def passSeq =  Seq(
     passes.PropNodes,
     // passes.LabelMPorts,
@@ -128,8 +122,8 @@ class LabelChecking extends CoreTransform {
     passes.InferLabels,
     passes.ApplyVecLabels,
     passes.PullNexts,
-    passes.LabelCheck
-  )
+    passes.LabelCheck) ++
+    deLabel()
 }
 
 class LabelTeardown extends CoreTransform {
@@ -162,8 +156,7 @@ class HighFirrtlToMiddleFirrtl extends CoreTransform {
     passes.CheckTypes,
     passes.ResolveGenders,
     passes.InferWidths,
-    passes.CheckWidths,
-    passes.DeLabel) 
+    passes.CheckWidths)
 }
 
 /** Expands all aggregate types into many ground-typed components. Must
@@ -218,7 +211,7 @@ class HighFirrtlCompiler extends Compiler {
   def transforms: Seq[Transform] = getLoweringTransforms(ChirrtlForm, HighForm)
 }
 
-/** Emits labeled HighFirrtl after label inference, label related 
+/** Emits labeled MidFirrtl after label inference, label related
  *  transformations, and determining the PC value.
  */
 class LabeledFirrtlCompiler extends Compiler {

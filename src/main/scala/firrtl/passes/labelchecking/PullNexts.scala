@@ -26,7 +26,7 @@ object PullNexts extends Pass with PassDebug {
     s"$info: Next port unavailable: next(${exp.serialize}). Is the next_[.] port needed for ${exp.serialize} declared?")
   val errors = new Errors()
   
-  def next_ident(n: String) = "$" + n
+  def next_ident(n: String) = "_next_" + n
 
   def next_exp(e: Expression) = e match {
     case ex : WRef => ex copy (name = next_ident(ex.name))
