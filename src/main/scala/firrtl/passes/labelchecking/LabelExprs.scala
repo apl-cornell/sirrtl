@@ -80,6 +80,7 @@ object LabelExprs extends Pass with PassDebug {
 
     // if(!label_is_known(l) && throwErrors)
     //   errors.append(new UndeclaredException(i, n))
+    b
   }
     
   def checkKnown(l: Label, i: Info, n: String) = 
@@ -208,9 +209,10 @@ object LabelExprs extends Pass with PassDebug {
         // been performed for definition of the instantiated module since 
         // forward instantiation is not permitted. 
         val lb = instance_io_rename(sx.name)(to_bundle(sx.tpe, UnknownLabel))
-        checkDeclared(lb, sx.info, sx.name)
-        labels(sx.name) = lb
-        (sx copy (lbl = lb)) map label_exprs_e(labels)
+        val isDeclared = checkDeclared(lb, sx.info, sx.name)
+        val lblx = if(isDeclared) { lb } else { bot }
+        labels(sx.name) = lblx
+        (sx copy (lbl = lblx)) map label_exprs_e(labels)
       case sx: DefWire =>
         var lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
         labels(sx.name) = lb
@@ -251,14 +253,19 @@ object LabelExprs extends Pass with PassDebug {
         sx copy (lbl = lb)
       case sx: CDefMPort =>
         val lb = labels(sx.mem)
-        checkDeclared(lb, sx.info, sx.mem)
-        // If the label of the memory contains vector labels apply 
-        // the address expression of the memory port as the index to the vector.
-        val idx = sx.exps.head
-        val lbx = apply_index_vech(lb, idx)
-        // Replace references to the original memory in the labels with 
-        // references to this port
-        val lbxx = rename_mem_in_lb(sx.mem, sx.name)(lbx)
+        val isDeclared = checkDeclared(lb, sx.info, sx.mem)
+        val lbxx =
+        if (isDeclared) {
+          // If the label of the memory contains vector labels apply
+          // the address expression of the memory port as the index to the vector.
+          val idx = sx.exps.head
+          val lbx = apply_index_vech(lb, idx)
+          // Replace references to the original memory in the labels with
+          // references to this port
+          rename_mem_in_lb(sx.mem, sx.name)(lbx)
+        } else {
+          bot
+        }
         labels(sx.name) = lbxx
         sx copy (lbl = lbxx)
       case sx => sx map label_exprs_e(labels)
@@ -267,9 +274,10 @@ object LabelExprs extends Pass with PassDebug {
   // Add each port declaration to the label context
   def label_exprs_p(labels: LabelMap)(p: Port) : Port = {
     val lb = to_bundle(p.tpe, p.lbl)
-    checkDeclared(lb, p.info, p.name)
-    labels(p.name) = lb
-    p copy (lbl = lb)
+    val isDeclared = checkDeclared(lb, p.info, p.name)
+    val lblx =  if(isDeclared) { lb } else { bot }
+    labels(p.name) = lblx
+    p copy (lbl = lblx)
   }
 
   def label_exprs(m: DefModule) : DefModule = {

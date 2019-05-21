@@ -60,7 +60,8 @@ class ChirrtlToHighFirrtl extends CoreTransform {
     passes.CheckChirrtl,
     passes.CInferTypes,
     passes.CInferMDir,
-    passes.RemoveCHIRRTL)
+    passes.RemoveCHIRRTL,
+    passes.NextCycleTransform)
 }
 
 /** Converts from the bare intermediate representation (ir.scala)
@@ -144,7 +145,6 @@ class HighFirrtlToMiddleFirrtl extends CoreTransform {
   def inputForm = HighForm
   def outputForm = MidForm
   def passSeq = Seq(
-    passes.NextCycleTransform,
     passes.PullMuxes,
     passes.ReplaceAccesses,
     passes.ExpandConnects,
