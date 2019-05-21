@@ -238,6 +238,8 @@ object LabelCheck extends Pass with PassDebug {
           }
         case (_: ProdLabel, _: ProdLabel) =>
           emit_conn_check(deps, whenC, pc, lhs, rhs, info)
+        case (_,_) =>
+          throw new Exception
       }
     }
 

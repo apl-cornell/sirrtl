@@ -113,9 +113,8 @@ class LabelChecking extends CoreTransform {
     passes.DepsResolveKinds, 
     passes.DepsInferTypes,
     passes.DeterminePC,
-    passes.NextCycleTransform,
     passes.SeqPortGenNext,
-    passes.EliminateUnusedConnections,
+   // passes.EliminateUnusedConnections,
     passes.SimplifyLabels,
     passes.ForwardProp,
     passes.SimplifyLabels,
@@ -145,6 +144,7 @@ class HighFirrtlToMiddleFirrtl extends CoreTransform {
   def inputForm = HighForm
   def outputForm = MidForm
   def passSeq = Seq(
+    passes.NextCycleTransform,
     passes.PullMuxes,
     passes.ReplaceAccesses,
     passes.ExpandConnects,
