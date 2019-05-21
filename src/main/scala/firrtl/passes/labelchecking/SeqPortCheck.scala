@@ -66,10 +66,18 @@ object SeqPortCheck extends LabelPass with LabelPassDebug {
       case ex : WRef if kind(ex) == RegKind && gender(ex) == MALE =>
         sa += ex
         ex
-      case ex : WSubField if kind(ex) == PortKind && gender(ex) == MALE 
+      case ex : WSubField if (kind(ex) == PortKind || kind(ex) == InstanceKind) && gender(ex) == MALE
         && field_seq(ex.exp.tpe, ex.name) =>
           sa += ex
           ex
+      case ex : DoPrim => ex.op match {
+        case PrimOps.Bits =>
+          collect_seq_loc_e(sa)(ex.args(0))
+          if (sa.contains(ex.args(0))) { sa += ex }
+          ex
+        case _ =>
+           ex
+      }
       case ex => ex
     }
 
@@ -78,13 +86,12 @@ object SeqPortCheck extends LabelPass with LabelPassDebug {
   //-----------------------------------------------------------------------------
   // Particularly, that they are connected exactly to atoms that are sequential 
   // locations
-        // CAtom(conGen.refToIdent(ex))
   def check_seq_out(m: DefModule, conEnv: ConnectionEnv) : Unit = {
     val seq_loc = (collect_seq_loc(m) map {
-      e => CAtom(conGen.refToIdent(e))
+      e => conGen.exprToCons(e)
     }).toSet[Constraint]
     collect_seq_out(m) foreach { e =>
-        val a = CAtom(conGen.refToIdent(e))
+        val a = conGen.exprToCons(e)
         if(!conEnv.contains(a)) errors.append(new NoSeqOutConException(a))
         else if(!seq_loc.contains(conEnv(a)._1))
             errors.append(new BadSeqOutConException(a, conEnv(a)._1))
