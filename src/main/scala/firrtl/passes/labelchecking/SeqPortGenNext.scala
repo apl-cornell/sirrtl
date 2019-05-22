@@ -19,8 +19,7 @@ object SeqPortGenNext extends Pass with PassDebug {
 
   // Methods borrowed from other passes
   def collect_seq_out(m: DefModule): Exprs = SeqPortCheck.collect_seq_out(m)
-  def next_ident(s: String) : String = PullNexts.next_ident(s)
-  def next_exp(e: Expression) : Expression = PullNexts.next_exp(e)
+  def next_exp(e: Expression) : Expression = RipNexts.next_exp(e)
  
   def sp_gen_next(m: DefModule) : DefModule = m match {
     case mx : Module =>
@@ -40,7 +39,7 @@ object SeqPortGenNext extends Pass with PassDebug {
     }
     val nf = f copy(tpe = ntp)
     if (nf.isSeq) {
-      Seq(nf, nf copy(name = next_ident(nf.name)))
+      Seq(nf)
     } else {
       Seq(nf)
     }

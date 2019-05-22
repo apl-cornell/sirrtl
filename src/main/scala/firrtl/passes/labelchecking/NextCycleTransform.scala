@@ -14,28 +14,8 @@ object NextCycleTransform extends Pass with PassDebug {
   override def debugThisPass = false
   val bot = PolicyHolder.policy.bottom
 
-  def next_exp(e: Expression) = PullNexts.next_exp(e)
-  def next_ident(n: String) = PullNexts.next_ident(n)
-  def next_lbl(l: Label) : Label = PullNexts.next_lbl(l)
-
-  def declare_next_s(s: Statement) : Statement =
-    s map declare_next_s match {
-      case sx : DefRegister =>
-        val next_l = next_lbl(sx.lbl)
-        val ref_sx = WRef(sx.name, sx.tpe, sx.lbl, WireKind, FEMALE)
-        val next_w = next_exp(
-          WRef(sx.name, sx.tpe, sx.lbl, WireKind, FEMALE))
-        val dec_next = DefWire(sx.info, next_ident(sx.name), sx.tpe, next_l)
-        val define_reg = Connect(sx. info, ref_sx,
-          WRef(next_ident(sx.name), sx.tpe, next_l, RegKind, MALE))
-        val default_next = Connect(sx.info, next_w,
-          WRef(sx.name, sx.tpe, sx.lbl, RegKind, MALE))
-        Block(Seq(sx, dec_next, define_reg, default_next))
-      case sx => sx
-    }
-
-  def declare_next(m: DefModule) : DefModule =
-    m map declare_next_s
+  def next_exp(e: Expression) = RipNexts.next_exp(e)
+  def next_lbl(l: Label) : Label = RipNexts.next_lbl(l)
 
   // This function is called on expressions *not* inside of labels.
   // It should replace female sequential references with nextified versions.
@@ -54,17 +34,14 @@ object NextCycleTransform extends Pass with PassDebug {
     s map swap_with_next_s map swap_with_next_e
   }
 
-
   def swap_with_next(m: DefModule) : DefModule =
     m map swap_with_next_s map flatten_s
 
   def run(c: Circuit) = {
     bannerprintb(name)
     dprint(c.serialize)
-
     val cprime = c copy (modules =
-      c.modules map swap_with_next map declare_next)
-
+      c.modules map swap_with_next)
     bannerprintb(s"after $name")
     dprint(cprime.serialize)
     cprime

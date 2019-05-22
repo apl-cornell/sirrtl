@@ -59,7 +59,7 @@ sealed abstract class CircuitForm(private val value: Int) extends Ordered[Circui
   *
   * See [[CDefMemory]] and [[CDefMPort]]
   */
-final case object ChirrtlForm extends CircuitForm(3)
+final case object ChirrtlForm extends CircuitForm(4)
 /** High Form
   *
   * As detailed in the Firrtl specification
@@ -67,7 +67,13 @@ final case object ChirrtlForm extends CircuitForm(3)
   *
   * Also see [[firrtl.ir]]
   */
-final case object HighForm extends CircuitForm(2)
+final case object HighForm extends CircuitForm(3)
+
+/** Labeled Form
+  * This is identical to [[MidForm]] except it still
+  * contains Security Label information.
+  */
+final case object LabeledForm extends CircuitForm(2)
 /** Middle Form
   *
   * A "lower" form than [[HighForm]] with the following restrictions:
@@ -157,18 +163,16 @@ object CompilerUtils {
       Seq.empty
     } else {
       inputForm match {
-        case ChirrtlForm => 
-          Seq(new ChirrtlToHighFirrtl) ++
-                getLoweringTransforms(HighForm, outputForm)
+        case ChirrtlForm =>
+          Seq(new ChirrtlToHighFirrtl) ++  getLoweringTransforms(HighForm, outputForm)
         case HighForm =>
-            Seq(new IRToWorkingIR, new ResolveAndCheck, new transforms.DedupModules,
-              new HighFirrtlToMiddleFirrtl) ++ getLoweringTransforms(MidForm, outputForm)
+          val checkPass = if (lblCheck) { Seq(new LabelChecking) } else { Seq() }
+          Seq(new IRToWorkingIR, new ResolveAndCheck, new transforms.DedupModules,
+            new HighFirrtlToLabeledFirrtl) ++ checkPass ++ getLoweringTransforms(LabeledForm, outputForm)
+        case LabeledForm =>
+          Seq(new LabelTeardown) ++ getLoweringTransforms(MidForm, outputForm)
         case MidForm =>
-          if (lblCheck) {
-            Seq(new LabelChecking, new MiddleFirrtlToLowFirrtl) ++ getLoweringTransforms(LowForm, outputForm)
-          } else {
-            Seq(new MiddleFirrtlToLowFirrtl) ++ getLoweringTransforms(LowForm, outputForm)
-          }
+          Seq(new MiddleFirrtlToLowFirrtl) ++ getLoweringTransforms(LowForm, outputForm)
         case LowForm => error("Internal Error! This shouldn't be possible") // should be caught by if above
       }
     }

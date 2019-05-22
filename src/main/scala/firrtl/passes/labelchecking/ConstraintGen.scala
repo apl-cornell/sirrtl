@@ -305,6 +305,7 @@ object BVConstraintGen extends ConstraintGenerator {
     case ex : DoPrim => ex.op match {
       case PrimOps.Bits => refToIdent(ex.args(0))
     }
+    case Next(ex, _, _, _) => "$" + s"${refToIdent(ex)}"
   }
 
   def exprToCons(e: Expression): Constraint = toWIR(e) match {

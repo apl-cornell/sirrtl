@@ -78,6 +78,7 @@ object SeqPortCheck extends LabelPass with LabelPassDebug {
         case _ =>
            ex
       }
+      case Next(nex, _, _, _) => collect_seq_loc_e(sa)(nex)
       case ex => ex
     }
 
