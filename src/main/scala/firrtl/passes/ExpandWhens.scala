@@ -117,11 +117,9 @@ object ExpandWhens extends Pass  {
                 val falseValue = altNetlist getOrElse (lvalue, defaultValue)
                 (trueValue, falseValue) match {
                   case (WInvalid, WInvalid) => WInvalid
-                  case (WInvalid, fv) => ValidIf(NOT(sx.pred), fv, fv.tpe, fv.lbl)
-                  case (tv, WInvalid) => ValidIf(sx.pred, tv, tv.tpe, tv.lbl)
+                  case (WInvalid, fv) => ValidIf(NOT(sx.pred), fv, fv.tpe, JoinLabel(sx.pred.lbl, fv.lbl))
+                  case (tv, WInvalid) => ValidIf(sx.pred, tv, tv.tpe, JoinLabel(sx.pred.lbl, tv.lbl))
                   case (tv, fv) => Mux(sx.pred, tv, fv, mux_type_and_widths(tv, fv),
-                    // TODO this is conservative if labels matter after this 
-                    // pass.
                     JoinLabel(sx.pred.lbl, JoinLabel(tv.lbl, fv.lbl)))
                 }
               case None =>

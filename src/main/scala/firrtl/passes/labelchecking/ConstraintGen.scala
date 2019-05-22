@@ -85,8 +85,17 @@ abstract class ConstraintGenerator {
   def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv, memMap: MemMap)(s: Statement): Statement = s match {
       case sx: DefNodePC =>
         val nref = WRef(sx.name, sx.value.tpe, sx.lbl, NodeKind, FEMALE)
-        connect_outer(nref, sx.value, conEnv, whenEnv, sx.info)
-        whenEnv(sx) = whenEnv.cur; sx
+        sx.value match {
+          case sxv : ValidIf =>
+            //TODO overhaul constraint generation so this isn't necessary
+            // For constraints, ValidIf is equivalent to a MUX where fv == LHS of assignment
+            // Assumes that all ValidIfs appear in node defs, which they do after High->Labeled Transforms run
+            val rhs = Mux(sxv.cond, sxv.value, nref, mux_type_and_widths(sxv.value, nref), sxv.lbl)
+            connect_outer(nref, rhs, conEnv, whenEnv, sx.info)
+          case _ => connect_outer(nref, sx.value, conEnv, whenEnv, sx.info)
+        }
+        whenEnv(sx) = whenEnv.cur
+        sx
       case sx: ConnectPC => 
         connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
         whenEnv(sx) = whenEnv.cur
@@ -316,12 +325,18 @@ object BVConstraintGen extends ConstraintGenerator {
       CASelect(refToIdent(ex.exp), idx)
     case ex : WSubAccess => 
       CASelect(refToIdent(ex.exp), exprToCons(ex.index, toBInt(vec_size(ex.exp.tpe))))
+    case ex : Next => CAtom(refToIdent(ex))
     case ex : WRef => CAtom(refToIdent(ex))
     case ex : WSubField => CAtom(refToIdent(ex))
     case ex : Mux => 
       val w = bitWidth(ex.tpe)
       val sel = CBVWrappedBV(exprToCons(ex.cond), bitWidth(ex.cond.tpe))
       CIfTE(sel, exprToCons(ex.tval, w), exprToCons(ex.fval, w))
+    case ex : ValidIf =>
+      val w = bitWidth(ex.tpe)
+      val sel = CBVWrappedBV(exprToCons(ex.cond), bitWidth(ex.cond.tpe))
+      //TODO this aint right
+      CIfTE(sel, exprToCons(ex.value, w), exprToCons(ex.value, w))
     case Declassify(exx,_) => exprToCons(exx)
     case Endorse(exx,_) => exprToCons(exx)
     case _ => CTrue

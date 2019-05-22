@@ -20,7 +20,7 @@ object LabelExprs extends Pass with PassDebug {
     s"$info: a label could not be inferred for [$name]")
   val errors = new Errors()
 
-  def throwErrors = false
+  def throwErrors = true
 
   // Assume that if the label was omitted, that the least-restrictive label was 
   // the desired one. This function should only be used for things like 
