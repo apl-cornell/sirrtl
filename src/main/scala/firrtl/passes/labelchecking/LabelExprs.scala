@@ -8,7 +8,7 @@ import firrtl.Mappers._
 // This pass propagates labels from declarations to expressions (e.g. nodes).
 object LabelExprs extends Pass with PassDebug {
   def name = "Label Expressions"
-  override def debugThisPass = false
+  override def debugThisPass = true
   type LabelMap = collection.mutable.LinkedHashMap[String, Label]
 
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
@@ -148,9 +148,9 @@ object LabelExprs extends Pass with PassDebug {
         val lbl__ = apply_index_vech(app_ex_lbl, ex.index)
         ex copy (lbl = JoinLabel(lbl__, ex.index.lbl))
       case ex: DoPrim => ex copy (lbl = JoinLabel((ex.args map{ _.lbl }):_* ))
-      case ex: Mux => ex copy (lbl = JoinLabel(ex.cond.lbl,
+      case ex: Mux => ex copy (lbl = IteLabel(ex.cond, ex.cond.lbl,
         ex.tval.lbl, ex.fval.lbl))
-      case ex: ValidIf => ex copy (lbl = JoinLabel(ex.cond.lbl, ex.value.lbl))
+      case ex: ValidIf => ex copy (lbl = IteLabel(ex.cond, ex.cond.lbl, ex.value.lbl, bot))
       case ex: UIntLiteral => ex copy (lbl = assumeL(ex.lbl))
       case ex: SIntLiteral => ex copy (lbl = assumeL(ex.lbl))
       case ex: Declassify => ex

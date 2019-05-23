@@ -48,7 +48,7 @@ object RipNexts extends Pass with PassDebug {
 
   def next_exp(e: Expression): Expression = e match {
     case ex : WRef => Next(ex, ex.tpe, next_lbl(ex.lbl), ex.gender)
-    case ex: WSubField if is_simple_p_subf(ex) => Next(ex, ex.tpe, next_lbl(ex.lbl), ex.gender)
+    case ex: WSubField if is_simple_p_subf(ex) => ex copy(exp = next_exp(ex.exp))
     case ex: DoPrim => ex.op match {
       case PrimOps.Bits =>
         val next_args = ex.args map {a => next_exp(a)}

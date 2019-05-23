@@ -6,7 +6,7 @@ import scala.collection.mutable.LinkedHashSet
 import scala.collection.mutable.Set
 
 object SimplifyLabels extends Pass with PassDebug {
-  def name = "Simplify Lables"
+  def name = "Simplify Labels"
   override def debugThisPass = false
 
   

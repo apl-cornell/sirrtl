@@ -57,8 +57,7 @@ object InferSeqPorts extends Pass with PassDebug {
 
    def infer_types_m(m: DefModule) : Type = {
     val conEnv = new ConnectionEnv
-    val whenEnv = new WhenEnv
-    conGen.gen_cons(conEnv, whenEnv)(m)
+    conGen.gen_cons(conEnv)(m)
     val seq_loc = (collect_seq_loc(m) map {
      e => conGen.exprToCons(e)
     }).toSet[Constraint]

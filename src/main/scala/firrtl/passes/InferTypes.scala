@@ -19,7 +19,6 @@ trait InferTypesT extends Pass {
   def infer_types_l(types: TypeMap)(l: Label): Label = l
   
   def infer_types_e(types: TypeMap)(e: Expression): Expression =
-    try {
     e map infer_types_e(types) map infer_types_l(types) match {
       case e: WRef => e copy (tpe = types(e.name))
       case e: Next => e copy (tpe = e.exp.tpe)
@@ -33,9 +32,6 @@ trait InferTypesT extends Pass {
       case FnBinding => e
       case ex: Declassify => ex
       case ex: Endorse => ex
-    }
-    } catch {
-      case e => throw e
     }
 
 
