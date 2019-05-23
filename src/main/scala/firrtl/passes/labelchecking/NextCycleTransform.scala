@@ -23,9 +23,8 @@ object NextCycleTransform extends Pass with PassDebug {
     e map swap_with_next_e match {
       case ex: WRef if ex.kind == RegKind && ex.gender == FEMALE =>
         next_exp(ex)
-      case ex if kind(ex) == RegKind && gender(ex) == FEMALE =>
-        val next_l = next_lbl(ex.lbl)
-        setLabel(ex, next_l)
+      case ex: WSubField if ex.gender == FEMALE =>
+        next_exp(ex)
       case ex => ex
     }
 

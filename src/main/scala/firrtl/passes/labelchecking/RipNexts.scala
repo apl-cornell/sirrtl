@@ -39,9 +39,7 @@ object RipNexts extends Pass with PassDebug {
   def next_lc_exp(e: Expression) : Expression = {
     e map next_lc_exp match {
       case ex: WRef if ex.kind == RegKind => next_exp(ex)
-    //  case ex: WRef if ex.kind == PortKind || ex.kind == InstanceKind => ex
       case ex: WSubField => next_exp(ex)
-    //  case ex: Literal => ex
       case ex => ex
     }
   }

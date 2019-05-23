@@ -8,7 +8,7 @@ import firrtl.Mappers._
 // This pass propagates labels from declarations to expressions (e.g. nodes).
 object LabelExprs extends Pass with PassDebug {
   def name = "Label Expressions"
-  override def debugThisPass = true
+  override def debugThisPass = false
   type LabelMap = collection.mutable.LinkedHashMap[String, Label]
 
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
