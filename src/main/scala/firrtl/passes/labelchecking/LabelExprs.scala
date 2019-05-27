@@ -20,7 +20,8 @@ object LabelExprs extends Pass with PassDebug {
     s"$info: a label could not be inferred for [$name]")
   val errors = new Errors()
 
-  def throwErrors = true
+  //TODO use annotations to pass this via cmd line options
+  def assumeBot = true
 
   // Assume that if the label was omitted, that the least-restrictive label was 
   // the desired one. This function should only be used for things like 
@@ -69,25 +70,10 @@ object LabelExprs extends Pass with PassDebug {
         case lx => lx
       }
     checkDeclared_(l);
-    
-    val parentString = badParent match {
-      case UnknownLabel => ""
-      case _ => s", with bad field $badField in internal record ${badParent.serialize}"
-    }
-
-    if(!b && throwErrors)
-      errors.append(new UndeclaredException(i, n + parentString))
-
-    // if(!label_is_known(l) && throwErrors)
-    //   errors.append(new UndeclaredException(i, n))
     b
   }
-    
-  def checkKnown(l: Label, i: Info, n: String) = 
-    if(!label_is_known(l) && throwErrors)
-      errors.append(new UnknownLabelException(i, n))
-    
-  // This function is used for declarations with BundleTypes to convert their 
+
+  // This function is used for declarations with BundleTypes to convert their
   // labels into BundleLabels. This also supports type constructions in which a 
   // BundleType may be nested arbitrarily deep within VectorTypes.
   def to_bundle(t: Type, l: Label) : Label = {
@@ -240,13 +226,11 @@ object LabelExprs extends Pass with PassDebug {
         //   lbl = lb)
         // labels(sxx.name) = lb
         // sxx
-      case sx: DefMemory => if (throwErrors) {
-          throw new Exception
-      } else {
+      case sx: DefMemory =>
+        //TODO handle this correctly
         val lb = UnknownLabel
         labels(sx.name) = lb
         sx copy (lbl = lb)
-      }
       case sx: CDefMemory =>
         val lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
         labels(sx.name) = lb

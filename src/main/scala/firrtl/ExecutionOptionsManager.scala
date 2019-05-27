@@ -139,6 +139,7 @@ case class FirrtlExecutionOptions(
     outputFileNameOverride: String = "",
     constraintFileNameOverride: String = "",
     doLabelChecking:        Boolean = false,
+    assumeBotLabel:         Boolean = false,
     compilerName:           String = "verilog",
     infoModeName:           String = "append",
     inferRW:                Seq[String] = Seq.empty,
@@ -330,6 +331,14 @@ trait HasFirrtlOptions {
     }.text {
       "Enable readwrite port inference for the target circuit"
     }
+
+  parser.opt[String]("use-default-labels")
+    .abbr("udl")
+    .foreach { _ =>
+      firrtlOptions = firrtlOptions.copy(assumeBotLabel = true)
+    }.text {
+    "Use this option to force the compiler to assume missing required labels to be BOT, instead of immediately throwing an error."
+  }
 
   parser.opt[String]("repl-seq-mem")
     .abbr("frsq")
