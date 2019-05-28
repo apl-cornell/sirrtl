@@ -4,9 +4,10 @@ package firrtl
 
 import logger.LazyLogging
 import java.io.Writer
-import annotations._
 
+import annotations._
 import firrtl.ir.Circuit
+import firrtl.passes.labelchecking.LabelCheckTransform
 import passes.Pass
 
 /**
@@ -21,6 +22,7 @@ case class RenameMap(map: Map[Named, Seq[Named]])
 case class AnnotationMap(annotations: Seq[Annotation]) {
   def get(id: Class[_]): Seq[Annotation] = annotations.filter(a => a.transform == id)
   def get(named: Named): Seq[Annotation] = annotations.filter(n => n == named)
+  def getAll: Seq[Annotation] = annotations
 }
 
 /** Current State of the Circuit
@@ -158,7 +160,6 @@ object CompilerUtils {
     * @return Sequence of transforms that will lower if outputForm is lower than inputForm
     */
   def getLoweringTransforms(inputForm: CircuitForm, outputForm: CircuitForm): Seq[Transform] = {
-    val lblCheck = Driver.doLabelChecking
     if (outputForm >= inputForm) {
       Seq.empty
     } else {
@@ -166,9 +167,8 @@ object CompilerUtils {
         case ChirrtlForm =>
           Seq(new ChirrtlToHighFirrtl) ++  getLoweringTransforms(HighForm, outputForm)
         case HighForm =>
-          val checkPass = if (lblCheck) { Seq(new LabelChecking) } else { Seq() }
           Seq(new IRToWorkingIR, new ResolveAndCheck, new transforms.DedupModules,
-            new HighFirrtlToLabeledFirrtl) ++ checkPass ++ getLoweringTransforms(LabeledForm, outputForm)
+            new HighFirrtlToLabeledFirrtl, new LabelCheckTransform) ++ getLoweringTransforms(LabeledForm, outputForm)
         case LabeledForm =>
           Seq(new LabelTeardown) ++ getLoweringTransforms(MidForm, outputForm)
         case MidForm =>

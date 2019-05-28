@@ -6,8 +6,10 @@ import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.Driver._
 import collection.mutable.Set
+import java.io.Writer
 
-object LabelCheck extends Pass with PassDebug {
+
+class LabelCheck(constraintWriter: Writer) extends Pass with PassDebug {
   def name = "Label Check"
   override def debugThisPass = false
 
@@ -18,8 +20,7 @@ object LabelCheck extends Pass with PassDebug {
     dprint(c.serialize)
 
     val consGenerator = BVConstraintGen
-    val constraintFile   = new java.io.PrintWriter(Driver.constraintFileName)
-    def emit(s:String) = constraintFile.write(s)
+    def emit(s:String) = if (constraintWriter != null) { constraintWriter.write(s) }
    
     // For debugging only
     def emitConEnv(conEnv: ConnectionEnv) = conEnv.foreach {
@@ -266,8 +267,6 @@ object LabelCheck extends Pass with PassDebug {
 
       emit("(pop)")
     }
-
-    constraintFile.close()
 
     bannerprintb(s"after $name")
     dprint(c.serialize)

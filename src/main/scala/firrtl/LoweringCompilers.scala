@@ -116,26 +116,6 @@ class EmptyTransform extends CoreTransform{
   def passSeq = Seq()
 }
 
-class LabelChecking extends CoreTransform {
-  def inputForm = LabeledForm
-  def outputForm = LabeledForm
-  def passSeq =  Seq(
-    passes.PropNodes,
-    // passes.LabelMPorts,
-    passes.LabelExprs,
-    passes.DepsToWorkingIR, 
-    passes.DepsResolveKinds,
-    passes.DepsInferTypes,
-    passes.DeterminePC,
-    passes.NextCycleTransform,
-    passes.SimplifyLabels,
-    passes.ForwardProp,
-    passes.SimplifyLabels,
-    passes.InferLabels,
-    passes.ApplyVecLabels,
-    passes.LabelCheck)
-}
-
 class LabelTeardown extends CoreTransform {
   def inputForm = LabeledForm
   def outputForm = MidForm

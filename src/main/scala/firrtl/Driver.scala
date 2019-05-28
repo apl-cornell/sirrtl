@@ -64,10 +64,6 @@ object Driver {
     outputString
   }
 
-  var doLabelChecking = true
-  var constraintFileName = "/dev/null"
-  var assumeDefaultBotLbl = false
-
   /**
     * print the message in red
     *
@@ -128,9 +124,6 @@ object Driver {
 
     Logger.setOptions(optionsManager)
  
-    doLabelChecking = firrtlConfig.doLabelChecking
-    constraintFileName = firrtlConfig.getConstraintFileName(optionsManager)
-    assumeDefaultBotLbl = firrtlConfig.assumeBotLabel
 
     //TODO set policy type based on options
     PolicyHolder.setPolicy(new HypercubePolicy)

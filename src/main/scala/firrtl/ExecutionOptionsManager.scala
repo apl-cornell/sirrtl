@@ -6,7 +6,8 @@ import firrtl.annotations._
 import firrtl.Parser._
 import firrtl.passes.memlib.{InferReadWriteAnnotation, ReplSeqMemAnnotation}
 import firrtl.passes.clocklist.ClockListAnnotation
-import logger.LogLevel
+import firrtl.passes.labelchecking.LabelCheckAnnotation
+import _root_.logger.LogLevel
 import scopt.OptionParser
 
 import scala.collection.Seq
@@ -248,8 +249,8 @@ trait HasFirrtlOptions {
     .abbr("z")
     .valueName ("<constraint>").
     foreach { x =>
-      firrtlOptions = firrtlOptions.copy(constraintFileNameOverride = x)
-      firrtlOptions = firrtlOptions.copy(doLabelChecking = true)
+      firrtlOptions = firrtlOptions.copy(
+        annotations = firrtlOptions.annotations :+ LabelCheckAnnotation(CircuitName("top"),x))
     }.text {
     "use this to override the default constraint file name, by default no constraint is generated"
   }
@@ -335,6 +336,7 @@ trait HasFirrtlOptions {
   parser.opt[String]("use-default-labels")
     .abbr("udl")
     .foreach { _ =>
+      //TODO turn into an annotation to pass to LabelExprs
       firrtlOptions = firrtlOptions.copy(assumeBotLabel = true)
     }.text {
     "Use this option to force the compiler to assume missing required labels to be BOT, instead of immediately throwing an error."

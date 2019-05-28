@@ -5,14 +5,16 @@ package firrtlTests
 import java.io._
 
 import com.typesafe.scalalogging.LazyLogging
+
 import scala.sys.process._
 import org.scalatest._
 import org.scalatest.prop._
-import scala.io.Source
 
+import scala.io.Source
 import firrtl._
 import firrtl.Parser.IgnoreInfo
-import firrtl.annotations
+import firrtl.annotations.CircuitName
+import firrtl.passes.labelchecking.LabelCheckAnnotation
 import firrtl.util.BackendCompilationUtilities
 
 trait FirrtlRunners extends BackendCompilationUtilities {
@@ -40,14 +42,17 @@ trait FirrtlRunners extends BackendCompilationUtilities {
                         generateZ3: Boolean): File = {
     val testDir = createTestDirectory(prefix)
     copyResourceToFile(s"${srcDir}/${prefix}.fir", new File(testDir, s"${prefix}.fir"))
-    if (generateZ3) { Driver.constraintFileName = s"$testDir/$prefix.z3" }
+    var allAnnotations = annotations
+    if (generateZ3) {
+      allAnnotations = AnnotationMap(annotations.getAll ++ Seq(LabelCheckAnnotation(CircuitName("top"), s"$testDir/$prefix.z3")))
+    }
     Driver.compile(
       s"$testDir/$prefix.fir",
       s"$testDir/$prefix.v",
       new VerilogCompiler(),
       Parser.IgnoreInfo,
       customTransforms,
-      annotations)
+      allAnnotations)
     testDir
   }
 
@@ -80,7 +85,7 @@ trait FirrtlRunners extends BackendCompilationUtilities {
       verilogPrefixes: Seq[String] = Seq.empty,
       customTransforms: Seq[Transform] = Seq.empty,
       annotations: AnnotationMap = new AnnotationMap(Seq.empty)) = {
-    val testDir = labelCheckTest(prefix, srcDir, customTransforms, annotations, false)
+    val testDir = compileFirrtlTest(prefix, srcDir, customTransforms, annotations, false)
     val harness = new File(testDir, s"top.cpp")
     copyResourceToFile(cppHarness.toString, harness)
 
