@@ -178,14 +178,17 @@ object LabelCheck extends Pass with PassDebug {
         case (_: ProdLabel, _: ProdLabel) =>
           emit_conn_check(lhs, rhs, whens, info)
         case  (lhs: IteLabel, rhs: IteLabel) =>
-          if (lhs != rhs) { throw new Exception("Unequal ITE Labels") }
+          if (lhs != rhs) { //skip generating obviously true constraints
+            check_connection(lhs, rhs.trueL join rhs.condL, whens ++ Seq(consGenerator.exprToConsBool(rhs.cond)), info)
+            check_connection(lhs, rhs.falseL join rhs.condL, whens ++ Seq(CNot(consGenerator.exprToConsBool(rhs.cond))), info)
+          }
         case (lhs: Label, rhs: IteLabel) =>
           check_connection(lhs, rhs.trueL join rhs.condL, whens ++ Seq(consGenerator.exprToConsBool(rhs.cond)), info)
           check_connection(lhs, rhs.falseL join rhs.condL, whens ++ Seq(CNot(consGenerator.exprToConsBool(rhs.cond))), info)
         case (lhs: IteLabel, rhs: Label) =>
           check_connection(lhs.trueL join lhs.condL, rhs, whens ++ Seq(consGenerator.exprToConsBool(lhs.cond)), info)
           check_connection(lhs.falseL join lhs.condL, rhs, whens ++ Seq(CNot(consGenerator.exprToConsBool(lhs.cond))), info)
-        case (_,_) =>
+        case (lhs: Label,rhs: Label) =>
           throw new Exception
       }
     }

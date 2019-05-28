@@ -37,7 +37,7 @@ object RipNexts extends Pass with PassDebug {
   // dependand. It swaps regardless of gender
   //TODO don't throw exceptions, refactor so they are handled like other errors
   def next_lc_exp(e: Expression) : Expression = {
-    e map next_lc_exp match {
+    e match {
       case ex: WRef if ex.kind == RegKind => next_exp(ex)
       case ex: WSubField => next_exp(ex)
       case ex => ex
@@ -51,12 +51,13 @@ object RipNexts extends Pass with PassDebug {
       case PrimOps.Bits =>
         val next_args = ex.args map {a => next_exp(a)}
       DoPrim(PrimOps.Bits, next_args, ex.consts, ex.tpe, next_lbl(ex.lbl))
+      case _ => throw new IllegalNextException(NoInfo, e)
     }
-    case ex => ex
+    case ex => throw new IllegalNextException(NoInfo, e)
   }
 
   def is_simple_p_subf(e: WSubField) : Boolean = e.exp match {
-    case ex: WRef => ex.kind == PortKind || ex.kind == InstanceKind
+    case ex: WRef => true
     case ex: WSubField => is_simple_p_subf(ex)
     case _ => false
   }

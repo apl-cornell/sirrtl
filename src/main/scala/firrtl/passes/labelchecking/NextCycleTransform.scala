@@ -2,9 +2,10 @@ package firrtl.passes
 
 import firrtl._
 import firrtl.ir._
-import firrtl.Utils._
+import firrtl.Utils.{field_seq, _}
 import firrtl.Mappers._
 import firrtl.Driver._
+
 import collection.mutable.Set
 
 // TODO mems are sequential too!!!!
@@ -23,7 +24,7 @@ object NextCycleTransform extends Pass with PassDebug {
     e map swap_with_next_e match {
       case ex: WRef if ex.kind == RegKind && ex.gender == FEMALE =>
         next_exp(ex)
-      case ex: WSubField if ex.gender == FEMALE =>
+      case ex: WSubField if ex.gender == FEMALE && kind(ex) == RegKind =>
         next_exp(ex)
       case ex => ex
     }

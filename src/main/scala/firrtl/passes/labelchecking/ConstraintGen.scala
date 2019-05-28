@@ -4,6 +4,8 @@ import firrtl.ir._
 import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.Driver._
+import firrtl.passes.RipNexts.IllegalNextException
+
 import collection.mutable.Set
 import collection.mutable.LinkedHashSet
 import collection.mutable.Map
@@ -32,6 +34,7 @@ abstract class ConstraintGenerator {
 
 
   def nextIdent(s: String) = "$" + s
+  def next_exp(e: Expression) = RipNexts.next_exp(e)
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
   val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
   
@@ -40,15 +43,31 @@ abstract class ConstraintGenerator {
   //---------------------------------------------------------------------------
   // Generate a connection mapping. This is a set in which each assignable 
   // location is uniquely mapped to a single value in the constraint domain
-  def connect(conEnv: ConnectionEnv, loc: Constraint, cprime: Constraint, info: Info) {
-      conEnv(loc) = ((cprime, info))
+  def connect(conEnv: ConnectionEnv, loc: Expression, cprime: Expression, w: BigInt, info: Info) {
+    (loc, cprime) match {
+      case (locx: Next, cprimex: Expression) =>
+        conEnv(exprToCons(locx)) = ((exprToCons(cprimex, w), info))
+      case (locx: Expression, cprimex: Next) =>
+        conEnv(exprToCons(locx)) = ((exprToCons(cprimex, w), info))
+      case (_,_) =>
+        conEnv(exprToCons(loc)) = ((exprToCons(cprime, w), info))
+        try {
+          val next_loc = next_exp(loc)
+          val next_expr = next_exp(cprime)
+          conEnv(exprToCons(next_loc)) = ((exprToCons(next_expr, w), info))
+        } catch {
+          case exc: IllegalNextException =>
+          case exc: Exception => throw exc
+        }
+    }
+
   }
 
   def connect_outer(lhs: Expression, rhs: Expression, conEnv: ConnectionEnv, info: Info): Unit =
     (lhs.tpe, rhs.tpe) match {
        case ((loct: VectorType, expt: VectorType)) =>
          val w = bitWidth(lhs.tpe)
-         connect(conEnv, exprToCons(lhs), exprToCons(rhs, w), info)
+         connect(conEnv, lhs, rhs, w, info)
        case ((loct: BundleType, expt: BundleType))  =>
          loct.fields.foreach { f => if (has_field(expt, f.name)) {
            val locx = WSubField(lhs, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
@@ -60,7 +79,7 @@ abstract class ConstraintGenerator {
        case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${info}")
        case ((_: GroundType, _:GroundType)) =>
          val w = bitWidth(lhs.tpe)
-         connect(conEnv, exprToCons(lhs), exprToCons(rhs, w), info)
+         connect(conEnv, lhs, rhs, w, info)
        case _ => throw new Exception(s"bad types connected: ${lhs.tpe.serialize}, ${rhs.tpe.serialize}")
     }
 
@@ -72,7 +91,6 @@ abstract class ConstraintGenerator {
       case sx: DefNodePC =>
         val nref = WRef(sx.name, sx.value.tpe, sx.lbl, NodeKind, FEMALE)
         sx.value match {
-          case sxv : Mux =>
           case sxv : ValidIf =>
             //TODO overhaul constraint generation so this isn't necessary
             // For constraints, ValidIf is equivalent to a MUX where fv == LHS of assignment
@@ -188,6 +206,12 @@ abstract class ConstraintGenerator {
     case sx: DefRegister =>
       collect_type_decls(typeDecs)(nextIdent(sx.name), sx.tpe)
       declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.tpe); sx
+    case sx: WDefInstance =>
+      collect_type_decls(typeDecs)(nextIdent(sx.name), sx.tpe)
+      declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.tpe); sx
+    case sx: DefNodePC =>
+      collect_type_decls(typeDecs)(nextIdent(sx.name), sx.value.tpe)
+      declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.value.tpe); sx
     case sx => sx map next_decls_s(declSet, typeDecs)
   }
 

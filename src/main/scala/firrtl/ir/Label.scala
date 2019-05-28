@@ -31,7 +31,11 @@ sealed class ProdLabel private[ir](val conf: LabelComp, val integ: LabelComp) ex
 
 object IteLabel {
   def apply(cond: Expression, condL: Label, trueL: Label, falseL: Label): Label = (cond, condL, trueL, falseL) match {
-    case (_,_,_,_) => new IteLabel (cond, condL, trueL, falseL)
+    case (_,_,_,_) => {
+      if (trueL == falseL) {
+        JoinLabel(condL, trueL)
+      } else { new IteLabel (cond, condL, trueL, falseL) }
+    }
   }
   def unapply(l: IteLabel) = Some(l.cond, l.condL, l.trueL, l.falseL)
 }
@@ -101,7 +105,10 @@ object JoinLabel {
         throw new Exception("Tried to join two bundles with non-matching fields")
     case (b: BundleLabel, r) => b mapLabel { _ join r }
     case (l, b: BundleLabel) => b mapLabel { _ join l }
-    case (l: IteLabel, r: IteLabel) => throw new Exception("Cant join two ite labels")
+    case (l: IteLabel, r: IteLabel) => {
+      //new JoinLabel(l, r)
+      throw new Exception("Cant join two ite labels")
+    }
     case (l: IteLabel, r: Label) => IteLabel(l.cond, l.condL join r, l.trueL, l.falseL)
     case (l: Label, r: IteLabel) =>IteLabel(r.cond, r.condL join l, r.trueL, r.falseL)
     case _ => new JoinLabel(l, r)
@@ -139,7 +146,10 @@ object MeetLabel {
         throw new Exception("Tried to meet two Bundles with non-matching fields")
     case (b: BundleLabel, r) => b mapLabel { _ meet r }
     case (l, b: BundleLabel) => b mapLabel { _ meet l }
-    case (l: IteLabel, r: IteLabel) => throw new Exception("Cant meet two ite labels")
+    case (l: IteLabel, r: IteLabel) => {
+    //  new MeetLabel(l, r)
+      throw new Exception("Cant meet two ite labels")
+    }
     case (l: IteLabel, r: Label) => IteLabel(l.cond, l.condL meet r, l.trueL, l.falseL)
     case (l: Label, r: IteLabel) =>IteLabel(r.cond, r.condL meet l, r.trueL, r.falseL)
     case _ => new MeetLabel(l, r)
