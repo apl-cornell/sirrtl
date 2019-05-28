@@ -52,14 +52,17 @@ trait FirrtlRunners extends BackendCompilationUtilities {
   }
 
 
-  def labelCheckTest(prefix: String, srcDir: String, customTransforms: Seq[Transform] = Seq.empty, annotations: AnnotationMap = new AnnotationMap(Seq.empty), failureExpected: Boolean): File = {
+  def labelCheckTest(prefix: String, srcDir: String,
+                     customTransforms: Seq[Transform] = Seq.empty,
+                     annotations: AnnotationMap = new AnnotationMap(Seq.empty),
+                     failureExpected: Boolean): File = {
     val testDir = compileFirrtlTest(prefix, srcDir, customTransforms, annotations, true)
     val checkCommand = checkZ3Output(s"$testDir/$prefix.z3", testDir)
     val exitCode = checkCommand.!
     if (failureExpected) {
-      assert(exitCode > 0)
+      assert(exitCode > 0, "Expected Some Failures In Label Checking")
     } else {
-      assert(exitCode == 0)
+      assert(exitCode == 0, "Expected No Failures In Label Checking")
     }
     testDir
   }
@@ -117,7 +120,14 @@ abstract class ExecutionTest(name: String, dir: String, vFiles: Seq[String] = Se
 /** Super class for compilation driven Firrtl tests */
 abstract class CompilationTest(name: String, dir: String) extends FirrtlPropSpec {
   property(s"$name should compile correctly") {
-    labelCheckTest(name, dir, failureExpected = false)
+    compileFirrtlTest(name, dir, generateZ3 = false)
+  }
+}
+
+abstract class LabelCheckTest(name: String, dir: String, expectFailure: Boolean) extends FirrtlPropSpec {
+  def msg = if (expectFailure) { "fail" } else { "pass" }
+  property(s"$name should compile and $msg label checking") {
+    labelCheckTest(name, dir, failureExpected = expectFailure)
   }
 }
 
