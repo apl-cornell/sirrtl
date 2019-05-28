@@ -16,7 +16,7 @@ class PrintfSpec extends FirrtlPropSpec {
 
   property("Printf should correctly print values in each format %x, %d, %b") {
     val prefix = "Printf"
-    val testDir = compileFirrtlTest(prefix, "/features")
+    val testDir = compileFirrtlTest(prefix, "/features", generateZ3 = true)
     val harness = new File(testDir, s"top.cpp")
     copyResourceToFile(cppHarness.toString, harness)
 
