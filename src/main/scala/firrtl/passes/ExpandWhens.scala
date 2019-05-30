@@ -118,9 +118,12 @@ object ExpandWhens extends Pass  {
                 val falseValue = altNetlist getOrElse (lvalue, defaultValue)
                 (trueValue, falseValue) match {
                   case ((WInvalid, _), (WInvalid, _)) => (WInvalid, NoInfo)
-                  case ((WInvalid,_), (fv,info)) => (ValidIf(NOT(sx.pred), fv, fv.tpe, IteLabel(sx.pred, sx.pred.lbl, bot, fv.lbl)), info)
-                  case ((tv,info), (WInvalid,_)) => (ValidIf(sx.pred, tv, tv.tpe, IteLabel(sx.pred, sx.pred.lbl, tv.lbl, bot)), info)
-                  case ((tv,tinfo), (fv,finfo)) => (Mux(sx.pred, tv, fv, mux_type_and_widths(tv, fv), IteLabel(sx.pred, sx.pred.lbl, tv.lbl, fv.lbl)), sx.info)
+                 // case ((WInvalid,_), (fv,info)) => (ValidIf(NOT(sx.pred), fv, fv.tpe, IteLabel(sx.pred, sx.pred.lbl, bot, fv.lbl)), info)
+                  //case ((tv,info), (WInvalid,_)) => (ValidIf(sx.pred, tv, tv.tpe, IteLabel(sx.pred, sx.pred.lbl, tv.lbl, bot)), info)
+                  //case ((tv,tinfo), (fv,finfo)) => (Mux(sx.pred, tv, fv, mux_type_and_widths(tv, fv), IteLabel(sx.pred, sx.pred.lbl, tv.lbl, fv.lbl)), sx.info)
+                  case ((WInvalid,_), (fv,info)) => (ValidIf(NOT(sx.pred), fv, fv.tpe, UnknownLabel), info)
+                  case ((tv,info), (WInvalid,_)) => (ValidIf(sx.pred, tv, tv.tpe, UnknownLabel), info)
+                  case ((tv,tinfo), (fv,finfo)) => (Mux(sx.pred, tv, fv, mux_type_and_widths(tv, fv), UnknownLabel), sx.info)
                 }
               case None =>
                 // Since not in netlist, lvalue must be declared in EXACTLY one of conseq or alt

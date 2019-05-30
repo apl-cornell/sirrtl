@@ -7,11 +7,12 @@ import scala.collection.mutable.Set
 
 object SimplifyLabels extends Pass with PassDebug {
   def name = "Simplify Labels"
-  override def debugThisPass = false
+  override def debugThisPass = true
 
   
   implicit class CrossProdInfix[X](xs: Set[X]) {
     def cross[Y](ys: Set[Y]) = for { x <- xs; y <- ys } yield (x, y)
+    def tuple[A,Y,Z](as: Set[A], ys: Set[Y],zs: Set[Z]) = for {x <- xs; a <- as; y <- ys; z <- zs } yield (x,a,y,z)
   }
 
   // Convert label components into simplified DNF.
@@ -163,6 +164,7 @@ object SimplifyLabels extends Pass with PassDebug {
       def clauses_(cls: Set[Label])(l: Label): Label = 
         l match {
           case lbx: JoinLabel => lbx map clauses_(cls)
+          case lbx: IteLabel => lbx map clauses_(cls)
           case lbx => cls += lbx; lbx
         }
 
@@ -175,6 +177,7 @@ object SimplifyLabels extends Pass with PassDebug {
       val termSet = new LinkedHashSet[Label]
       def terms_(l: Label): Label = l match {
         case lx: JoinLabel => throw new Exception
+        case lx: IteLabel => l map terms_
         case lx: MeetLabel => l map terms_
         case lx => termSet += lx; lx
       }
@@ -182,7 +185,14 @@ object SimplifyLabels extends Pass with PassDebug {
     }
 
     l  match {
-      case lbx: MeetLabel=> 
+      case lbx: IteLabel =>
+        val condSet = new LinkedHashSet[Expression]
+        condSet += lbx.cond
+        val sets = (condSet tuple(clauses(lbx.condL), clauses(lbx.trueL),clauses(lbx.falseL))) map {
+          case (cond: Expression, condL: Label, trueL: Label, falseL: Label) => IteLabel(cond,condL, trueL, falseL)
+        }
+        sortClauses(sets).foldLeft(bot) { _ join _ } map cnf_lb
+      case lbx: MeetLabel=>
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
           case (lhs:Label, rhs:Label) => lhs meet rhs
         }).foldLeft(bot) { _ join _ } map cnf_lb

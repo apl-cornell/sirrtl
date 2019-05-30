@@ -30,18 +30,24 @@ sealed class ProdLabel private[ir](val conf: LabelComp, val integ: LabelComp) ex
 }
 
 object IteLabel {
+  val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
+  val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
   def apply(cond: Expression, condL: Label, trueL: Label, falseL: Label): Label = (cond, condL, trueL, falseL) match {
-    case (_,_,_,_) => {
-      if (trueL == falseL) {
-        JoinLabel(condL, trueL)
-      } else { new IteLabel (cond, condL, trueL, falseL) }
+      case (_, cl: ProdLabel,_,_) if (cl == top) => top
+      case (_,_,_,_) if (trueL == falseL && trueL != UnknownLabel) => JoinLabel(condL, trueL)
+      case (_,cl: IteLabel,tl:Label,fl:Label) =>
+        new IteLabel(cond,cl,tl,fl)
+      case (_,cl: Label,tl:IteLabel,fl:Label) if (cond == tl.cond) =>
+        IteLabel(cond,JoinLabel(cl,tl.condL),tl.trueL,JoinLabel(fl,tl.falseL))
+      case (_,cl: Label,tl:Label,fl:IteLabel) if (cond == fl.cond)=>
+        IteLabel(cond,JoinLabel(cl,fl.condL),JoinLabel(tl,fl.trueL),fl.falseL)
+      case (_,_,_,_) => new IteLabel(cond, condL, trueL, falseL)
     }
-  }
   def unapply(l: IteLabel) = Some(l.cond, l.condL, l.trueL, l.falseL)
 }
 
 sealed class IteLabel private(val cond: Expression, val condL: Label, val trueL: Label, val falseL: Label) extends Label {
-  def serialize = s"{${cond.serialize}} ? {${trueL.serialize}} : {${falseL.serialize}}"
+  def serialize = s"{${condL.serialize}} ? {${trueL.serialize}} : {${falseL.serialize}}"
   def mapLabelComp(f: LabelComp => LabelComp): Label = this
   def mapLabel(f: Label => Label): Label = IteLabel(cond, f(condL), f(trueL), f(falseL))
   override def equals(that: Any) = that match {
@@ -106,11 +112,10 @@ object JoinLabel {
     case (b: BundleLabel, r) => b mapLabel { _ join r }
     case (l, b: BundleLabel) => b mapLabel { _ join l }
     case (l: IteLabel, r: IteLabel) => {
-      //new JoinLabel(l, r)
-      throw new Exception("Cant join two ite labels")
+      new JoinLabel(l,r)
     }
     case (l: IteLabel, r: Label) => IteLabel(l.cond, l.condL join r, l.trueL, l.falseL)
-    case (l: Label, r: IteLabel) =>IteLabel(r.cond, r.condL join l, r.trueL, r.falseL)
+    case (l: Label, r: IteLabel) => IteLabel(r.cond, r.condL join l, r.trueL, r.falseL)
     case _ => new JoinLabel(l, r)
   }
   def apply(l: Label*) : Label = l.reduceRight { apply(_,_) }
@@ -147,8 +152,7 @@ object MeetLabel {
     case (b: BundleLabel, r) => b mapLabel { _ meet r }
     case (l, b: BundleLabel) => b mapLabel { _ meet l }
     case (l: IteLabel, r: IteLabel) => {
-    //  new MeetLabel(l, r)
-      throw new Exception("Cant meet two ite labels")
+      new MeetLabel(l, r)
     }
     case (l: IteLabel, r: Label) => IteLabel(l.cond, l.condL meet r, l.trueL, l.falseL)
     case (l: Label, r: IteLabel) =>IteLabel(r.cond, r.condL meet l, r.trueL, r.falseL)

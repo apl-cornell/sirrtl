@@ -95,7 +95,7 @@ abstract class ConstraintGenerator {
             //TODO overhaul constraint generation so this isn't necessary
             // For constraints, ValidIf is equivalent to a MUX where fv == LHS of assignment
             // Assumes that all ValidIfs appear in node defs, which they do after High->Labeled Transforms run
-            val rhs = Mux(sxv.cond, sxv.value, nref, mux_type_and_widths(sxv.value, nref), sxv.lbl)
+            val rhs = Mux(sxv.cond, sxv.value, nref, mux_type_and_widths(sxv.value, nref, true), sxv.lbl)
             connect_outer(nref, rhs, conEnv, sx.info)
           case _ => connect_outer(nref, sx.value, conEnv, sx.info)
         }

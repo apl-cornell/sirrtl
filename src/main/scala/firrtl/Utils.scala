@@ -235,9 +235,10 @@ object Utils extends LazyLogging {
     })
     case _ => UnknownType
   }
-  def mux_type_and_widths(e1: Expression,e2: Expression): Type =
-    mux_type_and_widths(e1.tpe, e2.tpe)
-  def mux_type_and_widths(t1: Type, t2: Type): Type = {
+  def mux_type_and_widths(e1: Expression,e2: Expression, allowClk: Boolean = false): Type =
+    mux_type_and_widths(e1.tpe, e2.tpe, allowClk)
+
+  def mux_type_and_widths(t1: Type, t2: Type, allowClk: Boolean): Type = {
     def wmax(w1: Width, w2: Width): Width = (w1, w2) match {
       case (w1x: IntWidth, w2x: IntWidth) => IntWidth(w1x.width max w2x.width)
       case (w1x, w2x) => MaxWidth(Seq(w1x, w2x))
@@ -248,13 +249,14 @@ object Utils extends LazyLogging {
       case (FixedType(w1, p1), FixedType(w2, p2)) =>
         FixedType(PLUS(MAX(p1, p2),MAX(MINUS(w1, p1), MINUS(w2, p2))), MAX(p1, p2))
       case (t1x: VectorType, t2x: VectorType) => VectorType(
-        mux_type_and_widths(t1x.tpe, t2x.tpe), t1x.size)
+        mux_type_and_widths(t1x.tpe, t2x.tpe, allowClk), t1x.size)
       case (t1x: BundleType, t2x: BundleType) => BundleType(t1x.fields zip t2x.fields map {
       // XXX assumed not called before label checking. Currently this 
       // assumption is valid.
-        case (f1, f2) => Field(f1.name, f1.flip, mux_type_and_widths(f1.tpe, f2.tpe),
+        case (f1, f2) => Field(f1.name, f1.flip, mux_type_and_widths(f1.tpe, f2.tpe, allowClk),
           JoinLabel(f1.lbl, f2.lbl), false)
       })
+      case (ClockType, ClockType) if allowClk => ClockType
       case _ => UnknownType
     }
   }

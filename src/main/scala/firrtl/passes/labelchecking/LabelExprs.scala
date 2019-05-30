@@ -228,7 +228,7 @@ object LabelExprs extends Pass with PassDebug {
         // sxx
       case sx: DefMemory =>
         //TODO handle this correctly
-        val lb = UnknownLabel
+        val lb = bot
         labels(sx.name) = lb
         sx copy (lbl = lb)
       case sx: CDefMemory =>
