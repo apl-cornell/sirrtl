@@ -4,9 +4,10 @@ package firrtl
 
 import logger.LazyLogging
 import java.io.Writer
-import annotations._
 
+import annotations._
 import firrtl.ir.Circuit
+import firrtl.passes.labelchecking.LabelCheckTransform
 import passes.Pass
 
 /**
@@ -21,6 +22,7 @@ case class RenameMap(map: Map[Named, Seq[Named]])
 case class AnnotationMap(annotations: Seq[Annotation]) {
   def get(id: Class[_]): Seq[Annotation] = annotations.filter(a => a.transform == id)
   def get(named: Named): Seq[Annotation] = annotations.filter(n => n == named)
+  def getAll: Seq[Annotation] = annotations
 }
 
 /** Current State of the Circuit
@@ -59,7 +61,7 @@ sealed abstract class CircuitForm(private val value: Int) extends Ordered[Circui
   *
   * See [[CDefMemory]] and [[CDefMPort]]
   */
-final case object ChirrtlForm extends CircuitForm(3)
+final case object ChirrtlForm extends CircuitForm(4)
 /** High Form
   *
   * As detailed in the Firrtl specification
@@ -67,7 +69,13 @@ final case object ChirrtlForm extends CircuitForm(3)
   *
   * Also see [[firrtl.ir]]
   */
-final case object HighForm extends CircuitForm(2)
+final case object HighForm extends CircuitForm(3)
+
+/** Labeled Form
+  * This is identical to [[MidForm]] except it still
+  * contains Security Label information.
+  */
+final case object LabeledForm extends CircuitForm(2)
 /** Middle Form
   *
   * A "lower" form than [[HighForm]] with the following restrictions:
@@ -152,24 +160,19 @@ object CompilerUtils {
     * @return Sequence of transforms that will lower if outputForm is lower than inputForm
     */
   def getLoweringTransforms(inputForm: CircuitForm, outputForm: CircuitForm): Seq[Transform] = {
-    val lblCheck = Driver.doLabelChecking
     if (outputForm >= inputForm) {
       Seq.empty
     } else {
       inputForm match {
-        case ChirrtlForm => 
-          (if(lblCheck) Seq(new ChirrtlToAlmostHigh)
-              else Seq(new ChirrtlToHighFirrtl)) ++
-                getLoweringTransforms(HighForm, outputForm)
+        case ChirrtlForm =>
+          Seq(new ChirrtlToHighFirrtl) ++  getLoweringTransforms(HighForm, outputForm)
         case HighForm =>
-          if(lblCheck)
-            Seq(new IRToWorkingIR, new Resolve, new LabelChecking, new LabelTeardown,
-              new RemoveResolveAndCheck, new transforms.DedupModules, new HighFirrtlToMiddleFirrtl) ++
-                getLoweringTransforms(MidForm, outputForm)
-          else
-            Seq(new IRToWorkingIR, new ResolveAndCheck, new transforms.DedupModules,
-              new HighFirrtlToMiddleFirrtl) ++ getLoweringTransforms(MidForm, outputForm)
-        case MidForm => Seq(new MiddleFirrtlToLowFirrtl) ++ getLoweringTransforms(LowForm, outputForm)
+          Seq(new IRToWorkingIR, new ResolveAndCheck, new transforms.DedupModules,
+            new HighFirrtlToLabeledFirrtl, new LabelCheckTransform) ++ getLoweringTransforms(LabeledForm, outputForm)
+        case LabeledForm =>
+          Seq(new LabelTeardown) ++ getLoweringTransforms(MidForm, outputForm)
+        case MidForm =>
+          Seq(new MiddleFirrtlToLowFirrtl) ++ getLoweringTransforms(LowForm, outputForm)
         case LowForm => error("Internal Error! This shouldn't be possible") // should be caught by if above
       }
     }

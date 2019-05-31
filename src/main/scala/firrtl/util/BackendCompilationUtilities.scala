@@ -124,6 +124,16 @@ trait BackendCompilationUtilities {
     command
   }
 
+
+  lazy val z3CheckName = new File(s"/checkZ3.sh")
+  def checkZ3Output(z3File: String, dir:File): ProcessBuilder = {
+    val execFile = new File(dir, s"checkZ3.sh")
+    copyResourceToFile(z3CheckName.toString, execFile)
+    val command = Seq(execFile.toString(), z3File)
+    System.out.println(s"${command.mkString(" ")}")
+    command
+  }
+
   def cppToExe(prefix: String, dir: File): ProcessBuilder =
     Seq("make", "-C", dir.toString, "-j", "-f", s"V$prefix.mk", s"V$prefix")
 

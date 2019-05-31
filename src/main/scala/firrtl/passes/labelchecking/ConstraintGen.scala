@@ -4,6 +4,8 @@ import firrtl.ir._
 import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.Driver._
+import firrtl.passes.RipNexts.IllegalNextException
+
 import collection.mutable.Set
 import collection.mutable.LinkedHashSet
 import collection.mutable.Map
@@ -14,16 +16,6 @@ import collection.mutable.LinkedHashMap
 class ConnectionEnv extends collection.mutable.LinkedHashMap[Constraint,(Constraint, Info)]
   { override def default(c:Constraint) = ((c, NoInfo)) }
 
-
-// A mapping from statements to a constraint which is known to be true upon 
-// execution of that statement because of where the statement appears in 
-// relation to (possibly nested) when statements.
-// Note that even seemingly identical statements are non-unique because they 
-// have uniquely identifying info objects, so this mapping correctly determines 
-// a fact that is known upon execution of the indexed statement.
-class WhenEnv extends collection.mutable.HashMap[Statement,Constraint] {
-  var cur : Constraint = CTrue
-}
 
 abstract class ConstraintGenerator {
   // Identifier used for reference expression in Z3 constraints
@@ -41,6 +33,8 @@ abstract class ConstraintGenerator {
   def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String
 
 
+  def nextIdent(s: String) = "$" + s
+  def next_exp(e: Expression) = RipNexts.next_exp(e)
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
   val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
   
@@ -49,67 +43,68 @@ abstract class ConstraintGenerator {
   //---------------------------------------------------------------------------
   // Generate a connection mapping. This is a set in which each assignable 
   // location is uniquely mapped to a single value in the constraint domain
-  def connect(conEnv: ConnectionEnv, whenEnv: WhenEnv, loc: Constraint, cprime: Constraint, info: Info) {
-    if(whenEnv.cur == CTrue || !conEnv.contains(loc)) {
-      // This is just to simplify generated constraints
-      conEnv(loc) = ((cprime, info))
-    } else {
-      conEnv(loc) = ((CIfTE(whenEnv.cur, cprime, conEnv(loc)._1), info))
+  def connect(conEnv: ConnectionEnv, loc: Expression, cprime: Expression, w: BigInt, info: Info) {
+    (loc, cprime) match {
+      case (locx: Next, cprimex: Expression) =>
+        conEnv(exprToCons(locx)) = ((exprToCons(cprimex, w), info))
+      case (locx: Expression, cprimex: Next) =>
+        conEnv(exprToCons(locx)) = ((exprToCons(cprimex, w), info))
+      case (_,_) =>
+        conEnv(exprToCons(loc)) = ((exprToCons(cprime, w), info))
+        try {
+          val next_loc = next_exp(loc)
+          val next_expr = next_exp(cprime)
+          conEnv(exprToCons(next_loc)) = ((exprToCons(next_expr, w), info))
+        } catch {
+          case exc: IllegalNextException =>
+          case exc: Exception => throw exc
+        }
     }
+
   }
 
-  def connect_outer(lhs: Expression, rhs: Expression, conEnv: ConnectionEnv, whenEnv: WhenEnv, info: Info): Unit = 
+  def connect_outer(lhs: Expression, rhs: Expression, conEnv: ConnectionEnv, info: Info): Unit =
     (lhs.tpe, rhs.tpe) match {
        case ((loct: VectorType, expt: VectorType)) =>
          val w = bitWidth(lhs.tpe)
-         connect(conEnv, whenEnv, exprToCons(lhs), exprToCons(rhs, w), info)
+         connect(conEnv, lhs, rhs, w, info)
        case ((loct: BundleType, expt: BundleType))  =>
          loct.fields.foreach { f => if (has_field(expt, f.name)) {
            val locx = WSubField(lhs, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
            val expx = WSubField(rhs, f.name, f.tpe, f.lbl, UNKNOWNGENDER)
            val w = bitWidth(locx.tpe)
-           connect_outer(locx, expx, conEnv, whenEnv, info)
+           connect_outer(locx, expx, conEnv, info)
          }}
        case ((loct: BundleType, _)) => throw new Exception(s"bad expr: ${info}")
        case ((_, expt: BundleType)) => throw new Exception(s"bad expr: ${info}")
        case ((_: GroundType, _:GroundType)) =>
          val w = bitWidth(lhs.tpe)
-         connect(conEnv, whenEnv, exprToCons(lhs), exprToCons(rhs, w), info)
+         connect(conEnv, lhs, rhs, w, info)
        case _ => throw new Exception(s"bad types connected: ${lhs.tpe.serialize}, ${rhs.tpe.serialize}")
     }
 
   type MemMap = scala.collection.mutable.HashMap[String, CDefMemory]
 
-  // The purpose of this function is to mutate conEnv and whenEnv (by populating 
+  // The purpose of this function is to mutate conEnv and labelEnv (by populating
   // them) Note: this is the identity function on the statement argument. 
-  def gen_cons_s(conEnv: ConnectionEnv, whenEnv: WhenEnv, memMap: MemMap)(s: Statement): Statement = s match {
+  def gen_cons_s(conEnv: ConnectionEnv, memMap: MemMap)(s: Statement): Statement = s match {
       case sx: DefNodePC =>
         val nref = WRef(sx.name, sx.value.tpe, sx.lbl, NodeKind, FEMALE)
-        connect_outer(nref, sx.value, conEnv, whenEnv, sx.info)
-        whenEnv(sx) = whenEnv.cur; sx
+        sx.value match {
+          case sxv : ValidIf =>
+            //TODO overhaul constraint generation so this isn't necessary
+            // For constraints, ValidIf is equivalent to a MUX where fv == LHS of assignment
+            // Assumes that all ValidIfs appear in node defs, which they do after High->Labeled Transforms run
+            val rhs = Mux(sxv.cond, sxv.value, nref, mux_type_and_widths(sxv.value, nref, true), sxv.lbl)
+            connect_outer(nref, rhs, conEnv, sx.info)
+          case _ => connect_outer(nref, sx.value, conEnv, sx.info)
+        }
+        sx
       case sx: ConnectPC => 
-        connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
-        whenEnv(sx) = whenEnv.cur
+        connect_outer(sx.loc, sx.expr, conEnv, sx.info)
         sx
       case sx: PartialConnectPC =>
-        connect_outer(sx.loc, sx.expr, conEnv, whenEnv, sx.info)
-        whenEnv(sx) = whenEnv.cur
-        sx
-      case sx: ConditionallyPC =>
-        val oldWhen = whenEnv.cur
-        // True side
-        val predT = exprToConsBool(sx.pred)
-        whenEnv.cur = if(oldWhen == CTrue) predT else CConj(oldWhen, predT)
-        sx.conseq map gen_cons_s(conEnv, whenEnv, memMap)
-        whenEnv(sx.conseq) = whenEnv.cur
-        // False side
-        val predF = CNot(predT)
-        whenEnv.cur = if(oldWhen == CTrue) predF else CConj(oldWhen, predF)
-        sx.alt map gen_cons_s(conEnv, whenEnv, memMap)
-        whenEnv(sx.alt) = whenEnv.cur
-        // This statement
-        whenEnv.cur = oldWhen
-        whenEnv(sx) = whenEnv.cur
+        connect_outer(sx.loc, sx.expr, conEnv, sx.info)
         sx
       case sx: CDefMPort =>
         // TODO differentiate between read/write ports??
@@ -119,8 +114,7 @@ abstract class ConstraintGenerator {
         conEnv(pcons) = ((mcons, sx.info))
         sx
       case sx => 
-        sx map gen_cons_s(conEnv, whenEnv, memMap)
-        whenEnv(sx) = whenEnv.cur
+        sx map gen_cons_s(conEnv, memMap)
         sx
   }
 
@@ -130,10 +124,10 @@ abstract class ConstraintGenerator {
       case sx => sx
     }
 
-  def gen_cons(conEnv: ConnectionEnv, whenEnv: WhenEnv)(m: DefModule) = {
+  def gen_cons(conEnv: ConnectionEnv)(m: DefModule) = {
     val memMap = new MemMap
     m map gen_mem_map_s(memMap)
-    m map gen_cons_s(conEnv, whenEnv, memMap)
+    m map gen_cons_s(conEnv, memMap)
   }
 
   //--------------------------------------------------------------------------- 
@@ -143,7 +137,7 @@ abstract class ConstraintGenerator {
   type TypeDeclSet = LinkedHashMap[AggregateType, String]
 
   // Used to weaken equality within TypeDeclSet 
-  case class WeakField(name: String, tpe: Type) extends FirrtlNode with HasName {
+  case class WeakField(name: String, tpe: Type, isSeq: Boolean) extends FirrtlNode with HasName {
     def serialize: String =  name + " : " + tpe.serialize
   }
   case class WeakBundle(fields: Seq[WeakField]) extends AggregateType {
@@ -156,19 +150,19 @@ abstract class ConstraintGenerator {
     case tx: BundleType => WeakBundle(tx.fields.map(weakenField(_)))
     case tx => tx
   }
-  def weakenField(field: Field) = WeakField(field.name, weakenType(field.tpe))
+  def weakenField(field: Field) = WeakField(field.name, weakenType(field.tpe), field.isSeq)
   def weakenBundle(bundle: BundleType) = weakenType(bundle).asInstanceOf[WeakBundle]
 
   def collect_type_decls(typeDecs: TypeDeclSet)(name: String, t: Type): Unit =  t match {
     case tx : BundleType =>
-      val n = name.replace("$", "").toUpperCase
+      val n = name.toUpperCase
       val txx = weakenBundle(tx)
       if(!typeDecs.contains(txx)) {
         txx.fields.foreach {f => collect_type_decls(typeDecs)(n + "_" + f.name, f.tpe) }
         typeDecs(txx) = n
       } else typeDecs(txx)
     case tx : WeakBundle =>
-      val n = name.replace("$", "").toUpperCase
+      val n = name.toUpperCase
       if(!typeDecs.contains(tx)) {
         tx.fields.foreach {f => collect_type_decls(typeDecs)(n + "_" + f.name, f.tpe) }
         typeDecs(tx) = n
@@ -200,23 +194,38 @@ abstract class ConstraintGenerator {
       collect_type_decls(typeDecs)(sx.name, sx.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.tpe)
       sx
-    case sx: DefMemory => throw new Exception; sx
+      //TODO throw new Exception
+    case sx: DefMemory => sx
     case sx: WDefInstance =>
       collect_type_decls(typeDecs)(sx.name, sx.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.tpe); sx
     case sx => sx map decls_s(declSet, typeDecs)
   }
 
+  def next_decls_s(declSet: DeclSet, typeDecs: TypeDeclSet)(s: Statement): Statement = s match {
+    case sx: DefRegister =>
+      collect_type_decls(typeDecs)(nextIdent(sx.name), sx.tpe)
+      declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.tpe); sx
+    case sx: WDefInstance =>
+      collect_type_decls(typeDecs)(nextIdent(sx.name), sx.tpe)
+      declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.tpe); sx
+    case sx: DefNodePC =>
+      collect_type_decls(typeDecs)(nextIdent(sx.name), sx.value.tpe)
+      declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.value.tpe); sx
+    case sx => sx map next_decls_s(declSet, typeDecs)
+  }
+
   def decls_p(declSet: DeclSet, typeDecs: TypeDeclSet)(p: Port): Port ={
     collect_type_decls(typeDecs)(p.name, p.tpe)
     declSet += emitDecl(typeDecs, p.name, p.tpe)
+    declSet += emitDecl(typeDecs, nextIdent(p.name), p.tpe)
     p
   }
 
   def declarations(m: DefModule) : LinkedHashSet[String] = {
     val declSet = new LinkedHashSet[String]()
     val typeDecs = new LinkedHashMap[AggregateType, String]()
-    m map decls_p(declSet, typeDecs) map decls_s(declSet, typeDecs)
+    m map decls_p(declSet, typeDecs) map decls_s(declSet, typeDecs) map next_decls_s(declSet, typeDecs)
     var type_dec_strs = new LinkedHashSet[String]()
     typeDecs.keys.foreach { k => type_dec_strs += emitTypeDecl(typeDecs)(k) }
     type_dec_strs ++ declSet
@@ -237,6 +246,7 @@ object BVConstraintGen extends ConstraintGenerator {
       val datatpe = emitDatatype(typeDecls, tx.tpe)
       s"(Array $indextpe $datatpe)"
     case ClockType => s"(_ BitVec 1)"
+    case _ => ""
   }
 
   def emitDecl(typeDecls: TypeDeclSet, name: String, t: Type): String = t match {
@@ -246,29 +256,34 @@ object BVConstraintGen extends ConstraintGenerator {
     case tx : WeakBundle => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case tx : VectorType => s"(declare-const $name ${emitDatatype(typeDecls, tx)})\n"
     case ClockType => s"(declare-const $name (_ BitVec 1))\n"
+    case _ => ""
   }
 
   def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String = t match {
-    case tx : BundleType => 
+    case tx : BundleType if tx.fields.length > 0  =>
       val name = typeDecs(tx)
-      val field_decls = tx.fields.map { case Field(n,_,tpe,_,_) =>
-        s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+      val field_decls = tx.fields.map { case Field(n,_,tpe,_,isSeq) =>
+        val fieldDecl = s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+        s"$fieldDecl"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
-    case tx: WeakBundle =>
+    case tx: WeakBundle if tx.fields.length > 0 =>
       val name = typeDecs(tx)
-      val field_decls = tx.fields.map { case WeakField(n, tpe) =>
-        s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+      val field_decls = tx.fields.map { case WeakField(n, tpe, isSeq) =>
+        val fieldDecl = s"(field_$n ${emitDatatype(typeDecs, tpe)})"
+        s"$fieldDecl"
       } reduceLeft (_ + _)
       s"(declare-datatypes () (($name (mk-$name $field_decls))))\n"
     case tx : VectorType => throw new Exception
+    case _ =>  ""
   }
 
   // h4x to get around bad compile times for transforms on dependent labels 
   // appearing in bundle types
   def toWIR(e: Expression) = ToWorkingIR.toExp(e)
 
-  def refToIdent(e: Expression) =  toWIR(e) match {
+
+  def refToIdent(e: Expression):String =  toWIR(e) match {
     case ex: WSubIndex => 
       val idx = CBVLit(ex.value, toBInt(vec_size(ex.exp.tpe)))
       CASelect(refToIdent(ex.exp), idx).serialize
@@ -296,6 +311,13 @@ object BVConstraintGen extends ConstraintGenerator {
       exprToCons(ex).serialize 
     case Declassify(exx, _) => refToIdent(exx)
     case Endorse(exx, _) => refToIdent(exx)
+    case ex : DoPrim => ex.op match {
+      case PrimOps.Bits => refToIdent(ex.args(0))
+    }
+    case Next(ex, _, _, _) => ex match {
+      case exr : WRef  => refToIdent(exr copy(name = nextIdent(exr.name)))
+      case _ => nextIdent(refToIdent(ex))
+    }
   }
 
   def exprToCons(e: Expression): Constraint = toWIR(e) match {
@@ -306,6 +328,7 @@ object BVConstraintGen extends ConstraintGenerator {
       CASelect(refToIdent(ex.exp), idx)
     case ex : WSubAccess => 
       CASelect(refToIdent(ex.exp), exprToCons(ex.index, toBInt(vec_size(ex.exp.tpe))))
+    case ex : Next => CAtom(refToIdent(ex))
     case ex : WRef => CAtom(refToIdent(ex))
     case ex : WSubField => CAtom(refToIdent(ex))
     case ex : Mux => 
@@ -314,6 +337,7 @@ object BVConstraintGen extends ConstraintGenerator {
       CIfTE(sel, exprToCons(ex.tval, w), exprToCons(ex.fval, w))
     case Declassify(exx,_) => exprToCons(exx)
     case Endorse(exx,_) => exprToCons(exx)
+    case _ => CTrue
   }
 
   def exprToCons(e: Expression, w: BigInt) = toWIR(e) match {

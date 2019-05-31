@@ -20,7 +20,8 @@ object LabelExprs extends Pass with PassDebug {
     s"$info: a label could not be inferred for [$name]")
   val errors = new Errors()
 
-  def throwErrors = true
+  //TODO use annotations to pass this via cmd line options
+  def assumeBot = true
 
   // Assume that if the label was omitted, that the least-restrictive label was 
   // the desired one. This function should only be used for things like 
@@ -69,24 +70,10 @@ object LabelExprs extends Pass with PassDebug {
         case lx => lx
       }
     checkDeclared_(l);
-    
-    val parentString = badParent match {
-      case UnknownLabel => ""
-      case _ => s", with bad field $badField in internal record ${badParent.serialize}"
-    }
-
-    if(!b && throwErrors)
-      errors.append(new UndeclaredException(i, n + parentString))
-
-    // if(!label_is_known(l) && throwErrors)
-    //   errors.append(new UndeclaredException(i, n))
+    b
   }
-    
-  def checkKnown(l: Label, i: Info, n: String) = 
-    if(!label_is_known(l) && throwErrors)
-      errors.append(new UnknownLabelException(i, n))
-    
-  // This function is used for declarations with BundleTypes to convert their 
+
+  // This function is used for declarations with BundleTypes to convert their
   // labels into BundleLabels. This also supports type constructions in which a 
   // BundleType may be nested arbitrarily deep within VectorTypes.
   def to_bundle(t: Type, l: Label) : Label = {
@@ -147,9 +134,9 @@ object LabelExprs extends Pass with PassDebug {
         val lbl__ = apply_index_vech(app_ex_lbl, ex.index)
         ex copy (lbl = JoinLabel(lbl__, ex.index.lbl))
       case ex: DoPrim => ex copy (lbl = JoinLabel((ex.args map{ _.lbl }):_* ))
-      case ex: Mux => ex copy (lbl = JoinLabel(ex.cond.lbl,
+      case ex: Mux => ex copy (lbl = IteLabel(ex.cond, ex.cond.lbl,
         ex.tval.lbl, ex.fval.lbl))
-      case ex: ValidIf => ex copy (lbl = JoinLabel(ex.cond.lbl, ex.value.lbl))
+      case ex: ValidIf => ex copy (lbl = IteLabel(ex.cond, ex.cond.lbl, ex.value.lbl, bot))
       case ex: UIntLiteral => ex copy (lbl = assumeL(ex.lbl))
       case ex: SIntLiteral => ex copy (lbl = assumeL(ex.lbl))
       case ex: Declassify => ex
@@ -208,9 +195,10 @@ object LabelExprs extends Pass with PassDebug {
         // been performed for definition of the instantiated module since 
         // forward instantiation is not permitted. 
         val lb = instance_io_rename(sx.name)(to_bundle(sx.tpe, UnknownLabel))
-        checkDeclared(lb, sx.info, sx.name)
-        labels(sx.name) = lb
-        (sx copy (lbl = lb)) map label_exprs_e(labels)
+        val isDeclared = checkDeclared(lb, sx.info, sx.name)
+        val lblx = if(isDeclared) { lb } else { bot }
+        labels(sx.name) = lblx
+        (sx copy (lbl = lblx)) map label_exprs_e(labels)
       case sx: DefWire =>
         var lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
         labels(sx.name) = lb
@@ -238,21 +226,30 @@ object LabelExprs extends Pass with PassDebug {
         //   lbl = lb)
         // labels(sxx.name) = lb
         // sxx
-      case sx: DefMemory => throw new Exception
+      case sx: DefMemory =>
+        //TODO handle this correctly
+        val lb = bot
+        labels(sx.name) = lb
+        sx copy (lbl = lb)
       case sx: CDefMemory =>
         val lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
         labels(sx.name) = lb
         sx copy (lbl = lb)
       case sx: CDefMPort =>
         val lb = labels(sx.mem)
-        checkDeclared(lb, sx.info, sx.mem)
-        // If the label of the memory contains vector labels apply 
-        // the address expression of the memory port as the index to the vector.
-        val idx = sx.exps.head
-        val lbx = apply_index_vech(lb, idx)
-        // Replace references to the original memory in the labels with 
-        // references to this port
-        val lbxx = rename_mem_in_lb(sx.mem, sx.name)(lbx)
+        val isDeclared = checkDeclared(lb, sx.info, sx.mem)
+        val lbxx =
+        if (isDeclared) {
+          // If the label of the memory contains vector labels apply
+          // the address expression of the memory port as the index to the vector.
+          val idx = sx.exps.head
+          val lbx = apply_index_vech(lb, idx)
+          // Replace references to the original memory in the labels with
+          // references to this port
+          rename_mem_in_lb(sx.mem, sx.name)(lbx)
+        } else {
+          bot
+        }
         labels(sx.name) = lbxx
         sx copy (lbl = lbxx)
       case sx => sx map label_exprs_e(labels)
@@ -261,9 +258,10 @@ object LabelExprs extends Pass with PassDebug {
   // Add each port declaration to the label context
   def label_exprs_p(labels: LabelMap)(p: Port) : Port = {
     val lb = to_bundle(p.tpe, p.lbl)
-    checkDeclared(lb, p.info, p.name)
-    labels(p.name) = lb
-    p copy (lbl = lb)
+    val isDeclared = checkDeclared(lb, p.info, p.name)
+    val lblx =  if(isDeclared) { lb } else { bot }
+    labels(p.name) = lblx
+    p copy (lbl = lblx)
   }
 
   def label_exprs(m: DefModule) : DefModule = {

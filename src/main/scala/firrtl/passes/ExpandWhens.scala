@@ -21,20 +21,21 @@ import annotation.tailrec
 * @note Assumes bulk connects and isInvalids have been expanded
 * @note Assumes all references are declared
 */
-object ExpandWhens extends Pass {
+object ExpandWhens extends Pass  {
   def name = "Expand Whens"
   type NodeMap = collection.mutable.HashMap[MemoizedHash[Expression], String]
-  type Netlist = collection.mutable.LinkedHashMap[WrappedExpression, Expression]
+  type Netlist = collection.mutable.LinkedHashMap[WrappedExpression, Pair[Expression, Info]]
   type Simlist = collection.mutable.ArrayBuffer[Statement]
   type Attachlist = collection.mutable.ArrayBuffer[Statement]
-  type Defaults = Seq[collection.mutable.Map[WrappedExpression, Expression]]
+  type Defaults = Seq[collection.mutable.Map[WrappedExpression, Pair[Expression, Info]]]
 
+  val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
   // ========== Expand When Utilz ==========
-  private def getFemaleRefs(n: String, t: Type, g: Gender): Seq[Expression] = {
+  private def getFemaleRefs(n: String, t: Type, l: Label, g: Gender): Seq[Expression] = {
     def getGender(t: Type, i: Int, g: Gender): Gender = times(g, get_flip(t, i, Default))
     // TODO this function probably needs a label if labels matter after this 
     // pass.
-    val exps = create_exps(WRef(n, t, UnknownLabel, ExpKind, g))
+    val exps = create_exps(WRef(n, t, l, ExpKind, g))
     (exps.zipWithIndex foldLeft Seq[Expression]()){
       case (expsx, (exp, j)) => exp.tpe match {
         case AnalogType(w) => expsx
@@ -47,13 +48,13 @@ object ExpandWhens extends Pass {
   }
   private def expandNetlist(netlist: Netlist) =
     netlist map {
-      case (k, WInvalid) => IsInvalid(NoInfo, k.e1)
-      case (k, v) => Connect(NoInfo, k.e1, v)
+      case (k, (WInvalid, _)) => IsInvalid(NoInfo, k.e1)
+      case (k, (v, info)) => Connect(info, k.e1, v)
     }
   // Searches nested scopes of defaults for lvalue
   // defaults uses mutable Map because we are searching LinkedHashMaps and conversion to immutable is VERY slow
   @tailrec
-  private def getDefault(lvalue: WrappedExpression, defaults: Defaults): Option[Expression] = {
+  private def getDefault(lvalue: WrappedExpression, defaults: Defaults): Option[Pair[Expression,Info]] = {
     defaults match {
       case Nil => None
       case head :: tail => head get lvalue match {
@@ -81,19 +82,20 @@ object ExpandWhens extends Pass {
                       p: Expression)
                       (s: Statement): Statement = s match {
         case w: DefWire =>
-          netlist ++= (getFemaleRefs(w.name, w.tpe, BIGENDER) map (ref => we(ref) -> WVoid))
+          netlist ++= (getFemaleRefs(w.name, w.tpe, w.lbl, BIGENDER) map (ref => we(ref) -> Pair(WVoid,w.info)))
           w
         case w: DefMemory =>
-          netlist ++= (getFemaleRefs(w.name, MemPortUtils.memType(w), MALE) map (ref => we(ref) -> WVoid))
+          //TODO is this label right?
+          netlist ++= (getFemaleRefs(w.name, MemPortUtils.memType(w), w.lbl, MALE) map (ref => we(ref) -> Pair(WVoid,w.info)))
           w
         case r: DefRegister =>
-          netlist ++= (getFemaleRefs(r.name, r.tpe, BIGENDER) map (ref => we(ref) -> ref))
+          netlist ++= (getFemaleRefs(r.name, r.tpe, r.lbl, BIGENDER) map (ref => we(ref) -> Pair(ref,r.info)))
           r
         case c: Connect =>
-          netlist(c.loc) = c.expr
+          netlist(c.loc) = Pair(c.expr,c.info)
           EmptyStmt
         case c: IsInvalid =>
-          netlist(c.expr) = WInvalid
+          netlist(c.expr) = Pair(WInvalid,c.info)
           EmptyStmt
         case c: Attach => c
         case sx: Conditionally =>
@@ -110,37 +112,36 @@ object ExpandWhens extends Pass {
               case Some(v) => Some(v)
               case None => getDefault(lvalue, defaults)
             }
-            val res = default match {
+            val (res,resInfo) = default match {
               case Some(defaultValue) =>
                 val trueValue = conseqNetlist getOrElse (lvalue, defaultValue)
                 val falseValue = altNetlist getOrElse (lvalue, defaultValue)
                 (trueValue, falseValue) match {
-                  case (WInvalid, WInvalid) => WInvalid
-                  case (WInvalid, fv) => ValidIf(NOT(sx.pred), fv, fv.tpe, fv.lbl)
-                  case (tv, WInvalid) => ValidIf(sx.pred, tv, tv.tpe, tv.lbl)
-                  case (tv, fv) => Mux(sx.pred, tv, fv, mux_type_and_widths(tv, fv),
-                    // TODO this is conservative if labels matter after this 
-                    // pass.
-                    JoinLabel(sx.pred.lbl, JoinLabel(tv.lbl, fv.lbl)))
+                  case ((WInvalid, _), (WInvalid, _)) => (WInvalid, NoInfo)
+                 // case ((WInvalid,_), (fv,info)) => (ValidIf(NOT(sx.pred), fv, fv.tpe, IteLabel(sx.pred, sx.pred.lbl, bot, fv.lbl)), info)
+                  //case ((tv,info), (WInvalid,_)) => (ValidIf(sx.pred, tv, tv.tpe, IteLabel(sx.pred, sx.pred.lbl, tv.lbl, bot)), info)
+                  //case ((tv,tinfo), (fv,finfo)) => (Mux(sx.pred, tv, fv, mux_type_and_widths(tv, fv), IteLabel(sx.pred, sx.pred.lbl, tv.lbl, fv.lbl)), sx.info)
+                  case ((WInvalid,_), (fv,info)) => (ValidIf(NOT(sx.pred), fv, fv.tpe, UnknownLabel), info)
+                  case ((tv,info), (WInvalid,_)) => (ValidIf(sx.pred, tv, tv.tpe, UnknownLabel), info)
+                  case ((tv,tinfo), (fv,finfo)) => (Mux(sx.pred, tv, fv, mux_type_and_widths(tv, fv), UnknownLabel), sx.info)
                 }
               case None =>
                 // Since not in netlist, lvalue must be declared in EXACTLY one of conseq or alt
-                conseqNetlist getOrElse (lvalue, altNetlist(lvalue))
+               conseqNetlist getOrElse (lvalue, altNetlist(lvalue))
             }
-
             res match {
               case _: ValidIf | _: Mux | _: DoPrim => nodes get res match {
                 case Some(name) =>
-                  netlist(lvalue) = WRef(name, res.tpe, res.lbl, NodeKind, MALE)
+                  netlist(lvalue) = (WRef(name, res.tpe, res.lbl, NodeKind, MALE), resInfo)
                   EmptyStmt
                 case None =>
                   val name = namespace.newTemp
                   nodes(res) = name
-                  netlist(lvalue) = WRef(name, res.tpe, res.lbl, NodeKind, MALE)
+                  netlist(lvalue) = (WRef(name, res.tpe, res.lbl, NodeKind, MALE), resInfo)
                   DefNode(sx.info, name, res, res.lbl)
               }
               case _ =>
-                netlist(lvalue) = res
+                netlist(lvalue) = (res, resInfo)
                 EmptyStmt
             }
           }
@@ -155,8 +156,8 @@ object ExpandWhens extends Pass {
       }
       val netlist = new Netlist
       // Add ports to netlist
-      netlist ++= (m.ports flatMap { case Port(_, name, dir, tpe, lbl) =>
-        getFemaleRefs(name, tpe, to_gender(dir)) map (ref => we(ref) -> WVoid)
+      netlist ++= (m.ports flatMap { case Port(info, name, dir, tpe, lbl) =>
+        getFemaleRefs(name, tpe, lbl, to_gender(dir)) map (ref => we(ref) -> Pair(WVoid,info))
       })
       (netlist, simlist, expandWhens(netlist, Seq(netlist), one)(m.body))
     }

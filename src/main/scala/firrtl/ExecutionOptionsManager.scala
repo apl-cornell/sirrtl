@@ -6,7 +6,8 @@ import firrtl.annotations._
 import firrtl.Parser._
 import firrtl.passes.memlib.{InferReadWriteAnnotation, ReplSeqMemAnnotation}
 import firrtl.passes.clocklist.ClockListAnnotation
-import logger.LogLevel
+import firrtl.passes.labelchecking.LabelCheckAnnotation
+import _root_.logger.LogLevel
 import scopt.OptionParser
 
 import scala.collection.Seq
@@ -139,6 +140,7 @@ case class FirrtlExecutionOptions(
     outputFileNameOverride: String = "",
     constraintFileNameOverride: String = "",
     doLabelChecking:        Boolean = false,
+    assumeBotLabel:         Boolean = false,
     compilerName:           String = "verilog",
     infoModeName:           String = "append",
     inferRW:                Seq[String] = Seq.empty,
@@ -247,8 +249,8 @@ trait HasFirrtlOptions {
     .abbr("z")
     .valueName ("<constraint>").
     foreach { x =>
-      firrtlOptions = firrtlOptions.copy(constraintFileNameOverride = x)
-      firrtlOptions = firrtlOptions.copy(doLabelChecking = true)
+      firrtlOptions = firrtlOptions.copy(
+        annotations = firrtlOptions.annotations :+ LabelCheckAnnotation(CircuitName("top"),x))
     }.text {
     "use this to override the default constraint file name, by default no constraint is generated"
   }
@@ -330,6 +332,15 @@ trait HasFirrtlOptions {
     }.text {
       "Enable readwrite port inference for the target circuit"
     }
+
+  parser.opt[String]("use-default-labels")
+    .abbr("udl")
+    .foreach { _ =>
+      //TODO turn into an annotation to pass to LabelExprs
+      firrtlOptions = firrtlOptions.copy(assumeBotLabel = true)
+    }.text {
+    "Use this option to force the compiler to assume missing required labels to be BOT, instead of immediately throwing an error."
+  }
 
   parser.opt[String]("repl-seq-mem")
     .abbr("frsq")

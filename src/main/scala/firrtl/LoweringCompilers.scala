@@ -2,12 +2,25 @@
 
 package firrtl
 
-// If labelchecking is not enabled, remove labels at the end of every transform
 object deLabel {
-  def apply(): Seq[passes.Pass] =
-    if(!Driver.doLabelChecking) Seq(passes.DeLabel,passes.RipDowngrades,passes.RipNexts) else Seq()
+  def apply(): Seq[passes.Pass] = Seq(passes.DeLabel, passes.RipNexts, passes.RipDowngrades, passes.RipNexts, passes.RipPCLabels)
 }
 
+object highToLblPasses {
+  def apply(): Seq[passes.Pass] = Seq(
+    passes.PullMuxes,
+    passes.ReplaceAccesses,
+    passes.ExpandConnects,
+    passes.RemoveAccesses,
+    passes.ExpandWhens,
+    passes.CheckInitialization,
+    passes.ResolveKinds,
+    passes.InferTypes,
+    passes.CheckTypes,
+    passes.ResolveGenders,
+    passes.InferWidths,
+    passes.CheckWidths)
+}
 sealed abstract class CoreTransform extends PassBasedTransform
 
 /** This transforms "CHIRRTL", the chisel3 IR, to "Firrtl". Note the resulting
@@ -21,8 +34,7 @@ class ChirrtlToAlmostHigh extends CoreTransform {
   def passSeq = Seq(
     passes.CheckChirrtl,
     passes.CInferTypes,
-    passes.CInferMDir) ++
-    deLabel()
+    passes.CInferMDir)
 }
 
 class Resolve extends CoreTransform {
@@ -33,8 +45,7 @@ class Resolve extends CoreTransform {
     passes.InferTypes,
     passes.ResolveGenders,
     passes.InferWidths,
-    passes.CheckWidths) ++ 
-    deLabel()
+    passes.CheckWidths)
 }
 
 
@@ -53,8 +64,7 @@ class RemoveResolveAndCheck extends CoreTransform {
     passes.ResolveGenders,
     passes.CheckGenders,
     passes.InferWidths,
-    passes.CheckWidths) ++ 
-    deLabel()
+    passes.CheckWidths)
 }
  
 class ChirrtlToHighFirrtl extends CoreTransform {
@@ -64,8 +74,7 @@ class ChirrtlToHighFirrtl extends CoreTransform {
     passes.CheckChirrtl,
     passes.CInferTypes,
     passes.CInferMDir,
-    passes.RemoveCHIRRTL) ++
-    deLabel()
+    passes.RemoveCHIRRTL)
 }
 
 /** Converts from the bare intermediate representation (ir.scala)
@@ -74,7 +83,7 @@ class ChirrtlToHighFirrtl extends CoreTransform {
 class IRToWorkingIR extends CoreTransform {
   def inputForm = HighForm
   def outputForm = HighForm
-  def passSeq = Seq(passes.ToWorkingIR) ++ deLabel()
+  def passSeq = Seq(passes.ToWorkingIR)
 }
 
 /** Resolves types, kinds, and genders, and checks the circuit legality.
@@ -94,8 +103,7 @@ class ResolveAndCheck extends CoreTransform {
     passes.ResolveGenders,
     passes.CheckGenders,
     passes.InferWidths,
-    passes.CheckWidths) ++ 
-    deLabel()
+    passes.CheckWidths)
 }
 
 // For defaulting to doing nothing when label checking is not desired in the 
@@ -108,38 +116,16 @@ class EmptyTransform extends CoreTransform{
   def passSeq = Seq()
 }
 
-class LabelChecking extends CoreTransform {
-  def inputForm = HighForm
-  def outputForm = HighForm
-  def passSeq =  Seq(
-    passes.PropNodes,
-    // passes.LabelMPorts,
-    passes.LabelExprs,
-    passes.DepsToWorkingIR, 
-    passes.DepsResolveKinds, 
-    passes.DepsInferTypes,
-    passes.DeterminePC,
-    passes.NextCycleTransform,
-    passes.SeqPortGenNext,
-    passes.EliminateUnusedConnections,
-    passes.SimplifyLabels,
-    passes.ForwardProp,
-    passes.SimplifyLabels,
-    passes.InferLabels,
-    passes.ApplyVecLabels,
-    passes.PullNexts,
-    passes.LabelCheck
-  )
+class LabelTeardown extends CoreTransform {
+  def inputForm = LabeledForm
+  def outputForm = MidForm
+  def passSeq = deLabel()
 }
 
-class LabelTeardown extends CoreTransform {
+class HighFirrtlToLabeledFirrtl extends CoreTransform {
   def inputForm = HighForm
-  def outputForm = HighForm
-  def passSeq = Seq(
-    passes.RipDowngrades,
-    passes.RipPCLabels,
-    passes.DeLabel
-  )
+  def outputForm = LabeledForm
+  def passSeq = highToLblPasses()
 }
 
 /** Expands aggregate connects, removes dynamic accesses, and when
@@ -150,21 +136,9 @@ class LabelTeardown extends CoreTransform {
 class HighFirrtlToMiddleFirrtl extends CoreTransform {
   def inputForm = HighForm
   def outputForm = MidForm
-  def passSeq = Seq(
-    passes.PullMuxes,
-    passes.ReplaceAccesses,
-    passes.ExpandConnects,
-    passes.RemoveAccesses,
-    passes.ExpandWhens,
-    passes.CheckInitialization,
-    passes.ResolveKinds,
-    passes.InferTypes,
-    passes.CheckTypes,
-    passes.ResolveGenders,
-    passes.InferWidths,
-    passes.CheckWidths,
-    passes.DeLabel) 
+  def passSeq = highToLblPasses() ++ deLabel()
 }
+
 
 /** Expands all aggregate types into many ground-typed components. Must
   * accept a well-formed graph of only middle Firrtl features.
@@ -181,8 +155,7 @@ class MiddleFirrtlToLowFirrtl extends CoreTransform {
     passes.ResolveGenders,
     passes.InferWidths,
     passes.ConvertFixedToSInt,
-    passes.Legalize,
-    passes.DeLabel)
+    passes.Legalize)
 }
 
 /** Runs a series of optimization passes on LowFirrtl
@@ -202,8 +175,7 @@ class LowFirrtlOptimization extends CoreTransform {
     passes.ConstProp,
     passes.SplitExpressions,
     passes.CommonSubexpressionElimination,
-    passes.DeadCodeElimination,
-    passes.DeLabel)
+    passes.DeadCodeElimination)
 }
 
 
@@ -218,14 +190,13 @@ class HighFirrtlCompiler extends Compiler {
   def transforms: Seq[Transform] = getLoweringTransforms(ChirrtlForm, HighForm)
 }
 
-/** Emits labeled HighFirrtl after label inference, label related 
+/** Emits labeled MidFirrtl after label inference, label related
  *  transformations, and determining the PC value.
  */
 class LabeledFirrtlCompiler extends Compiler {
   def emitter = new FirrtlEmitter
   def transforms: Seq[Transform] =
-    getLoweringTransforms(ChirrtlForm, HighForm) ++
-      Seq(new IRToWorkingIR, new Resolve, new LabelChecking)
+    getLoweringTransforms(ChirrtlForm, LabeledForm)
 }
 
 /** Emits middle Firrtl input circuit */
@@ -245,11 +216,6 @@ class VerilogCompiler extends Compiler {
   def emitter = new VerilogEmitter
   def transforms: Seq[Transform] =
     getLoweringTransforms(ChirrtlForm, LowForm) ++
-    Seq(new LowFirrtlOptimization, new BlackBoxSourceHelper) ++
-    Seq(new CoreTransform{ 
-      def inputForm = LowForm
-      def outputForm = LowForm
-      def passSeq = Seq(passes.DeLabel)
-    })
+    Seq(new LowFirrtlOptimization, new BlackBoxSourceHelper)
 
 }

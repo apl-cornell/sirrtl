@@ -154,6 +154,7 @@ object InferLabels extends Pass with PassDebug {
   def canon_labels_l(s: lset)(l: Label): Label =  l match {
     case lx: MeetLabel => throw new Exception
     case lx: BundleLabel  => throw new Exception
+    case lx: IteLabel => lx map canon_labels_l(s)
     case lx: JoinLabel => lx map canon_labels_l(s)
     case lx: ProdLabel => s += lx; lx
     case lx: VarLabel => s += lx; lx

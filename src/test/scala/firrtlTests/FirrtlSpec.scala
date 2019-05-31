@@ -5,19 +5,22 @@ package firrtlTests
 import java.io._
 
 import com.typesafe.scalalogging.LazyLogging
+
 import scala.sys.process._
 import org.scalatest._
 import org.scalatest.prop._
-import scala.io.Source
 
+import scala.io.Source
 import firrtl._
 import firrtl.Parser.IgnoreInfo
-import firrtl.annotations
+import firrtl.annotations.CircuitName
+import firrtl.passes.labelchecking.LabelCheckAnnotation
 import firrtl.util.BackendCompilationUtilities
 
 trait FirrtlRunners extends BackendCompilationUtilities {
   def parse(str: String) = Parser.parse(str.split("\n").toIterator, IgnoreInfo)
   lazy val cppHarness = new File(s"/top.cpp")
+
   /** Compiles input Firrtl to Verilog */
   def compileToVerilog(input: String, annotations: AnnotationMap = AnnotationMap(Seq.empty)): String = {
     val circuit = Parser.parse(input.split("\n").toIterator)
@@ -26,29 +29,49 @@ trait FirrtlRunners extends BackendCompilationUtilities {
     compiler.compile(CircuitState(circuit, HighForm, Some(annotations)), writer)
     writer.toString
   }
+
   /** Compile a Firrtl file
     *
     * @param prefix is the name of the Firrtl file without path or file extension
     * @param srcDir directory where all Resources for this test are located
     * @param annotations Optional Firrtl annotations
     */
-  def compileFirrtlTest(
-      prefix: String,
-      srcDir: String,
-      customTransforms: Seq[Transform] = Seq.empty,
-      annotations: AnnotationMap = new AnnotationMap(Seq.empty)): File = {
+  def compileFirrtlTest(prefix: String, srcDir: String,
+                        customTransforms: Seq[Transform] = Seq.empty,
+                        annotations: AnnotationMap = new AnnotationMap(Seq.empty),
+                        generateZ3: Boolean): File = {
     val testDir = createTestDirectory(prefix)
     copyResourceToFile(s"${srcDir}/${prefix}.fir", new File(testDir, s"${prefix}.fir"))
-
+    var allAnnotations = annotations
+    if (generateZ3) {
+      allAnnotations = AnnotationMap(annotations.getAll ++ Seq(LabelCheckAnnotation(CircuitName("top"), s"$testDir/$prefix.z3")))
+    }
     Driver.compile(
       s"$testDir/$prefix.fir",
       s"$testDir/$prefix.v",
       new VerilogCompiler(),
       Parser.IgnoreInfo,
       customTransforms,
-      annotations)
+      allAnnotations)
     testDir
   }
+
+
+  def labelCheckTest(prefix: String, srcDir: String,
+                     customTransforms: Seq[Transform] = Seq.empty,
+                     annotations: AnnotationMap = new AnnotationMap(Seq.empty),
+                     failureExpected: Boolean): File = {
+    val testDir = compileFirrtlTest(prefix, srcDir, customTransforms, annotations, true)
+    val checkCommand = checkZ3Output(s"$testDir/$prefix.z3", testDir)
+    val exitCode = checkCommand.!
+    if (failureExpected) {
+      assert(exitCode > 0, "Expected Some Failures In Label Checking")
+    } else {
+      assert(exitCode == 0, "Expected No Failures In Label Checking")
+    }
+    testDir
+  }
+
   /** Execute a Firrtl Test
     *
     * @param prefix is the name of the Firrtl file without path or file extension
@@ -62,7 +85,7 @@ trait FirrtlRunners extends BackendCompilationUtilities {
       verilogPrefixes: Seq[String] = Seq.empty,
       customTransforms: Seq[Transform] = Seq.empty,
       annotations: AnnotationMap = new AnnotationMap(Seq.empty)) = {
-    val testDir = compileFirrtlTest(prefix, srcDir, customTransforms, annotations)
+    val testDir = compileFirrtlTest(prefix, srcDir, customTransforms, annotations, false)
     val harness = new File(testDir, s"top.cpp")
     copyResourceToFile(cppHarness.toString, harness)
 
@@ -102,7 +125,14 @@ abstract class ExecutionTest(name: String, dir: String, vFiles: Seq[String] = Se
 /** Super class for compilation driven Firrtl tests */
 abstract class CompilationTest(name: String, dir: String) extends FirrtlPropSpec {
   property(s"$name should compile correctly") {
-    compileFirrtlTest(name, dir)
+    compileFirrtlTest(name, dir, generateZ3 = false)
+  }
+}
+
+abstract class LabelCheckTest(name: String, dir: String, expectFailure: Boolean) extends FirrtlPropSpec {
+  def msg = if (expectFailure) { "fail" } else { "pass" }
+  property(s"$name should compile and $msg label checking") {
+    labelCheckTest(name, dir, failureExpected = expectFailure)
   }
 }
 

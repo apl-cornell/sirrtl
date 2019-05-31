@@ -6,8 +6,10 @@ import firrtl.Utils._
 import firrtl.Mappers._
 import firrtl.Driver._
 import collection.mutable.Set
+import java.io.Writer
 
-object LabelCheck extends Pass with PassDebug {
+
+class LabelCheck(constraintWriter: Writer) extends Pass with PassDebug {
   def name = "Label Check"
   override def debugThisPass = false
 
@@ -18,8 +20,7 @@ object LabelCheck extends Pass with PassDebug {
     dprint(c.serialize)
 
     val consGenerator = BVConstraintGen
-    val constraintFile   = new java.io.PrintWriter(Driver.constraintFileName)
-    def emit(s:String) = constraintFile.write(s)
+    def emit(s:String) = if (constraintWriter != null) { constraintWriter.write(s) }
    
     // For debugging only
     def emitConEnv(conEnv: ConnectionEnv) = conEnv.foreach {
@@ -67,47 +68,6 @@ object LabelCheck extends Pass with PassDebug {
       conSet
     }
 
-    def collect_deps_e(conEnv: ConnectionEnv, conSet: ConSet)(e: Expression) : Expression = {
-      val ex: Expression = e map collect_deps_e(conEnv, conSet) 
-      val c = consGenerator.exprToCons(ex)
-      if(conEnv.contains(c)) conSet += ((c, conEnv(c)))
-      ex
-    }
-
-    def collect_deps_l(conEnv: ConnectionEnv, conSet: ConSet)(l: Label) : Label = 
-      l map collect_deps_lc(conEnv, conSet) map collect_deps_l(conEnv, conSet)
-
-    def collect_deps_lc(conEnv: ConnectionEnv, conSet: ConSet)(l: LabelComp) : LabelComp = 
-      l map collect_deps_lc(conEnv, conSet) map collect_deps_e(conEnv, conSet)
-
-    // Compute set of exprs on which this label depends, then take transitive 
-    // closure over nodes that reach them.
-    def collect_deps(conEnv: ConnectionEnv)(l: Label) : ConSet = {
-      val s = new ConSet
-      collect_deps_l(conEnv, s)(l)
-      include_reachable(conEnv, s)
-    }
-
-    def emit_deps(conSet: ConSet) : Unit = conSet.foreach {
-      case(loc, (cons, info)) => 
-        emit(s";${info.serialize}\n")
-        emit(s"(assert (= ${loc.serialize} ${cons.serialize}))\n")
-    }
-    
-    //-----------------------------------------------------------------------------
-    // Collect constraints that define values in the whenEnv constraint
-    //-----------------------------------------------------------------------------
-    def collect_deps_c(conEnv: ConnectionEnv)(c: Constraint): ConSet = {
-      def collect_deps_c_(conEnv: ConnectionEnv, conSet: ConSet)(c: Constraint) : Constraint = {
-        val cx: Constraint = c mapCons collect_deps_c_(conEnv, conSet)
-        if(conEnv.contains(cx)) conSet += ((c, conEnv(c)))
-        cx
-      }
-      val s = new ConSet
-      collect_deps_c_(conEnv, s)(c)
-      include_reachable(conEnv, s)
-    }
-
     //------------------------------------------------------------------------- 
     // Check labels in statements
     //-------------------------------------------------------------------------
@@ -127,61 +87,42 @@ object LabelCheck extends Pass with PassDebug {
       ret
     }
 
-    def label_check(conEnv: ConnectionEnv, whenEnv: WhenEnv)(s: Statement): Statement = {
+    def label_check(conEnv: ConnectionEnv)(s: Statement): Statement = {
       def ser(l:LabelComp) = consGenerator.serialize(l)
-      s map label_check(conEnv, whenEnv) match {
+      s map label_check(conEnv) match {
         case sx: ConnectPC => if(!is_mask_connection(sx.loc)) {
             val lhs: Label = sx.loc.lbl
             val rhs: Label = sx.expr.lbl
-            val whenC: Constraint = whenEnv(sx)
-            val deps = new ConSet
-            // val deps = collect_deps(conEnv)(lhs) ++
-            //   collect_deps(conEnv)(rhs) ++
-            //   collect_deps_c(conEnv)(whenC)
-            check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
-            sx map check_declass_e(deps, whenC, sx.pc, sx.info)
+            check_connection(lhs, rhs, Seq(), sx.info)
+            sx map check_declass_e(sx.pc, sx.info)
           } else {
             sx
           }
         case sx: PartialConnectPC => if(!is_mask_connection(sx.loc)) {
             val lhs: Label = sx.loc.lbl
             val rhs: Label = sx.expr.lbl
-            val whenC: Constraint = whenEnv(sx)
-            val deps = new ConSet
-            // val deps = collect_deps(conEnv)(lhs) ++
-            //   collect_deps(conEnv)(rhs) ++
-            //   collect_deps_c(conEnv)(whenC)
-            check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
-            sx map check_declass_e(deps, whenC, sx.pc, sx.info)
+            check_connection(lhs, rhs, Seq(), sx.info)
+            sx map check_declass_e(sx.pc, sx.info)
           } else {
             sx
           }
+        //TODO remove, since nodes don't need to be checked.
+        // Only the final assignment needs checking
         case sx: DefNodePC =>
           val lhs: Label = sx.lbl
           val rhs: Label = sx.value.lbl
-          val whenC = whenEnv(sx)
-          val deps = new ConSet
-          // val deps = collect_deps(conEnv)(lhs) ++
-          //   collect_deps(conEnv)(rhs) ++
-          //   collect_deps_c(conEnv)(whenC)
-          check_connection(deps, whenC, lhs, rhs, sx.pc, sx.info)
-          sx map check_declass_e(deps, whenC, sx.pc, sx.info)
-        case sx: ConditionallyPC =>
-          val whenC = whenEnv(sx)
-          val deps = new ConSet
-          // val deps = collect_deps_c(conEnv)(whenC)
-          sx map check_declass_e(deps, whenC, sx.pc, sx.info)
+         // check_connection(lhs, rhs, sx.pc, sx.info)
+          sx map check_declass_e(sx.pc, sx.info)
         case sx => sx
       }
     }
 
-    def check_declass_e(deps: ConSet, whenC: Constraint, pc: Label, info: Info)(e: Expression): Expression = {
+    def check_declass_e(pc: Label, info: Info)(e: Expression): Expression = {
       def ser(l:LabelComp) = consGenerator.serialize(l)
-      e map check_declass_e(deps, whenC, pc, info) match {
+      e map check_declass_e(pc, info) match {
         case Declassify(expr, lbl) =>
           emit("(push)\n")
           emit(s"""(echo \"Checking Declassification: ${info}\")\n""" )
-          emit(s"(assert ${whenC.serialize})\n")
           // Prove that the integrity label is not changing.
           emit("(push)\n")
           // Need to introduce a new scope. Otherwise this often lets you prove 
@@ -196,7 +137,6 @@ object LabelCheck extends Pass with PassDebug {
         case Endorse(expr, lbl) =>
           emit("(push)\n")
           emit(s"""(echo \"Checking Endorsement: ${info}\")\n""" )
-          emit(s"(assert ${whenC.serialize})\n")
           // Prove that the integrity label is not changing.
           emit("(push)\n")
           // Need to introduce a new scope. Otherwise this often lets you prove 
@@ -212,7 +152,7 @@ object LabelCheck extends Pass with PassDebug {
       }
     }
 
-    def check_connection(deps: ConSet, whenC: Constraint, lhs: Label, rhs: Label, pc: Label, info: Info): Unit = {
+    def check_connection(lhs: Label, rhs: Label, whens: Seq[Constraint], info: Info): Unit = {
       (lhs, rhs) match {
         case((lhsb: BundleLabel, rhsb: BundleLabel)) => 
           lhsb.fields.foreach { f =>
@@ -221,51 +161,76 @@ object LabelCheck extends Pass with PassDebug {
             val inf = s" (field: ${f.name})"
             rhsx match {
               case UnknownLabel =>
-              case _ => check_connection(deps, whenC, lhsx, rhsx, pc, info)
+              case _ => check_connection(lhsx, rhsx, whens, info)
             }
           }
         case((lhsb: BundleLabel, rhsx: ProdLabel)) => 
           lhsb.fields.foreach { f =>
             val lhsx = f.lbl
             val inf = s" (field: ${f.name})"
-            check_connection(deps, whenC, lhsx, rhs, pc, info)
+            check_connection(lhsx, rhs, whens, info)
           }
         case((lhsx: ProdLabel, rhsb: BundleLabel)) => 
           rhsb.fields.foreach { f =>
             val rhsx = f.lbl
             val inf = s" (field: ${f.name})"
-            check_connection(deps, whenC, lhs, rhsx, pc, info)
+            check_connection(lhs, rhsx, whens, info)
           }
         case (_: ProdLabel, _: ProdLabel) =>
-          emit_conn_check(deps, whenC, pc, lhs, rhs, info)
+          emit_conn_check(lhs, rhs, whens, info)
+        case  (lhs: IteLabel, rhs: IteLabel) =>
+          if (lhs != rhs) { //skip generating obviously true constraints
+            check_connection(lhs, rhs.trueL join rhs.condL, whens ++ Seq(consGenerator.exprToConsBool(rhs.cond)), info)
+            check_connection(lhs, rhs.falseL join rhs.condL, whens ++ Seq(CNot(consGenerator.exprToConsBool(rhs.cond))), info)
+          }
+        case (lhs: Label, rhs: IteLabel) =>
+          check_connection(lhs, rhs.trueL join rhs.condL, whens ++ Seq(consGenerator.exprToConsBool(rhs.cond)), info)
+          check_connection(lhs, rhs.falseL join rhs.condL, whens ++ Seq(CNot(consGenerator.exprToConsBool(rhs.cond))), info)
+        case (lhs: IteLabel, rhs: Label) =>
+          check_connection(lhs.trueL join lhs.condL, rhs, whens ++ Seq(consGenerator.exprToConsBool(lhs.cond)), info)
+          check_connection(lhs.falseL join lhs.condL, rhs, whens ++ Seq(CNot(consGenerator.exprToConsBool(lhs.cond))), info)
+        case (lhs: JoinLabel, rhs: Label) =>
+          check_connection(lhs.l, rhs, whens, info)
+          check_connection(lhs.r, rhs, whens, info)
+        case (lhs: Label, rhs:JoinLabel) => //resolving these joins earlier causes
+          rhs match {
+            case JoinLabel(l:IteLabel, r:IteLabel) =>
+              val innerLeft = IteLabel(r.cond, r.condL, r.trueL join l.trueL, r.falseL join l.trueL)
+              val innerRight = IteLabel(r.cond, r.condL, r.trueL join l.falseL, r.falseL join l.falseL)
+              check_connection(lhs, IteLabel(l.cond, l.condL, innerLeft, innerRight), whens, info)
+            case _ =>
+              throw new Exception
+          }
+        case (lhs: Label,rhs: Label) =>
+          throw new Exception
       }
     }
 
-    def emit_conn_check(deps: ConSet, whenC: Constraint, pc: Label, lhs: Label, rhs: Label,
-      info: Info, extraInfo: String = ""): Unit = {
+    def emit_conn_check(lhs: Label, rhs: Label,
+                        whens: Seq[Constraint], info: Info, extraInfo: String = ""): Unit = {
       def ser(l:LabelComp) = consGenerator.serialize(l)
-      emit("(push)\n")
+      emit("(push)\n") //add whens to scope
+      whens.foreach(c => {
+        emit(s"(assert ${c.serialize})\n")
+      })
+      emit("(push)\n") //add conf check to scope
       emit(s"""(echo \"Checking Connection (Conf): ${info}${extraInfo}\")\n""" )
-      emit(s"(assert ${whenC.serialize})\n")
-      // emit_deps(deps)
       try {
-      emit(s"(assert (not (leqc ${ser(C(rhs) join C(pc))} ${ser(C(lhs))}) ) )\n")
+      emit(s"(assert (not (leqc ${ser(C(rhs))} ${ser(C(lhs))}) ) )\n")
       } catch {
         case (t: Exception) =>
           println(s"Exception at source line ${info}")
           throw t
       }
       emit("(check-sat)\n")
-      emit("(pop)\n")
+      emit("(pop)\n") //remove conf check from scope
 
-      emit("(push)\n")
+      emit("(push)\n") //add int check to scope
       emit(s"""(echo \"Checking Connection (Integ): ${info}${extraInfo}\")\n""" )
-      emit(s"(assert ${whenC.serialize})\n")
-      // emit_deps(deps)
-      // Note that "meet" is the same as the join over integ components
-      emit(s"(assert (not (leqi ${ser(I(rhs) meet I(pc))} ${ser(I(lhs))}) ) )\n")
+      emit(s"(assert (not (leqi ${ser(I(rhs))} ${ser(I(lhs))}) ) )\n")
       emit("(check-sat)\n")
-      emit("(pop)\n")
+      emit("(pop)\n") //remove int check from scope
+      emit("(pop)\n") //remove whens from scope
       emit("\n")
     }
 
@@ -285,17 +250,7 @@ object LabelCheck extends Pass with PassDebug {
       // Generate Z3-representation of connection graph
       //-----------------------------------------------------------------------
       val conEnv = new ConnectionEnv 
-      val whenEnv = new WhenEnv
-      consGenerator.gen_cons(conEnv, whenEnv)(m)
-
-      //-----------------------------------------------------------------------
-      // Run Label Passes
-      //-----------------------------------------------------------------------
-      val (mprime, conEnvPrime) : (DefModule, ConnectionEnv) = (new LabelPassBased{
-        def passSeq = Seq(
-          SeqPortCheck  // others?
-          )
-      }).runPasses(m, conEnv, consGenerator)
+      consGenerator.gen_cons(conEnv)(m)
 
       //-----------------------------------------------------------------------
       // Emit Declarations
@@ -319,13 +274,11 @@ object LabelCheck extends Pass with PassDebug {
       //-----------------------------------------------------------------------
       // Check Assignments
       //-----------------------------------------------------------------------
-      m map label_check(conEnvPrime, whenEnv)
+      m map label_check(conEnv)
       emit("\n")
 
       emit("(pop)")
     }
-
-    constraintFile.close()
 
     bannerprintb(s"after $name")
     dprint(c.serialize)
