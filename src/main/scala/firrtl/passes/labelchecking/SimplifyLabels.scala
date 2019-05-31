@@ -7,7 +7,7 @@ import scala.collection.mutable.Set
 
 object SimplifyLabels extends Pass with PassDebug {
   def name = "Simplify Labels"
-  override def debugThisPass = true
+  override def debugThisPass = false
 
   
   implicit class CrossProdInfix[X](xs: Set[X]) {
@@ -186,12 +186,12 @@ object SimplifyLabels extends Pass with PassDebug {
 
     l  match {
       case lbx: IteLabel =>
-        val condSet = new LinkedHashSet[Expression]
-        condSet += lbx.cond
-        val sets = (condSet tuple(clauses(lbx.condL), clauses(lbx.trueL),clauses(lbx.falseL))) map {
-          case (cond: Expression, condL: Label, trueL: Label, falseL: Label) => IteLabel(cond,condL, trueL, falseL)
+        lbx map cnf_lb match {
+          case lbl: IteLabel =>
+            IteLabel(lbl.cond, lbl.condL, lbl.trueL, lbl.falseL)
+          case lbl: Label =>
+            lbl
         }
-        sortClauses(sets).foldLeft(bot) { _ join _ } map cnf_lb
       case lbx: MeetLabel=>
         sortClauses( (clauses(lbx.l) cross clauses(lbx.r)) map {
           case (lhs:Label, rhs:Label) => lhs meet rhs

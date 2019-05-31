@@ -189,6 +189,18 @@ class LabelCheck(constraintWriter: Writer) extends Pass with PassDebug {
         case (lhs: IteLabel, rhs: Label) =>
           check_connection(lhs.trueL join lhs.condL, rhs, whens ++ Seq(consGenerator.exprToConsBool(lhs.cond)), info)
           check_connection(lhs.falseL join lhs.condL, rhs, whens ++ Seq(CNot(consGenerator.exprToConsBool(lhs.cond))), info)
+        case (lhs: JoinLabel, rhs: Label) =>
+          check_connection(lhs.l, rhs, whens, info)
+          check_connection(lhs.r, rhs, whens, info)
+        case (lhs: Label, rhs:JoinLabel) => //resolving these joins earlier causes
+          rhs match {
+            case JoinLabel(l:IteLabel, r:IteLabel) =>
+              val innerLeft = IteLabel(r.cond, r.condL, r.trueL join l.trueL, r.falseL join l.trueL)
+              val innerRight = IteLabel(r.cond, r.condL, r.trueL join l.falseL, r.falseL join l.falseL)
+              check_connection(lhs, IteLabel(l.cond, l.condL, innerLeft, innerRight), whens, info)
+            case _ =>
+              throw new Exception
+          }
         case (lhs: Label,rhs: Label) =>
           throw new Exception
       }
