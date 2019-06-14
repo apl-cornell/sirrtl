@@ -94,7 +94,7 @@ class LabelCheck(constraintWriter: Writer) extends Pass with PassDebug {
             val lhs: Label = sx.loc.lbl
             val rhs: Label = sx.expr.lbl
             check_connection(lhs, rhs, Seq(), sx.info)
-            sx map check_declass_e(sx.pc, sx.info)
+            sx map check_declass_e(sx.info)
           } else {
             sx
           }
@@ -102,7 +102,7 @@ class LabelCheck(constraintWriter: Writer) extends Pass with PassDebug {
             val lhs: Label = sx.loc.lbl
             val rhs: Label = sx.expr.lbl
             check_connection(lhs, rhs, Seq(), sx.info)
-            sx map check_declass_e(sx.pc, sx.info)
+            sx map check_declass_e(sx.info)
           } else {
             sx
           }
@@ -111,45 +111,79 @@ class LabelCheck(constraintWriter: Writer) extends Pass with PassDebug {
         case sx: DefNodePC =>
           val lhs: Label = sx.lbl
           val rhs: Label = sx.value.lbl
-         // check_connection(lhs, rhs, sx.pc, sx.info)
-          sx map check_declass_e(sx.pc, sx.info)
+          sx map check_declass_e(sx.info)
         case sx => sx
       }
     }
 
-    def check_declass_e(pc: Label, info: Info)(e: Expression): Expression = {
-      def ser(l:LabelComp) = consGenerator.serialize(l)
-      e map check_declass_e(pc, info) match {
+    def check_declass_e(info: Info)(e: Expression): Expression = {
+      e map check_declass_e(info) match {
         case Declassify(expr, lbl) =>
-          emit("(push)\n")
-          emit(s"""(echo \"Checking Declassification: ${info}\")\n""" )
-          // Prove that the integrity label is not changing.
-          emit("(push)\n")
-          // Need to introduce a new scope. Otherwise this often lets you prove 
-          // false!
-          emit(s"(assert (not (= ${ser(I(expr.lbl))} ${ser(I(lbl))})))")
-          emit("(check-sat)\n")
-          emit("(pop)\n")
-          emit(s"(assert (not (leqc ${ser(C(expr.lbl))} ${ser(C(lbl) join I(expr.lbl) join I(pc))})))\n")
-          emit("(check-sat)\n")
-          emit("(pop)\n")
+         check_dwngrade(Seq(), e, expr.lbl, lbl, info)
           e
         case Endorse(expr, lbl) =>
-          emit("(push)\n")
-          emit(s"""(echo \"Checking Endorsement: ${info}\")\n""" )
-          // Prove that the integrity label is not changing.
-          emit("(push)\n")
-          // Need to introduce a new scope. Otherwise this often lets you prove 
-          // false!
-          emit(s"(assert (not (= ${ser(C(expr.lbl))} ${ser(C(lbl))})))")
-          emit("(check-sat)\n")
-          emit("(pop)\n")
-          emit(s"(assert (not (leqi ${ser(I(expr.lbl))} ${ser(I(lbl) meet C(expr.lbl) meet C(pc))})))\n")
-          emit("(check-sat)\n")
-          emit("(pop)\n")
+          check_dwngrade(Seq(), e, expr.lbl, lbl, info)
           e
         case ex => ex
       }
+    }
+
+    //expr is just used to determine whether to "emit_declass" or "emit_endorse" at the end
+    //we do not use its label in this function anywhere
+    def check_dwngrade(whens: Seq[Constraint], expr: Expression, from: Label, to: Label, info: Info): Unit = {
+      (from, to) match {
+        case (_: ProdLabel, _: ProdLabel) =>
+          emit_dwngrade(expr, from, to, whens, info)
+        case (_: Label, rhs: IteLabel) =>
+          check_dwngrade(whens ++ Seq(consGenerator.exprToConsBool(rhs.cond)), expr, from, rhs.trueL join rhs.condL, info)
+          check_dwngrade(whens ++ Seq(CNot(consGenerator.exprToConsBool(rhs.cond))), expr, from, rhs.falseL join rhs.condL, info)
+        case (lhs: IteLabel, _: Label) =>
+          check_dwngrade(whens ++ Seq(consGenerator.exprToConsBool(lhs.cond)), expr, lhs.trueL join lhs.condL, to, info)
+          check_dwngrade(whens ++ Seq(CNot(consGenerator.exprToConsBool(lhs.cond))), expr, lhs.falseL join lhs.condL, to, info)
+        case (_: Label, _: Label) =>
+          throw new Exception
+      }
+    }
+
+    def emit_dwngrade(expr: Expression, from: Label, to: Label, whens: Seq[Constraint], info: Info): Unit = {
+      expr match {
+        case _: Declassify => emit_declass(from, to, whens, info)
+        case _: Endorse => emit_endorse(from, to, whens, info)
+      }
+    }
+
+    def emit_declass(from:Label, to: Label, whens: Seq[Constraint], info: Info): Unit = {
+      def ser(l:LabelComp) = consGenerator.serialize(l)
+      emit("(push)\n")
+        emit(s"""(echo \"Checking Declassification: ${info}\")\n""" )
+        whens.foreach(c => { //add when assertions to scope
+          emit(s"(assert ${c.serialize})\n")
+        })
+        // Prove that the integrity label is not changing.
+        emit("(push)\n")
+          emit(s"(assert (not (= ${ser(I(from))} ${ser(I(to))})))")
+          emit("(check-sat)\n")
+        emit("(pop)\n")
+        emit(s"(assert (not (leqc ${ser(C(from))} ${ser(C(to) join I(from))})))\n")
+        emit("(check-sat)\n")
+      emit("(pop)\n")
+    }
+
+    def emit_endorse(from:Label, to: Label, whens: Seq[Constraint], info: Info): Unit = {
+      def ser(l:LabelComp) = consGenerator.serialize(l)
+      emit("(push)\n")
+        emit(s"""(echo \"Checking Endorsement: ${info}\")\n""" )
+        whens.foreach(c => { //add when assertions to scope
+          emit(s"(assert ${c.serialize})\n")
+        })
+        // Prove that the confidentiality label is not changing.
+        emit("(push)\n")
+          emit(s"(assert (not (= ${ser(C(from))} ${ser(C(to))})))")
+          emit("(check-sat)\n")
+        emit("(pop)\n")
+        emit(s"(assert (not (leqi ${ser(I(from))} ${ser(I(to) meet C(from))})))\n")
+        emit("(check-sat)\n")
+      emit("(pop)\n")
     }
 
     def check_connection(lhs: Label, rhs: Label, whens: Seq[Constraint], info: Info): Unit = {
@@ -192,7 +226,7 @@ class LabelCheck(constraintWriter: Writer) extends Pass with PassDebug {
         case (lhs: JoinLabel, rhs: Label) =>
           check_connection(lhs.l, rhs, whens, info)
           check_connection(lhs.r, rhs, whens, info)
-        case (lhs: Label, rhs:JoinLabel) => //resolving these joins earlier causes
+        case (lhs: Label, rhs:JoinLabel) => //resolving these joins earlier causes problems
           rhs match {
             case JoinLabel(l:IteLabel, r:IteLabel) =>
               val innerLeft = IteLabel(r.cond, r.condL, r.trueL join l.trueL, r.falseL join l.trueL)

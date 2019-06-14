@@ -96,15 +96,13 @@ object InferLabels extends Pass with PassDebug {
  
   def gen_constr_s(conSet: ConstrSet)(s: Statement): Statement =
     s map gen_constr_s(conSet) match {
-      case sx: ConnectPC => 
+      case sx: ConnectPC if (sx.expr.lbl != sx.loc.lbl) =>
         constrain_flow(conSet)(sx.expr.lbl, sx.loc.lbl)
-        constrain_flow(conSet)(sx.pc, sx.loc.lbl)
         sx
-      case sx: PartialConnectPC =>
+      case sx: PartialConnectPC if (sx.expr.lbl != sx.loc.lbl)=>
         constrain_flow(conSet)(sx.expr.lbl, sx.loc.lbl)
-        constrain_flow(conSet)(sx.pc, sx.loc.lbl)
         sx
-      case sx: DefNodePC =>
+      case sx: DefNodePC if (sx.value.lbl != sx.lbl) =>
         constrain_flow(conSet)(sx.value.lbl, sx.lbl)
         sx
       case sx => sx

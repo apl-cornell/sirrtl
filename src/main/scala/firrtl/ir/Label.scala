@@ -36,7 +36,7 @@ object IteLabel {
       case (_, cl: ProdLabel,_,_) if (cl == top) => top
       case (_,_,_,_) if (trueL == falseL && trueL != UnknownLabel) => JoinLabel(condL, trueL)
       case (_,cl: IteLabel,tl:Label,fl:Label) =>
-        new IteLabel(cond,cl,tl,fl)
+        new IteLabel(cond,JoinLabel(cl.condL, cl.trueL, cl.falseL),tl,fl)
       case (_,cl: Label,tl:IteLabel,fl:Label) if (cond == tl.cond) =>
         IteLabel(cond,JoinLabel(cl,tl.condL),tl.trueL,JoinLabel(fl,tl.falseL))
       case (_,cl: Label,tl:Label,fl:IteLabel) if (cond == fl.cond)=>
@@ -51,7 +51,8 @@ sealed class IteLabel private(val cond: Expression, val condL: Label, val trueL:
   def mapLabelComp(f: LabelComp => LabelComp): Label = this
   def mapLabel(f: Label => Label): Label = IteLabel(cond, f(condL), f(trueL), f(falseL))
   override def equals(that: Any) = that match {
-    case IteLabel(condx, condLx, truex, falsex) => cond == condx && condL == condLx && trueL == truex && falseL == falsex
+    case IteLabel(condx, condLx, truex, falsex) =>
+      condL == condLx && trueL == truex && falseL == falsex && cond.serialize.equals(condx.serialize)
     case _ => false
   }
 }
@@ -95,6 +96,9 @@ case class VarLabel(id: String) extends Label {
 object JoinLabel {
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
   val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
+  def OrExpr(e1: Expression, e2: Expression) = {
+    DoPrim(PrimOps.Or, Seq(e1, e2),  Nil, UIntType(IntWidth(1)), JoinLabel(e1.lbl, e2.lbl))
+  }
   def apply(l: Label, r: Label): Label = (l, r) match {
     case (lx, rx) if lx == rx => lx
     case (b:ProdLabel, _) if b == bot => r
@@ -111,6 +115,9 @@ object JoinLabel {
         throw new Exception("Tried to join two bundles with non-matching fields")
     case (b: BundleLabel, r) => b mapLabel { _ join r }
     case (l, b: BundleLabel) => b mapLabel { _ join l }
+    case (l: IteLabel, r: IteLabel) if (l.condL == r.condL && l.trueL == r.trueL && l.falseL == r.falseL) => {
+      IteLabel(OrExpr(l.cond,r.cond), l.condL, l.trueL, l.falseL)
+    }
     case (l: IteLabel, r: IteLabel) => {
       new JoinLabel(l,r)
     }

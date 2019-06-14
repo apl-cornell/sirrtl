@@ -37,9 +37,8 @@ class LabelCheckTransform extends Transform with SimpleRun {
     passes.DepsInferTypes,
     passes.DeterminePC,
     passes.NextCycleTransform,
-   // passes.SimplifyLabels,
     passes.ForwardProp,
-   // passes.SimplifyLabels,
+    passes.SimplifyLabels,
     passes.InferLabels,
     passes.ApplyVecLabels,
     new LabelCheck(constraintWriter))
