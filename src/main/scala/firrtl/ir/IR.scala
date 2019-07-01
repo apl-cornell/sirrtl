@@ -249,7 +249,7 @@ case class DefMemory(
     // TODO: handle read-under-write
     readUnderWrite: Option[String] = None) extends Statement with IsDeclaration {
   def serialize: String =
-    s"mem $name :" + info.serialize +
+    s"mem $name : {" + lbl.serialize + "} " + info.serialize +
     indent(
       (Seq("\ndata-type => " + dataType.serialize,
           "depth => " + depth,

@@ -227,29 +227,24 @@ object LabelExprs extends Pass with PassDebug {
         // labels(sxx.name) = lb
         // sxx
       case sx: DefMemory =>
-        //TODO handle this correctly
-        val lb = bot
-        labels(sx.name) = lb
-        sx copy (lbl = lb)
-      case sx: CDefMemory =>
-        val lb = labelOrVar(to_bundle(sx.tpe, sx.lbl), sx.name)
+        val lb = labelOrVar(sx.lbl, sx.name)
         labels(sx.name) = lb
         sx copy (lbl = lb)
       case sx: CDefMPort =>
         val lb = labels(sx.mem)
         val isDeclared = checkDeclared(lb, sx.info, sx.mem)
         val lbxx =
-        if (isDeclared) {
-          // If the label of the memory contains vector labels apply
-          // the address expression of the memory port as the index to the vector.
-          val idx = sx.exps.head
-          val lbx = apply_index_vech(lb, idx)
-          // Replace references to the original memory in the labels with
-          // references to this port
-          rename_mem_in_lb(sx.mem, sx.name)(lbx)
-        } else {
-          bot
-        }
+          if (isDeclared) {
+            // If the label of the memory contains vector labels apply
+            // the address expression of the memory port as the index to the vector.
+            val idx = sx.exps.head
+            val lbx = apply_index_vech(lb, idx)
+            // Replace references to the original memory in the labels with
+            // references to this port
+            rename_mem_in_lb(sx.mem, sx.name)(lbx)
+          } else {
+            bot
+          }
         labels(sx.name) = lbxx
         sx copy (lbl = lbxx)
       case sx => sx map label_exprs_e(labels)

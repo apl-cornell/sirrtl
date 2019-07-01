@@ -33,7 +33,8 @@ abstract class ConstraintGenerator {
   def emitTypeDecl(typeDecs: TypeDeclSet)(t: AggregateType): String
 
 
-  def nextIdent(s: String) = "$" + s
+  def nextIdent(s: String) =
+    "$" + s
   def next_exp(e: Expression) = RipNexts.next_exp(e)
   val bot = ProdLabel(PolicyHolder.bottom, PolicyHolder.top)
   val top = ProdLabel(PolicyHolder.top, PolicyHolder.bottom)
@@ -83,11 +84,9 @@ abstract class ConstraintGenerator {
        case _ => throw new Exception(s"bad types connected: ${lhs.tpe.serialize}, ${rhs.tpe.serialize}")
     }
 
-  type MemMap = scala.collection.mutable.HashMap[String, CDefMemory]
-
   // The purpose of this function is to mutate conEnv and labelEnv (by populating
   // them) Note: this is the identity function on the statement argument. 
-  def gen_cons_s(conEnv: ConnectionEnv, memMap: MemMap)(s: Statement): Statement = s match {
+  def gen_cons_s(conEnv: ConnectionEnv)(s: Statement): Statement = s match {
       case sx: DefNodePC =>
         val nref = WRef(sx.name, sx.value.tpe, sx.lbl, NodeKind, FEMALE)
         sx.value match {
@@ -106,28 +105,13 @@ abstract class ConstraintGenerator {
       case sx: PartialConnectPC =>
         connect_outer(sx.loc, sx.expr, conEnv, sx.info)
         sx
-      case sx: CDefMPort =>
-        // TODO differentiate between read/write ports??
-        val pcons = CAtom(sx.name)
-        val w = log2Up(memMap(sx.mem).size)
-        val mcons = CASelect(sx.mem, exprToCons(sx.exps.head, w))
-        conEnv(pcons) = ((mcons, sx.info))
-        sx
-      case sx => 
-        sx map gen_cons_s(conEnv, memMap)
+      case sx =>
+        sx map gen_cons_s(conEnv)
         sx
   }
 
-  def gen_mem_map_s(memMap: MemMap)(s: Statement): Statement =
-    s map gen_mem_map_s(memMap) match {
-      case sx : CDefMemory => memMap(sx.name) = sx; sx
-      case sx => sx
-    }
-
   def gen_cons(conEnv: ConnectionEnv)(m: DefModule) = {
-    val memMap = new MemMap
-    m map gen_mem_map_s(memMap)
-    m map gen_cons_s(conEnv, memMap)
+    m map gen_cons_s(conEnv)
   }
 
   //--------------------------------------------------------------------------- 
@@ -185,17 +169,10 @@ abstract class ConstraintGenerator {
     case sx: DefNodePC =>
       collect_type_decls(typeDecs)(sx.name, sx.value.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.value.tpe); sx
-    case sx: CDefMemory =>
-      val declType = VectorType(sx.tpe, sx.size)
-      collect_type_decls(typeDecs)(sx.name, declType)
-      declSet += emitDecl(typeDecs, sx.name, declType)
+    case sx: DefMemory =>
+      collect_type_decls(typeDecs)(sx.name, MemPortUtils.memType(sx))
+      declSet += emitDecl(typeDecs, sx.name, MemPortUtils.memType(sx))
       sx
-    case sx: CDefMPort =>
-      collect_type_decls(typeDecs)(sx.name, sx.tpe)
-      declSet += emitDecl(typeDecs, sx.name, sx.tpe)
-      sx
-      //TODO throw new Exception
-    case sx: DefMemory => sx
     case sx: WDefInstance =>
       collect_type_decls(typeDecs)(sx.name, sx.tpe)
       declSet += emitDecl(typeDecs, sx.name, sx.tpe); sx
@@ -206,12 +183,19 @@ abstract class ConstraintGenerator {
     case sx: DefRegister =>
       collect_type_decls(typeDecs)(nextIdent(sx.name), sx.tpe)
       declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.tpe); sx
+    case sx: DefWire =>
+      collect_type_decls(typeDecs)(nextIdent(sx.name), sx.tpe)
+      declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.tpe); sx
     case sx: WDefInstance =>
       collect_type_decls(typeDecs)(nextIdent(sx.name), sx.tpe)
       declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.tpe); sx
     case sx: DefNodePC =>
       collect_type_decls(typeDecs)(nextIdent(sx.name), sx.value.tpe)
       declSet += emitDecl(typeDecs, nextIdent(sx.name), sx.value.tpe); sx
+    case sx: DefMemory =>
+      collect_type_decls(typeDecs)(nextIdent(sx.name), MemPortUtils.memType(sx))
+      declSet += emitDecl(typeDecs, nextIdent(sx.name), MemPortUtils.memType(sx))
+      sx
     case sx => sx map next_decls_s(declSet, typeDecs)
   }
 
@@ -479,7 +463,8 @@ object BVConstraintGen extends ConstraintGenerator {
       // Don't autoExpand
       CBinOp("concat", exprToCons(e.args(0)), exprToCons(e.args(1)))
     case "xor" => mkBin("bvxor", e)
-    case "bits" => CBVExtract(e.consts(0),e.consts(1),exprToCons(e.args(0)))
+    case "bits" =>
+      CBVExtract(e.consts(0),e.consts(1),exprToCons(e.args(0)))
 
     // TODO Multi-arg ops
     case "cvt"  => unimpl(e.op.serialize, bitWidth(e.tpe))

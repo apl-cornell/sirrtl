@@ -161,7 +161,7 @@ class LabelCheck(constraintWriter: Writer) extends Pass with PassDebug {
         })
         // Prove that the integrity label is not changing.
         emit("(push)\n")
-          emit(s"(assert (not (= ${ser(I(from))} ${ser(I(to))})))")
+          emit(s"(assert (not (= ${ser(I(from))} ${ser(I(to))})))\n")
           emit("(check-sat)\n")
         emit("(pop)\n")
         emit(s"(assert (not (leqc ${ser(C(from))} ${ser(C(to) join I(from))})))\n")
@@ -178,7 +178,7 @@ class LabelCheck(constraintWriter: Writer) extends Pass with PassDebug {
         })
         // Prove that the confidentiality label is not changing.
         emit("(push)\n")
-          emit(s"(assert (not (= ${ser(C(from))} ${ser(C(to))})))")
+          emit(s"(assert (not (= ${ser(C(from))} ${ser(C(to))})))\n")
           emit("(check-sat)\n")
         emit("(pop)\n")
         emit(s"(assert (not (leqi ${ser(I(from))} ${ser(I(to) meet C(from))})))\n")
