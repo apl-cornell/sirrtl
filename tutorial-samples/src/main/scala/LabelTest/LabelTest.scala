@@ -122,6 +122,7 @@ class Issue6_Fix extends Module {
     integ := io.req_integ
     data := io.req_data
     state := 0.U
+    temp := 0.U
   }.elsewhen(state === 0.U) {
     // conf2 := conf
     // integ2 := integ

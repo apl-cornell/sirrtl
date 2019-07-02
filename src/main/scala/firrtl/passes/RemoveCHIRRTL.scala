@@ -222,6 +222,36 @@ object RemoveCHIRRTL extends Pass {
     }
   }
 
+  def remove_chirrtl_labels_s(refs: DataRefMap, raddrs: AddrMap)(s: Statement): Statement =
+    s map remove_chirrtl_labels_s(refs, raddrs) map remove_chirrtl_labels_e(refs, raddrs) map remove_chirrtl_l(refs, raddrs)
+
+  def remove_chirrtl_labels_e(refs: DataRefMap, raddrs: AddrMap)(e: Expression): Expression =
+    e map remove_chirrtl_labels_e(refs, raddrs) map remove_chirrtl_l(refs, raddrs)
+
+  def remove_chirrtl_l(refs: DataRefMap, raddrs: AddrMap)(l: Label): Label =
+    l map remove_chirrtl_l(refs, raddrs) map remove_chirrtl_lc(refs, raddrs)
+
+  def remove_chirrtl_lc(refs: DataRefMap, raddrs: AddrMap)(lc: LabelComp): LabelComp = {
+    def remove_chirrtl_e(e: Expression): Expression = e match {
+      case Reference(name, tpe, lbl) => refs get name match {
+        case Some(p) =>
+          SubField(p.exp, p.male, tpe, lbl)
+        case None => e
+      }
+      case SubAccess(expr, index, tpe, lbl)  => SubAccess(
+        remove_chirrtl_e(expr), remove_chirrtl_e(index), tpe, lbl)
+      case ex => ex map remove_chirrtl_e
+    }
+
+    lc match {
+      case HLevel(expr) =>
+        HLevel(remove_chirrtl_e(expr))
+      case VecHLevel(expr) =>
+        VecHLevel(remove_chirrtl_e(expr))
+      case _ => lc map remove_chirrtl_lc(refs, raddrs)
+    }
+  }
+
   def remove_chirrtl_m(m: DefModule): DefModule = {
     val mports = new MPortMap
     val smems = new SeqMemSet
@@ -230,7 +260,8 @@ object RemoveCHIRRTL extends Pass {
     val raddrs = new AddrMap
     (m map collect_smems_and_mports(mports, smems)
        map collect_refs(mports, smems, types, refs, raddrs)
-       map remove_chirrtl_s(refs, raddrs))
+       map remove_chirrtl_s(refs, raddrs)
+       map remove_chirrtl_labels_s(refs, raddrs))
   }
 
   def run(c: Circuit): Circuit =
