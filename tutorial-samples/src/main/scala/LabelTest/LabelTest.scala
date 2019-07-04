@@ -17,12 +17,14 @@ class LabelTest extends Module {
  //val B2 = Module(new Issue3);
  // val B2Good = Module(new Issue3Fix);
   //val I6 = Module(new Issue6);
-  val I62 = Module(new Issue6_Fix);
+  //val I62 = Module(new Issue6_Fix);
  // val ST1 = Module(new ExpectedFail);
 //  val ST2 = Module(new ExpectedSuccess);
  // val ST3 = Module(new ExpectedSuccess2);
  // val ST4 = Module(new ExpectedSuccess3);
   //val ST5 = Module(new ExpectedFail2);
+  val vlt = Module(new VectorLabel);
+  // val vltf = Module(new VectorLabelFail);
 }
 
 class SeqOut extends Module {
@@ -216,6 +218,52 @@ class Issue6_Fix extends Module {
     }
   }
 
+  class VectorLabel extends Module {
+    val io = IO(new Bundle {
+      val in = Input(UInt(2.W), Label(Level("L"), Level("H")))
+      val out = Output(UInt(16.W), Label(Level("L"), Level("H")))
+    })
+    val cl = Reg(t = Vec(4, UInt(4.W)), lbl = Label(Level("L"), Level("H")))
+    val il = Reg(t = Vec(4, UInt(4.W)), lbl = Label(Level("L"), Level("H")))
+    val rf = Wire(Vec(4, UInt(16.W)), Label(VLabel(cl), VLabel(il)))
+    when(cl(io.in) === 0.U && il(io.in) === "hf".U) {
+      io.out := rf(io.in)
+    }.otherwise{
+      io.out := 0.U
+    }
+  }
+
+class VectorLabelFail extends Module {
+  val io = IO(new Bundle {
+    val in = Input(UInt(2.W), Label(Level("L"), Level("H")))
+    val out = Output(UInt(16.W), Label(Level("L"), Level("H")))
+  })
+  val cl = Reg(t = Vec(4, UInt(4.W)), lbl = Label(Level("L"), Level("H")))
+  val il = Reg(t = Vec(4, UInt(4.W)), lbl = Label(Level("L"), Level("H")))
+  val rf = Wire(Vec(4, UInt(16.W)), Label(VLabel(cl), VLabel(il)))
+  when(cl(io.in) === "hf".U && il(io.in) === 0.U) {
+    io.out := rf(io.in)
+  }.otherwise{
+    io.out := 0.U
+  }
+}
+
+class NestedVector extends Module {
+  val io = IO(new Bundle {
+    val in = Input(UInt(2.W), Label(Level("L"), Level("H")))
+    val inC = Input(Vec(4, UInt(4.W)), Label(Level("L"), Level("H")))
+    val inI = Input(Vec(4, UInt(4.W)), Label(Level("L"), Level("H")))
+    val cl = Input(Vec(4, UInt(4.W)), lbl = Label(VLabel(inC), VLabel(inI)))
+    val il = Input(Vec(4, UInt(4.W)), lbl = Label(VLabel(inC), VLabel(inI)))
+    val out = Output(UInt(16.W), Label(Level("L"), Level("H")))
+  })
+  val rf = Wire(Vec(4, UInt(16.W)), Label(VLabel(io.cl), VLabel(io.il)))
+  when(io.cl(io.in) === "hf".U && io.il(io.in) === 0.U) {
+    io.out := rf(io.in)
+  }.otherwise{
+    io.out := 0.U
+  }
+}
 
   class ExpectedFail extends Module {
 

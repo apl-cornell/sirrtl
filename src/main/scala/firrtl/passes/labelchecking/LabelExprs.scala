@@ -127,7 +127,7 @@ object LabelExprs extends Pass with PassDebug {
         ex copy (lbl = field_label(ex.exp.lbl, ex.name))
       case ex: WSubIndex => 
         val lbl_ = apply_index_vec(uint(ex.value), ex.exp)(ex.exp.lbl)
-        val lbl__  = apply_index_vech(lbl_, uint(ex.value))
+        val lbl__  = apply_index_vech(lbl_, UIntLiteral(ex.value, vec_size(ex.exp.tpe), bot))
         ex copy (lbl = lbl__)
       case ex: WSubAccess => 
         val app_ex_lbl = apply_index_vec(ex.index, ex.exp)(ex.exp.lbl)
@@ -262,6 +262,10 @@ object LabelExprs extends Pass with PassDebug {
   def label_exprs(m: DefModule) : DefModule = {
     val labels = new LabelMap
     m map label_exprs_p(labels) map label_exprs_s(labels)
+  }
+
+  def vec_size(t: Type) = t match {
+    case tx: VectorType => IntWidth(log2Up(tx.size))
   }
 
   def run(c: Circuit) = {

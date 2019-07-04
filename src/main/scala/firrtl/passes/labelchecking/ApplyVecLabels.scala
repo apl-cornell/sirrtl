@@ -63,10 +63,10 @@ object ApplyVecLabels extends Pass with PassDebug {
 
   def run(c: Circuit) = {
     bannerprintb(name)
-    // dprint(c.serialize)
+    dprint(c.serialize)
     val cprime = c copy (modules = c.modules map apply_vec_labels)
     bannerprintb(s"after $name")
-    // dprint(cprime.serialize)
+    dprint(cprime.serialize)
     cprime
   }
 
