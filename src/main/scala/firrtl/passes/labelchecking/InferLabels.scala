@@ -241,10 +241,11 @@ object InferLabels extends Pass with PassDebug {
   // Meets/Joins that formerly contained VarLabels should now only 
   // have resolved labels so re-apply the builder to get a simple label
   def prop_env_l(env: LabelVarEnv)(l: Label): Label = 
-    simplifyLabel(l map prop_env_l(env) match {
+    simplifyLabel(l match {
       case lx: VarLabel => env(lx)
-      case JoinLabel(l, r) => l join r
-      case MeetLabel(l, r) => l meet r
+      case lx: IteLabel => lx map prop_env_l(env)
+      case lx: JoinLabel => lx map prop_env_l(env)
+      case lx: MeetLabel => lx map prop_env_l(env)
       case lx => lx
     })
 

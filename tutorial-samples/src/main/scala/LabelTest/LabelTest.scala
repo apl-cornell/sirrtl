@@ -23,8 +23,9 @@ class LabelTest extends Module {
  // val ST3 = Module(new ExpectedSuccess2);
  // val ST4 = Module(new ExpectedSuccess3);
   //val ST5 = Module(new ExpectedFail2);
-  val vlt = Module(new VectorLabel);
+ // val vlt = Module(new VectorLabel);
   // val vltf = Module(new VectorLabelFail);
+  val vltn = Module(new NestedVector);
 }
 
 class SeqOut extends Module {
@@ -251,14 +252,16 @@ class VectorLabelFail extends Module {
 class NestedVector extends Module {
   val io = IO(new Bundle {
     val in = Input(UInt(2.W), Label(Level("L"), Level("H")))
-    val inC = Input(Vec(4, UInt(4.W)), Label(Level("L"), Level("H")))
-    val inI = Input(Vec(4, UInt(4.W)), Label(Level("L"), Level("H")))
-    val cl = Input(Vec(4, UInt(4.W)), lbl = Label(VLabel(inC), VLabel(inI)))
-    val il = Input(Vec(4, UInt(4.W)), lbl = Label(VLabel(inC), VLabel(inI)))
     val out = Output(UInt(16.W), Label(Level("L"), Level("H")))
   })
-  val rf = Wire(Vec(4, UInt(16.W)), Label(VLabel(io.cl), VLabel(io.il)))
-  when(io.cl(io.in) === "hf".U && io.il(io.in) === 0.U) {
+  val inC = Wire(Vec(4, UInt(4.W)), Label(Level("L"), Level("H")))
+  val inI = Wire(Vec(4, UInt(4.W)), Label(Level("L"), Level("H")))
+  val cl = Wire(Vec(4, UInt(4.W)), Label(VLabel(inC), VLabel(inI)))
+  val il = Wire(Vec(4, UInt(4.W)), Label(VLabel(inC), VLabel(inI)))
+  val rf = Reg(t = Vec(4, UInt(16.W)), lbl = Label(VLabel(cl), VLabel(il)))
+
+  when(inC(io.in) === 0.U && cl(io.in) === 0.U
+    && inI(io.in) === "hf".U && il(io.in) === "hf".U) {
     io.out := rf(io.in)
   }.otherwise{
     io.out := 0.U
