@@ -1,0 +1,67 @@
+### Secure-Firrtl Release Notes
+
+08/20/2019
+
+Secure Firrtl Purpose:
+
+Secure Firrtl is a version of the original FIRRTL hardware description language
+with security types for confidentiality and integrity. Secure Firrtl supports
+flexible security type representations and dependent types so that hardware
+can be multiplexed across security levels. Secure Firrtl also supports
+constrained downgrading (declassification and endorsement) to implement
+more practical designs.
+
+Features:
+ - Built-in Hypercube Representation of Security Labels (https://dl.acm.org/citation.cfm?id=3243743)
+   (The compiler supports extending it with other label representations. Just extend
+   the Policy trait (src/main/firrtl/Policy.scala); see HypercubePolicy for how to do this.
+ - Security Label Inferfence - All module interfaces need labels but internal signals only
+   sometimes need them, often they can be inferred.
+ - Nonmalleable downgrading (declassification & endorsement) prevents attackers from
+   undermining the downgrade mechanism.
+
+How to Use SecureFirrtl:
+ - SecureFirrtl assumes you have compiled Chisel3 source code using the secure-chisel compiler.
+   Programmers may also write Secure Firrtl directly. See the src/main/antlr4/FIRRTL.g4 file
+   for the security label syntax.
+ - You can use `sbt assembly` to build an executable jar for Secure Firrtl just as you would
+   for normal Firrtl. Below is an example execution of secure firrtl which generates an
+   intermediate representation AND a checkable Z3 file.
+
+   ./firrtl -i circuit.fir -o circuit.lbl.fir -z circuit.z3 -X labeled
+
+ - The "labeled" compiler (specified with the -X flag) tells the compiler to generate
+   labeled MidFirrtl (with inferred labels). The '-z' flag tells the compiler to emit
+   a Z3 file which can be used to typecheck the circuit.
+ - The set of constraints in the Z3 file specify situations under which information
+   flow would be violated; therefore, when verifying the file all of the constraints
+   should be *unsatisfiable* in a well-typed circuit. Here is an example script that
+   will count the number of IFCviolations:
+
+   z3 -smt2 circuit.z3 | grep "^sat" | wc -l
+
+   (*note*: 1 security error in a circuit may lead to multiple satisfiability errors)
+   
+ - The secure-firrtl compiler will always run the labelchecking pass, (which can
+   still find errors that do not involve dependent types) even when generating
+   Verilog output. It will *not* automatically run z3 to check the dependent
+   type constraints.
+
+
+Version Specific Information:
+
+This version of Secure Firrtl has been refactored to typecheck at the MidFirrtl representation layer.
+At this point, the 'last-connect semantics' have been elminated and the circuit has been exanded into
+sequences of muxes and intermediate computation nodes. This leads to the following advantages and disadvantages.
+
+Advantages:
+ - Typechecking is sound since the correct assignment semantics are used for dependent types.
+ - Unit tests for a number of direct and implicit flows (including label channels)
+   have been integrated and all pass
+
+Disadvantages:
+ - This can lead to Out of Memory errors on large circuits, particularly with
+   label inference. If most signals are labeled or do not use dependent types,
+   this is not an issue.
+ - Vector Labels (where different entries in a bit vector or Memory have different labels)
+   are not supported.
