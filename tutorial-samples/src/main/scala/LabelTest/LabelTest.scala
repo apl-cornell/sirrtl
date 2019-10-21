@@ -25,9 +25,28 @@ class LabelTest extends Module {
   //val ST5 = Module(new ExpectedFail2);
  // val vlt = Module(new VectorLabel);
   // val vltf = Module(new VectorLabelFail);
-  val vltn = Module(new NestedVector);
+ // val vltn = Module(new NestedVector);
+  val fail = Module(new Fail);
 }
 
+class Fail extends Module {
+  val io = IO(new Bundle {
+    val in_conf  = Input(UInt(4.W), Label(Level("L"), Level("H")))
+    val in_integ  = Input(UInt(4.W), Label(Level("L"), Level("H")))
+    val in_lvl = Label(HLevel(in_conf), HLevel(in_integ))
+    val valid = Input(Bool(), in_lvl)
+  })
+  val confReg = Reg(UInt(4.W), Label(Level("L"), Level("H")));
+  val intReg = Reg(UInt(4.W), Label(Level("L"), Level("H")));
+  val lblReg = Label(HLevel(confReg), HLevel(intReg));
+  val reg1 = Reg(Bool(), lbl = lblReg)
+  val reg2 = Reg(Bool(), lbl = lblReg)
+
+  reg1 := io.valid          // violation
+  when(io.valid) {
+    reg2 := 0.U             // violation
+  }
+}
 class SeqOut extends Module {
   class MyBundle extends Bundle {
     val a = UInt(1.W)
