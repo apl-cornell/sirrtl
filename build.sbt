@@ -71,4 +71,4 @@ scalacOptions in Compile in doc ++= Seq(
   "-doc-root-content", baseDirectory.value+"/root-doc.txt"
 )
 
-lazy val genfir = (project in file("tutorial-samples"))
+lazy val genfir = (project in file("genfir"))
