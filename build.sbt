@@ -8,15 +8,14 @@ site.includeScaladoc()
 
 ghpages.settings
 
-git.remoteRepo := "git@github.com:ucb-bar/firrtl.git"
-
+git.remoteRepo := "git@github.com:apl-cornell/sirrtl.git"
 // Firrtl code
 
 organization := "edu.berkeley.cs"
 
-name := "firrtl"
+name := "sirrtl"
 
-version := "1.1-SNAPSHOT"
+version := "0.2"
 
 scalaVersion := "2.11.7"
 
@@ -36,11 +35,11 @@ libraryDependencies += "net.jcazevedo" %% "moultingyaml" % "0.2"
 
 // Assembly
 
-assemblyJarName in assembly := "firrtl.jar"
+assemblyJarName in assembly := "sirrtl.jar"
 
 test in assembly := {} // Should there be tests?
 
-assemblyOutputPath in assembly := file("./utils/bin/firrtl.jar")
+assemblyOutputPath in assembly := file("./utils/bin/sirrtl.jar")
 
 // ANTLRv4
 

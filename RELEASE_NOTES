@@ -28,7 +28,7 @@ How to Use SecureFirrtl:
    for normal Firrtl. Below is an example execution of secure firrtl which generates an
    intermediate representation AND a checkable Z3 file.
 
-   ./firrtl -i circuit.fir -o circuit.lbl.fir -z circuit.z3 -X labeled
+   ./sirrtl -i circuit.fir -o circuit.lbl.fir -z circuit.z3 -X labeled
 
  - The "labeled" compiler (specified with the -X flag) tells the compiler to generate
    labeled MidFirrtl (with inferred labels). The '-z' flag tells the compiler to emit

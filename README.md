@@ -20,11 +20,11 @@
 
 ##### Installation
  1. Clone the repository:
-    ```git clone https://github.com/ucb-bar/firrtl; cd firrtl```
+    ```git clone https://github.com/apl-cornell/sirrtl.git; cd sirrtl```
  1. Compile firrtl: ```sbt compile```
  1. Run tests: ```sbt test```
- 1. Build executable (`utils/bin/firrtl`): ```sbt assembly```
-    * **Note:** You can add `utils/bin` to your path to call firrtl from other processes
+ 1. Build executable (`utils/bin/sirrtl`): ```sbt assembly```
+    * **Note:** You can add `utils/bin` to your path to call sirrtl from other processes
  1. Publish this version locally in order to satisfy other tool chain library dependencies:
 ```
 sbt publish-local
@@ -42,10 +42,10 @@ sbt
 > test
 ```
 
-##### Using Firrtl as a commandline tool
+##### Using Sirrtl as a commandline tool
 ```
-utils/bin/firrtl -i regress/rocket.fir -o regress/rocket.v -X verilog // Compiles rocket-chip to Verilog
-utils/bin/firrtl --help // Returns usage string
+utils/bin/sirrtl -i regress/rocket.fir -o regress/rocket.v -X verilog // Compiles rocket-chip to Verilog
+utils/bin/sirrtl --help // Returns usage string
 ```
 
 ##### Other Tools
